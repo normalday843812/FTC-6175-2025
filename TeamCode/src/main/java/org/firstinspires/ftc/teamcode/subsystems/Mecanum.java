@@ -4,7 +4,6 @@ import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -14,8 +13,6 @@ import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 @Configurable
 public class Mecanum {
     OpMode opmode;
-
-    ElapsedTime timer = new ElapsedTime();
 
     // Motors
     private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
