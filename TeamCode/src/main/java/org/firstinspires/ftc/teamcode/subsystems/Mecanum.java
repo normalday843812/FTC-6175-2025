@@ -175,7 +175,7 @@ public class Mecanum {
             omegaCmd = rotateStick;
             targetHeading = state.getHeading();
         } else if (angleLock) {
-            double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
+            double gyroRate = currentChassisSpeeds.omegaRadiansPerSecond;
             double err = wrapRad(targetHeading - state.getHeading());
             omegaCmd = clamp(KP * err - KD * gyroRate, -OMEGA_MAX, OMEGA_MAX);
         } else {
