@@ -26,6 +26,8 @@ public class InitialTeleop extends LinearOpMode {
                 this
         );
 
+        if (isStopRequested()) return;
+
         waitForStart();
 
         while (opModeIsActive()) {
