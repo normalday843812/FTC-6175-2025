@@ -45,7 +45,7 @@ public class Mecanum {
     public static double OMEGA_MAX = 1.0;
 
     // Constructor
-    public Mecanum(DcMotorEx frontLeft, DcMotorEx frontRight, DcMotorEx backLeft, DcMotorEx backRight, StateEstimator state, OpMode opmode) {
+    public Mecanum(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimator state, OpMode opmode) {
         this.frontLeft = frontLeft;
         this.frontRight = frontRight;
         this.backLeft = backLeft;
