@@ -28,7 +28,6 @@ public class Mecanum {
     // Motor constants
     private double prevFrontLeftPower, prevBackLeftPower, prevFrontRightPower, prevBackRightPower;
     public static double SLOW_MODE_FACTOR = 0.5;
-    public static double CACHING_THRESHOLD = 0.005;
 
     // Angle and slow mode modifiers
     private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
@@ -126,22 +125,14 @@ public class Mecanum {
         frontRightPower /= max;
         backRightPower /= max;
 
-        if (Math.abs(frontLeftPower - prevFrontLeftPower) >= CACHING_THRESHOLD) {
-            frontLeft.setPower(frontLeftPower);
-            prevFrontLeftPower = frontLeftPower;
-        }
-        if (Math.abs(backLeftPower - prevBackLeftPower) >= CACHING_THRESHOLD) {
-            backLeft.setPower(backLeftPower);
-            prevBackLeftPower = backLeftPower;
-        }
-        if (Math.abs(frontRightPower - prevFrontRightPower) >= CACHING_THRESHOLD) {
-            frontRight.setPower(frontRightPower);
-            prevFrontRightPower = frontRightPower;
-        }
-        if (Math.abs(backRightPower - prevBackRightPower) >= CACHING_THRESHOLD) {
-            backRight.setPower(backRightPower);
-            prevBackRightPower  = backRightPower;
-        }
+        frontLeft.setPower(frontLeftPower);
+        prevFrontLeftPower = frontLeftPower;
+        backLeft.setPower(backLeftPower);
+        prevBackLeftPower = backLeftPower;
+        frontRight.setPower(frontRightPower);
+        prevFrontRightPower = frontRightPower;
+        backRight.setPower(backRightPower);
+        prevBackRightPower  = backRightPower;
     }
 
     private void robotCentric() {
