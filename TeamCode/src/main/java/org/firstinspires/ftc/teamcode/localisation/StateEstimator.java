@@ -48,10 +48,14 @@ public class StateEstimator {
         double h = pinpoint.getHeading(AngleUnit.RADIANS);
         double cos = Math.cos(h), sin = Math.sin(h);
 
-        double vxR = vxF * cos + vyF * sin;
-        double vyR = -vxF * sin + vyF * cos;
+        double vxR = vxF * cos - vyF * sin;
+        double vyR = vxF * sin + vyF * cos;
         double omega = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
 
         return new ChassisSpeeds(vxR, vyR, omega);
+    }
+
+    public void resetPinpoint() {
+        pinpoint.resetPosAndIMU();
     }
 }

@@ -1,47 +1,38 @@
 package org.firstinspires.ftc.teamcode.misc;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@TeleOp(name = "Play Thick of It", group = "TeleOp")
+@TeleOp(name="Play Thick of It", group="TeleOp")
 public class ThickOfItOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        ThickOfIt thick = new ThickOfIt(/* totalSounds= */33, /* defaultDurationMs= */5000);
+        ThickOfIt thickOfIt = new ThickOfIt();
+        thickOfIt.preloadSounds();
 
-        int loaded = thick.preloadSounds();
-        telemetry.addData("Init", "Preloaded %d / %d", loaded, thick.getTotalSounds());
+        telemetry.addData("Status", "init finished");
         telemetry.update();
 
         waitForStart();
-        if (isStopRequested()) {
-            thick.release();
-            return;
-        }
+        if (isStopRequested()) return;
 
-        // Optional: loop the playlist. Remove if you want one-shot behavior.
-        thick.setLoop(false);
-
-        // Start at track 1; you can also do thick.startAt(10) to begin at “11.mp3”
-        thick.start();
+        thickOfIt.startSoundSequence();
+        telemetry.addData("Status", "Playing Sequence");
+        telemetry.update();
 
         while (opModeIsActive() && !isStopRequested()) {
-            thick.update();
+            thickOfIt.update();
 
-            telemetry.addData("Playing", thick.isPlaying());
-            telemetry.addData("Track", thick.getCurrentTrackNumber());
+            telemetry.addData("playing this one:", thickOfIt.isPlaying());
+            telemetry.addData("sound index:", thickOfIt.getCurrentIndex());
             telemetry.update();
-
-            // Be kind to the scheduler / CPU on the RC phone.
-            sleep(10);
         }
 
-        // Ensure resources are released even if user stops early
-        try {
-            thick.stop();
-        } finally {
-            thick.release();
-        }
+        thickOfIt.stopSequence();
+        thickOfIt.release();
+
+        telemetry.addData("status:", "stopped; resources released (you'll never even see this lmao)");
+        telemetry.update();
     }
 }
