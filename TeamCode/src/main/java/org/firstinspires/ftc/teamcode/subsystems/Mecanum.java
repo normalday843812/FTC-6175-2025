@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 
 @Configurable
@@ -19,6 +20,10 @@ public class Mecanum {
 
     // State estimation
     private final StateEstimator state;
+
+    // Controls
+
+    private final GamepadMap map;
 
     // Motor constants
     private double prevFrontLeftPower, prevBackLeftPower, prevFrontRightPower, prevBackRightPower;
@@ -42,17 +47,21 @@ public class Mecanum {
     public static double OMEGA_MAX = 1.0;
 
     // Constructor
-    public Mecanum(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimator state, OpMode opmode) {
+    public Mecanum(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimator state, GamepadMap map, OpMode opmode) {
         this.frontLeft = frontLeft;
         this.frontRight = frontRight;
         this.backLeft = backLeft;
         this.backRight = backRight;
         this.state = state;
+        this.map = map;
         this.opmode = opmode;
     }
 
     public void operateMecanum() {
         handleToggles();
+        if (map.resetPinpointButton) {
+
+        }
         if (fieldCentricEnabled) {
             fieldCentric();
         } else {
@@ -61,7 +70,7 @@ public class Mecanum {
         addTelemetry();
     }
 
-    public void addTelemetry() {
+    private void addTelemetry() {
         Pose2D currentPos = state.getPose();
         ChassisSpeeds currentSpeeds = state.getChassisSpeedsRobot();
 
@@ -78,18 +87,18 @@ public class Mecanum {
     }
 
     private void handleToggles() {
-        boolean aNow = opmode.gamepad1.a;
+        boolean aNow = map.angleLockToggle;
         if (aNow && !prevAToggle) {
             angleLock = !angleLock;
             if (angleLock) { targetHeading = state.getHeading(); }
         }
         prevAToggle = aNow;
 
-        boolean bNow = opmode.gamepad1.b;
+        boolean bNow = map.slowModeToggle;
         if (bNow && !prevBToggle) { slowMode = !slowMode; }
         prevBToggle = bNow;
 
-        boolean xNow = opmode.gamepad1.x;
+        boolean xNow = map.fieldCentricToggle;
         if (xNow && !prevXToggle) { fieldCentricEnabled = !fieldCentricEnabled; }
         prevXToggle = xNow;
     }
@@ -101,7 +110,7 @@ public class Mecanum {
             omega *= SLOW_MODE_FACTOR;
         }
 
-        double x = -vy;
+        double x = vy;
         double y = vx;
 
         double frontLeftPower = y + x + omega;
@@ -117,22 +126,28 @@ public class Mecanum {
         frontRightPower /= max;
         backRightPower /= max;
 
-        if (Math.abs(frontLeftPower - prevFrontLeftPower) >= CACHING_THRESHOLD) { frontLeft.setPower(frontLeftPower); }
-        if (Math.abs(backLeftPower - prevBackLeftPower) >= CACHING_THRESHOLD) { backLeft.setPower(backLeftPower); }
-        if (Math.abs(frontRightPower - prevFrontRightPower) >= CACHING_THRESHOLD) { frontRight.setPower(frontRightPower); }
-        if (Math.abs(backRightPower - prevBackRightPower) >= CACHING_THRESHOLD) { backRight.setPower(backRightPower); }
-
-        prevFrontLeftPower = frontLeftPower;
-        prevBackLeftPower = backLeftPower;
-        prevFrontRightPower = frontRightPower;
-        prevBackRightPower  = backRightPower;
+        if (Math.abs(frontLeftPower - prevFrontLeftPower) >= CACHING_THRESHOLD) {
+            frontLeft.setPower(frontLeftPower);
+            prevFrontLeftPower = frontLeftPower;
+        }
+        if (Math.abs(backLeftPower - prevBackLeftPower) >= CACHING_THRESHOLD) {
+            backLeft.setPower(backLeftPower);
+            prevBackLeftPower = backLeftPower;
+        }
+        if (Math.abs(frontRightPower - prevFrontRightPower) >= CACHING_THRESHOLD) {
+            frontRight.setPower(frontRightPower);
+            prevFrontRightPower = frontRightPower;
+        }
+        if (Math.abs(backRightPower - prevBackRightPower) >= CACHING_THRESHOLD) {
+            backRight.setPower(backRightPower);
+            prevBackRightPower  = backRightPower;
+        }
     }
 
     private void robotCentric() {
-        ChassisSpeeds currentChassisSpeeds = state.getChassisSpeedsRobot();
-        double vx = deadband(-opmode.gamepad1.left_stick_y, STICK_DEAD_BAND);
-        double vy = deadband(opmode.gamepad1.left_stick_x, STICK_DEAD_BAND);
-        double rotateStick = opmode.gamepad1.right_stick_x;
+        double vx = deadband(map.forward, STICK_DEAD_BAND);
+        double vy = deadband(map.strafe, STICK_DEAD_BAND);
+        double rotateStick = map.rotate;
 
         double omegaCmd;
         boolean driverRotating = Math.abs(rotateStick) > ROTATE_DEAD_BAND;
@@ -144,7 +159,7 @@ public class Mecanum {
             double heading = state.getHeading();
             double error = wrapRad(targetHeading - heading);
 
-            double gyroRate = currentChassisSpeeds.omegaRadiansPerSecond;
+            double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
 
             omegaCmd = KP * error - KD * gyroRate;
             omegaCmd = clamp(omegaCmd, -OMEGA_MAX, OMEGA_MAX);
@@ -156,23 +171,22 @@ public class Mecanum {
     }
 
     private void fieldCentric() {
-        ChassisSpeeds currentChassisSpeeds = state.getChassisSpeedsField();
-        double vxF = deadband(-opmode.gamepad1.left_stick_y, STICK_DEAD_BAND);
-        double vyF = deadband(opmode.gamepad1.left_stick_x, STICK_DEAD_BAND);
+        double vxF = deadband(map.forward, STICK_DEAD_BAND);
+        double vyF = deadband(map.strafe, STICK_DEAD_BAND);
         double h = state.getHeading();
         double cos = Math.cos(h), sin = Math.sin(h);
 
-        double vxR = vxF * cos + vyF * sin;
-        double vyR = -vxF * sin + vyF * cos;
+        double vxR = vxF * cos - vyF * sin;
+        double vyR = vxF * sin + vyF * cos;
 
-        double rotateStick = opmode.gamepad1.right_stick_x;
+        double rotateStick = map.rotate;
 
         double omegaCmd;
         if (Math.abs(rotateStick) > ROTATE_DEAD_BAND) {
             omegaCmd = rotateStick;
             targetHeading = state.getHeading();
         } else if (angleLock) {
-            double gyroRate = currentChassisSpeeds.omegaRadiansPerSecond;
+            double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
             double err = wrapRad(targetHeading - state.getHeading());
             omegaCmd = clamp(KP * err - KD * gyroRate, -OMEGA_MAX, OMEGA_MAX);
         } else {
@@ -180,6 +194,11 @@ public class Mecanum {
         }
 
         applyRobotVel(vxR, vyR, omegaCmd);
+    }
+
+    private void resetFieldCentric() {
+        state.resetPinpoint();
+        targetHeading = 0.0;  // Reset angle lock target too
     }
 
     private static double deadband(double v, double d) { return Math.abs(v) > d ? v : 0.0; }

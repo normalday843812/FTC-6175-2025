@@ -3,8 +3,10 @@ package org.firstinspires.ftc.teamcode.teleop;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 
 @TeleOp
@@ -16,6 +18,7 @@ public class InitialTeleop extends LinearOpMode {
         hw.initHardware();
 
         StateEstimator state = new StateEstimator(hw.getPinpoint());
+        GamepadMap map = new GamepadMap(this);
 
         Mecanum drive = new Mecanum(
                 hw.getFrontLeft(),
@@ -23,6 +26,13 @@ public class InitialTeleop extends LinearOpMode {
                 hw.getFrontRight(),
                 hw.getBackRight(),
                 state,
+                map,
+                this
+        );
+
+        Intake intake = new Intake(
+                hw.getIntakeMotor(),
+                map,
                 this
         );
 
@@ -31,8 +41,10 @@ public class InitialTeleop extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            map.update();
             state.update();
             drive.operateMecanum();
+            intake.OperateIntake();
             telemetry.update();
         }
     }
