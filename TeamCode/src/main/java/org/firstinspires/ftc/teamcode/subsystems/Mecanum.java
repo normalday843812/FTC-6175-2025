@@ -60,7 +60,7 @@ public class Mecanum {
     public void operateMecanum() {
         handleToggles();
         if (map.resetPinpointButton) {
-
+            resetFieldCentric();
         }
         if (fieldCentricEnabled) {
             fieldCentric();
