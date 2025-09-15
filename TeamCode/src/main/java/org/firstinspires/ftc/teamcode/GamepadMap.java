@@ -20,6 +20,7 @@ public class GamepadMap {
         this.opmode = opmode;
     }
 
+    // TODO: Make final mapping
     public void update() {
         forward = -opmode.gamepad1.left_stick_y;
         strafe = opmode.gamepad1.left_stick_x;
@@ -27,7 +28,7 @@ public class GamepadMap {
         angleLockToggle = opmode.gamepad1.a;
         slowModeToggle = opmode.gamepad1.b;
         fieldCentricToggle = opmode.gamepad1.x;
-        intakeToggle = opmode.gamepad1.right_trigger == 1.0;
+        intakeToggle = opmode.gamepad1.right_trigger >= 0.1; // TODO: Check if toggle or direct is better
         resetPinpointButton = opmode.gamepad1.start;
     }
 }

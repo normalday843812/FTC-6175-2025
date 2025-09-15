@@ -10,13 +10,16 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 public class Intake {
     OpMode opmode;
 
+    // Telemetry
+    public static boolean TELEMETRY_ENABLED = true;
+
     GamepadMap map;
 
     // Hardware
     private final DcMotor intakeMotor;
 
     // Constants
-    public static double INTAKE_MOTOR_SPEED = 1.0;
+    public static double INTAKE_MOTOR_SPEED = 1.0; // TODO
 
     // Toggles
     private boolean prevIntakeToggle = false;
@@ -31,7 +34,7 @@ public class Intake {
     public void OperateIntake() {
         handleToggles();
         intakeMotor.setPower(INTAKE_MOTOR_SPEED);
-        addTelemetry();
+        if (TELEMETRY_ENABLED) { addTelemetry(); }
     }
 
     private void handleToggles() {
@@ -43,8 +46,8 @@ public class Intake {
     }
 
     private void addTelemetry() {
-        if (runIntake) {
-            opmode.telemetry.addData("Intake:", "Running");
-        }
+        opmode.telemetry.addLine("--- INTAKE ---");
+        opmode.telemetry.addData("Run Intake?:", runIntake);
+        opmode.telemetry.addData("Intake Motor Power:", intakeMotor.getPower());
     }
 }
