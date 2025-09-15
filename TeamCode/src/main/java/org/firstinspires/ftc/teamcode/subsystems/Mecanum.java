@@ -1,19 +1,18 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 
 @Configurable
 public class Mecanum {
     OpMode opmode;
+
+    // Telemetry
+    public static boolean TELEMETRY_ENABLED = true;
 
     // Motors
     private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
@@ -22,12 +21,10 @@ public class Mecanum {
     private final StateEstimator state;
 
     // Controls
-
     private final GamepadMap map;
 
     // Motor constants
-    private double prevFrontLeftPower, prevBackLeftPower, prevFrontRightPower, prevBackRightPower;
-    public static double SLOW_MODE_FACTOR = 0.5;
+    public static double SLOW_MODE_FACTOR = 0.5; // TODO
 
     // Angle and slow mode modifiers
     private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
@@ -37,13 +34,13 @@ public class Mecanum {
     private boolean prevXToggle = false;
 
     // PD
-    public static double KP = 0.01;
-    public static double KD = 0;
+    public static double KP = 0.01; // TODO
+    public static double KD = 0; // TODO
 
     // Deadbands & clamps
-    public static double STICK_DEAD_BAND = 0.05;
-    public static double ROTATE_DEAD_BAND = 0.08;
-    public static double OMEGA_MAX = 1.0;
+    public static double STICK_DEAD_BAND = 0.05; // TODO
+    public static double ROTATE_DEAD_BAND = 0.08; // TODO
+    public static double OMEGA_MAX = 1.0; // TODO
 
     // Constructor
     public Mecanum(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimator state, GamepadMap map, OpMode opmode) {
@@ -66,23 +63,21 @@ public class Mecanum {
         } else {
             robotCentric();
         }
-        addTelemetry();
+        if (TELEMETRY_ENABLED) {
+            addTelemetry();
+        }
     }
 
     private void addTelemetry() {
-        Pose2D currentPos = state.getPose();
-        ChassisSpeeds currentSpeeds = state.getChassisSpeedsRobot();
-
-        opmode.telemetry.addData("Heading (d):", currentPos.getHeading(AngleUnit.DEGREES));
-        opmode.telemetry.addData("X Position (m):", currentPos.getX(DistanceUnit.METER));
-        opmode.telemetry.addData("Y Position (m):", currentPos.getY(DistanceUnit.METER));
-        opmode.telemetry.addData("Angular Velocity", currentSpeeds.omegaRadiansPerSecond);
-        opmode.telemetry.addData("X Velocity:", currentSpeeds.vxMetersPerSecond);
-        opmode.telemetry.addData("Y Velocity:", currentSpeeds.vyMetersPerSecond);
+        opmode.telemetry.addLine("--- MECANUM ---");
         opmode.telemetry.addData("FL Power:", frontLeft.getPower());
         opmode.telemetry.addData("BL Power:", backLeft.getPower());
         opmode.telemetry.addData("FR Power:", frontRight.getPower());
         opmode.telemetry.addData("BR Power:", backRight.getPower());
+        opmode.telemetry.addData("Control:", fieldCentricEnabled ? "Field Centric" : "Robot Centric");
+        opmode.telemetry.addData("Slow Mode:", slowMode);
+        opmode.telemetry.addData("Angle Lock:", angleLock);
+        opmode.telemetry.addData("Target Heading:", targetHeading);
     }
 
     private void handleToggles() {
@@ -126,13 +121,9 @@ public class Mecanum {
         backRightPower /= max;
 
         frontLeft.setPower(frontLeftPower);
-        prevFrontLeftPower = frontLeftPower;
         backLeft.setPower(backLeftPower);
-        prevBackLeftPower = backLeftPower;
         frontRight.setPower(frontRightPower);
-        prevFrontRightPower = frontRightPower;
         backRight.setPower(backRightPower);
-        prevBackRightPower  = backRightPower;
     }
 
     private void robotCentric() {
@@ -188,7 +179,7 @@ public class Mecanum {
     }
 
     private void resetFieldCentric() {
-        state.resetPinpoint();
+        state.reset();
         targetHeading = 0.0;  // Reset angle lock target too
     }
 

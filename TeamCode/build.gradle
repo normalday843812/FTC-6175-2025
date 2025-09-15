@@ -40,4 +40,6 @@ dependencies {
     implementation project(':FtcRobotController')
     implementation 'org.team11260:fast-load:0.1.2'
     implementation 'org.ftclib.ftclib:core:2.1.1'
+    implementation 'org.ejml:ejml-simple:0.44.0'
+    implementation 'org.ejml:ejml-ddense:0.44.0'
 }

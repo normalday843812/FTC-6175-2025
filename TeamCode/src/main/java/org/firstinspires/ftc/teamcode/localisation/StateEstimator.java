@@ -2,28 +2,92 @@ package org.firstinspires.ftc.teamcode.localisation;
 
 import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
-// TODO: Add localisation via apriltag detection implementation from vision package
+import java.util.List;
+
 public class StateEstimator {
+    OpMode opmode;
+
+    // Telemetry
+    public static boolean TELEMETRY_ENABLED = true;
+
+    // Coarse spatial gate
+    public static double OUTLIER_POS_M = 10.0; // TODO
+
     // Pinpoint
     private final GoBildaPinpointDriver pinpoint;
 
+    // April tag localizer
+    AprilTagLocalizer aprilTagLocalizer;
+
+    // EKF
+    private final EkfPose2D ekf = new EkfPose2D();
+    private int tagAccepted = 0, tagRejected = 0;
+
     // Constructor
-    public StateEstimator(GoBildaPinpointDriver pinpoint) {
+    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizer aprilTagLocalizer) {
+        this.opmode = opmode;
         this.pinpoint = pinpoint;
+        this.aprilTagLocalizer = aprilTagLocalizer;
+        ekf.resetTo(0,0,0);
     }
 
     // Must call once per loop for updated data
     public void update() {
+        // Get odometry from pinpoint
         pinpoint.update();
+
+        // Predict from robot-frame velocities
+        ChassisSpeeds vr = getChassisSpeedsRobot();
+        ekf.predict(vr.vxMetersPerSecond, vr.vyMetersPerSecond, vr.omegaRadiansPerSecond, System.nanoTime());
+
+        // Take detections and fuse them
+        if (aprilTagLocalizer != null && aprilTagLocalizer.getAprilTag() != null) {
+            List<AprilTagDetection> detections = aprilTagLocalizer.getAprilTag().getDetections();
+            if (detections != null && !detections.isEmpty()) {
+                Pose2D est = ekf.toPose2D();
+                double ex = est.getX(DistanceUnit.METER), ey = est.getY(DistanceUnit.METER);
+                for (AprilTagDetection d : detections) {
+                    if (d == null || d.robotPose == null) continue;
+                    if (d.metadata != null && d.metadata.name != null && d.metadata.name.contains("Obelisk")) continue;
+
+                    if ( TELEMETRY_ENABLED ) {
+                        opmode.telemetry.addLine("--- APRILTAGS ---");
+                        aprilTagLocalizer.addTelemetry(d);
+                    }
+
+                    Pose3D rp = d.robotPose;
+                    double zx = rp.getPosition().x;
+                    double zy = rp.getPosition().y;
+                    double zh = rp.getOrientation().getYaw(AngleUnit.RADIANS);
+
+                    if (Math.hypot(zx - ex, zy - ey) > OUTLIER_POS_M) { tagRejected++; continue; }
+
+                    boolean goodAprilTag = ekf.updateFromAprilTag(zx, zy, zh, d.decisionMargin);
+                    if (goodAprilTag) {
+                        tagAccepted++;
+                        est = ekf.toPose2D();
+                        ex = est.getX(DistanceUnit.METER); ey = est.getY(DistanceUnit.METER);
+                    } else {
+                        tagRejected++;
+                    }
+                }
+            }
+        }
+
+        if (TELEMETRY_ENABLED) { addTelemetry(); }
     }
 
-    // Returns field pose in meters and radians
+    // Returns odometry-frame pose (relative to last reset)
     public Pose2D getPose() {
         double x = pinpoint.getPosX(DistanceUnit.METER);
         double y = pinpoint.getPosY(DistanceUnit.METER);
@@ -55,7 +119,64 @@ public class StateEstimator {
         return new ChassisSpeeds(vxR, vyR, omega);
     }
 
-    public void resetPinpoint() {
-        pinpoint.resetPosAndIMU();
+    public Pose2D getFieldPose() {
+        return ekf.toPose2D();
     }
+
+    public void reset() {
+        pinpoint.resetPosAndIMU();
+        ekf.resetTo(0, 0, 0);
+        tagAccepted = tagRejected = 0;
+    }
+
+    public void addTelemetry() {
+        // Odometry-frame pose (Pinpoint)
+        Pose2D odo = getPose();
+        double ox = odo.getX(DistanceUnit.METER);
+        double oy = odo.getY(DistanceUnit.METER);
+        double ohRad = odo.getHeading(AngleUnit.RADIANS);
+
+        // Field-frame pose (EKF estimate)
+        Pose2D est = getFieldPose();
+        double ex = est.getX(DistanceUnit.METER);
+        double ey = est.getY(DistanceUnit.METER);
+        double ehRad = est.getHeading(AngleUnit.RADIANS);
+
+        // Velocities
+        ChassisSpeeds vf = getChassisSpeedsField();
+        ChassisSpeeds vr = getChassisSpeedsRobot();
+
+        // Headings in degrees for readability
+        double ohDeg = Math.toDegrees(ohRad);
+        double ehDeg = Math.toDegrees(ehRad);
+
+        // Angular rates in deg/s
+        double omegaFieldDeg = Math.toDegrees(vf.omegaRadiansPerSecond);
+        double omegaRobotDeg = Math.toDegrees(vr.omegaRadiansPerSecond);
+
+        opmode.telemetry.addLine("--- StateEstimator ---");
+
+        opmode.telemetry.addData("Pinpoint pose (odom)",
+                "(%.3f, %.3f) m  |  %.1f°",
+                ox, oy, ohDeg);
+
+        opmode.telemetry.addData("EKF pose (field)",
+                "(%.3f, %.3f) m  |  %.1f°",
+                ex, ey, ehDeg);
+
+        opmode.telemetry.addData("v_field [m/s, deg/s]",
+                "vx=%.3f  vy=%.3f  ω=%.1f",
+                vf.vxMetersPerSecond, vf.vyMetersPerSecond, omegaFieldDeg);
+
+        opmode.telemetry.addData("v_robot [m/s, deg/s]",
+                "vx=%.3f  vy=%.3f  ω=%.1f",
+                vr.vxMetersPerSecond, vr.vyMetersPerSecond, omegaRobotDeg);
+
+        opmode.telemetry.addData("AprilTags (StateEstimator)",
+                "accepted=%d  rejected=%d  gate=%.2f m",
+                tagAccepted, tagRejected, OUTLIER_POS_M);
+    }
+
+    public int getTagAccepted() { return tagAccepted; }
+    public int getTagRejected() { return tagRejected; }
 }
