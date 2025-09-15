@@ -12,7 +12,7 @@ public class EkfPose2D {
     // Process noise
     public static double Q_VX = 0.15; // TODO
     public static double Q_VY = 0.15; // TODO
-    public static double Q_W = Math.toRadians(6.0); // TODO
+    public static double Q_W = Math.toRadians(3.0); // TODO: Check this one especially
 
     // AprilTag measurement noise
     public static double R_X_BASE = 0.06; // TODO
@@ -34,7 +34,7 @@ public class EkfPose2D {
 
     public void resetTo(double x0, double y0, double h0) {
         x.set(0, x0); x.set(1, y0); x.set(2, wrap(h0));
-        P = SimpleMatrix.identity(3);
+        P = SimpleMatrix.diag(16.0, 16.0, sq(Math.toRadians(45.0)));
         lastNanos = -1;
     }
 
@@ -82,10 +82,11 @@ public class EkfPose2D {
         SimpleMatrix r = new SimpleMatrix(3,1,true, new double[]{r0, r1, r2});
 
         SimpleMatrix S = P.plus(R);
-        double d2 = r.transpose().mult(S.invert()).mult(r).get(0);
+        SimpleMatrix Sinv = S.invert();
+        double d2 = r.transpose().mult(Sinv).mult(r).get(0);
         if (d2 > CHI2_GATE) return false;
 
-        SimpleMatrix K = P.mult(S.invert());
+        SimpleMatrix K = P.mult(Sinv);
         x = x.plus(K.mult(r));
         x.set(2, wrap(x.get(2)));
 

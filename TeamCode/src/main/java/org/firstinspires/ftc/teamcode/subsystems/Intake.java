@@ -33,7 +33,7 @@ public class Intake {
 
     public void OperateIntake() {
         handleToggles();
-        intakeMotor.setPower(INTAKE_MOTOR_SPEED);
+        intakeMotor.setPower(runIntake ? INTAKE_MOTOR_SPEED : 0.0);
         if (TELEMETRY_ENABLED) { addTelemetry(); }
     }
 

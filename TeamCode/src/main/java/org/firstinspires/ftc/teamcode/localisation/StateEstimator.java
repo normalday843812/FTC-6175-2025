@@ -8,6 +8,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -21,7 +22,7 @@ public class StateEstimator {
     public static boolean TELEMETRY_ENABLED = true;
 
     // Coarse spatial gate
-    public static double OUTLIER_POS_M = 10.0; // TODO
+    public static double OUTLIER_POS_M = 3.0; // TODO
 
     // Pinpoint
     private final GoBildaPinpointDriver pinpoint;
@@ -66,8 +67,9 @@ public class StateEstimator {
                     }
 
                     Pose3D rp = d.robotPose;
-                    double zx = rp.getPosition().x;
-                    double zy = rp.getPosition().y;
+                    Position pMeters = rp.getPosition().toUnit(DistanceUnit.METER);
+                    double zx = pMeters.x;
+                    double zy = pMeters.y;
                     double zh = rp.getOrientation().getYaw(AngleUnit.RADIANS);
 
                     if (Math.hypot(zx - ex, zy - ey) > OUTLIER_POS_M) { tagRejected++; continue; }
@@ -112,8 +114,8 @@ public class StateEstimator {
         double h = pinpoint.getHeading(AngleUnit.RADIANS);
         double cos = Math.cos(h), sin = Math.sin(h);
 
-        double vxR = vxF * cos - vyF * sin;
-        double vyR = vxF * sin + vyF * cos;
+        double vxR = vxF * cos + vyF * sin;
+        double vyR = -vxF * sin + vyF * cos;
         double omega = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
 
         return new ChassisSpeeds(vxR, vyR, omega);
