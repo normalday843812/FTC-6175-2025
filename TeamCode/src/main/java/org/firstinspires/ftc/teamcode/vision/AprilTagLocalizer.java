@@ -38,10 +38,9 @@ public class AprilTagLocalizer {
         if (detection.metadata != null) {
             opmode.telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
             opmode.telemetry.addData("Decision margin", detection.decisionMargin);
-            opmode.telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
-                    detection.robotPose.getPosition().x,
-                    detection.robotPose.getPosition().y,
-                    detection.robotPose.getPosition().z));
+            Position pMeters = detection.robotPose.getPosition().toUnit(DistanceUnit.METER);
+            opmode.telemetry.addLine(String.format("XYZ %6.3f %6.3f %6.3f  (m)",
+                    pMeters.x, pMeters.y, pMeters.z));
             opmode.telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
                     detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
                     detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),

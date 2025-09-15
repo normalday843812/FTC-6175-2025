@@ -77,7 +77,7 @@ public class Mecanum {
         opmode.telemetry.addData("Control:", fieldCentricEnabled ? "Field Centric" : "Robot Centric");
         opmode.telemetry.addData("Slow Mode:", slowMode);
         opmode.telemetry.addData("Angle Lock:", angleLock);
-        opmode.telemetry.addData("Target Heading:", targetHeading);
+        opmode.telemetry.addData("Target Heading:", Math.toDegrees(targetHeading) + "°");
     }
 
     private void handleToggles() {
@@ -158,8 +158,8 @@ public class Mecanum {
         double h = state.getHeading();
         double cos = Math.cos(h), sin = Math.sin(h);
 
-        double vxR = vxF * cos - vyF * sin;
-        double vyR = vxF * sin + vyF * cos;
+        double vxR = vxF * cos + vyF * sin;
+        double vyR = -vxF * sin + vyF * cos;
 
         double rotateStick = map.rotate;
 
