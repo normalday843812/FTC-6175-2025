@@ -14,6 +14,7 @@ public class GamepadMap {
     public boolean slowModeToggle;
     public boolean fieldCentricToggle;
     public boolean intakeToggle;
+    public boolean shooterToggle;
     public boolean resetPinpointButton;
 
     public GamepadMap(OpMode opmode) {
@@ -29,6 +30,7 @@ public class GamepadMap {
         slowModeToggle = opmode.gamepad1.b;
         fieldCentricToggle = opmode.gamepad1.x;
         intakeToggle = opmode.gamepad1.right_trigger >= 0.1; // TODO: Check if toggle or direct is better
+        shooterToggle = opmode.gamepad1.left_trigger >= 0.1;
         resetPinpointButton = opmode.gamepad1.start;
     }
 }
