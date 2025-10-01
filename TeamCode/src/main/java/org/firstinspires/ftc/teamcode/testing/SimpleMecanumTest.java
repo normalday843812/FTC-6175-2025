@@ -29,10 +29,10 @@ public class SimpleMecanumTest extends LinearOpMode {
             double frontRightPower = (y - x - rx) / denominator;
             double backRightPower = (y + x - rx) / denominator;
 
-            hw.getFrontLeft().setPower(frontLeftPower);
-            hw.getBackLeft().setPower(backLeftPower);
-            hw.getFrontRight().setPower(frontRightPower);
-            hw.getBackRight().setPower(backRightPower);
+//            hw.getFrontLeft().setPower(frontLeftPower);
+//            hw.getBackLeft().setPower(backLeftPower);
+//            hw.getFrontRight().setPower(frontRightPower);
+//            hw.getBackRight().setPower(backRightPower);
         }
     }
 }
