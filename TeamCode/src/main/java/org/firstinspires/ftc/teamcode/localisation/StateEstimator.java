@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
+import static org.firstinspires.ftc.teamcode.localisation.Constants.OUTLIER_POS_M;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.TELEMETRY_ENABLED;
+
 import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -18,11 +21,8 @@ import java.util.List;
 public class StateEstimator {
     OpMode opmode;
 
-    // Telemetry
-    public static boolean TELEMETRY_ENABLED = true;
-
-    // Coarse spatial gate
-    public static double OUTLIER_POS_M = 3.0; // TODO
+    // Fallback mode
+    private boolean fallbackMode = false;
 
     // Pinpoint
     private final GoBildaPinpointDriver pinpoint;
@@ -42,10 +42,30 @@ public class StateEstimator {
         ekf.resetTo(0,0,0);
     }
 
+    // Fallback
+    // Toggle fallBackMode
+    public void toggleFallbackMode() {
+        this.fallbackMode = !this.fallbackMode;
+    }
+    // Set fallBackMode
+    public void setFallbackMode(boolean enabled) {
+        this.fallbackMode = enabled;
+    }
+    // Get fallbackMode
+    public boolean isFallbackMode() {
+        return this.fallbackMode;
+    }
+
     // Must call once per loop for updated data
     public void update() {
         // Get odometry from pinpoint
         pinpoint.update();
+
+        // If fallback is enabled, don't do any EKF or april tag stuff below this
+        if (fallbackMode) {
+            if (TELEMETRY_ENABLED) { addTelemetry(); }
+            return;
+        }
 
         // Predict from robot-frame velocities
         ChassisSpeeds vr = getChassisSpeedsRobot();
@@ -122,6 +142,7 @@ public class StateEstimator {
     }
 
     public Pose2D getFieldPose() {
+        if (fallbackMode) return getPose();
         return ekf.toPose2D();
     }
 
@@ -138,33 +159,22 @@ public class StateEstimator {
         double oy = odo.getY(DistanceUnit.METER);
         double ohRad = odo.getHeading(AngleUnit.RADIANS);
 
-        // Field-frame pose (EKF estimate)
-        Pose2D est = getFieldPose();
-        double ex = est.getX(DistanceUnit.METER);
-        double ey = est.getY(DistanceUnit.METER);
-        double ehRad = est.getHeading(AngleUnit.RADIANS);
-
         // Velocities
         ChassisSpeeds vf = getChassisSpeedsField();
         ChassisSpeeds vr = getChassisSpeedsRobot();
 
         // Headings in degrees for readability
         double ohDeg = Math.toDegrees(ohRad);
-        double ehDeg = Math.toDegrees(ehRad);
 
         // Angular rates in deg/s
         double omegaFieldDeg = Math.toDegrees(vf.omegaRadiansPerSecond);
         double omegaRobotDeg = Math.toDegrees(vr.omegaRadiansPerSecond);
 
-        opmode.telemetry.addLine("--- StateEstimator ---");
+        opmode.telemetry.addLine(fallbackMode ? "--- StateEstimator Fallback ---" : "--- StateEstimator ---");
 
         opmode.telemetry.addData("Pinpoint pose (odom)",
                 "(%.3f, %.3f) m  |  %.1f°",
                 ox, oy, ohDeg);
-
-        opmode.telemetry.addData("EKF pose (field)",
-                "(%.3f, %.3f) m  |  %.1f°",
-                ex, ey, ehDeg);
 
         opmode.telemetry.addData("v_field [m/s, deg/s]",
                 "vx=%.3f  vy=%.3f  ω=%.1f",
@@ -174,11 +184,25 @@ public class StateEstimator {
                 "vx=%.3f  vy=%.3f  ω=%.1f",
                 vr.vxMetersPerSecond, vr.vyMetersPerSecond, omegaRobotDeg);
 
-        opmode.telemetry.addData("AprilTags (StateEstimator)",
-                "accepted=%d  rejected=%d  gate=%.2f m",
-                tagAccepted, tagRejected, OUTLIER_POS_M);
+        if (!fallbackMode) {
+            // EKF
+            Pose2D est = getFieldPose();
+            double ex = est.getX(DistanceUnit.METER);
+            double ey = est.getY(DistanceUnit.METER);
+            double ehRad = est.getHeading(AngleUnit.RADIANS);
+            double ehDeg = Math.toDegrees(ehRad);
+
+            opmode.telemetry.addData("EKF pose (field)",
+                    "(%.3f, %.3f) m  |  %.1f°",
+                    ex, ey, ehDeg);
+
+            // AprilTags
+            opmode.telemetry.addData("AprilTags (StateEstimator)",
+                    "accepted=%d  rejected=%d  gate=%.2f m",
+                    tagAccepted, tagRejected, OUTLIER_POS_M);
+        }
     }
 
-    public int getTagAccepted() { return tagAccepted; }
-    public int getTagRejected() { return tagRejected; }
+//    public int getTagAccepted() { return tagAccepted; }
+//    public int getTagRejected() { return tagRejected; }
 }

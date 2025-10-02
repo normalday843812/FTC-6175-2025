@@ -29,6 +29,7 @@
 
 package org.firstinspires.ftc.teamcode.tuning;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
@@ -64,6 +65,7 @@ import java.util.concurrent.TimeUnit;
  */
 
 // TODO
+@Disabled
 @TeleOp(name="Optimize AprilTag Exposure", group = "Tuning")
 public class ConceptAprilTagOptimizeExposure extends LinearOpMode
 {

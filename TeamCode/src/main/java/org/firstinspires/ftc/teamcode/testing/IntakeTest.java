@@ -1,18 +1,17 @@
 package org.firstinspires.ftc.teamcode.testing;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
-import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
-@TeleOp(name="Shooter Test", group = "Testing")
-public class ShooterTest extends LinearOpMode {
+@Disabled
+@TeleOp(name="Intake Test", group = "Testing")
+public class IntakeTest extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -20,9 +19,9 @@ public class ShooterTest extends LinearOpMode {
 
         GamepadMap map = new GamepadMap(this);
 
-        hw.initShooter();
-        Shooter shooter = new Shooter(
-            hw.getShooterMotor(),
+        hw.initIntake();
+        Intake intake = new Intake(
+            hw.getIntakeMotor(),
             map,
             this
         );
@@ -33,7 +32,7 @@ public class ShooterTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
-            shooter.OperateShooter();
+            intake.OperateIntake();
             telemetry.update();
         }
     }

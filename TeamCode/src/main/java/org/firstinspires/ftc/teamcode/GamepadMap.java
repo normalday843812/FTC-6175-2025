@@ -13,6 +13,7 @@ public class GamepadMap {
     public boolean angleLockToggle;
     public boolean slowModeToggle;
     public boolean fieldCentricToggle;
+    public boolean stateEstimatorFallbackToggle;
     public boolean intakeToggle;
     public boolean shooterToggle;
     public boolean resetPinpointButton;
@@ -28,6 +29,7 @@ public class GamepadMap {
         rotate = opmode.gamepad1.right_stick_x;
         angleLockToggle = opmode.gamepad1.a;
         slowModeToggle = opmode.gamepad1.b;
+        stateEstimatorFallbackToggle = opmode.gamepad1.dpad_down;
         fieldCentricToggle = opmode.gamepad1.x;
         intakeToggle = opmode.gamepad1.right_trigger >= 0.1; // TODO: Check if toggle or direct is better
         shooterToggle = opmode.gamepad1.left_trigger >= 0.1;
