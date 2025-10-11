@@ -3,6 +3,10 @@ package org.firstinspires.ftc.teamcode.localisation;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_POS_M;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_TH_RAD;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.MIN_TRUST;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.SNAP_POS_M;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.SNAP_TH_RAD;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.STATIONARY_OMEGA_RAD;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.STATIONARY_V_MPS;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.kPos;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.kTheta;
@@ -39,6 +43,9 @@ public class StateEstimator {
     private long lastVisionAcceptMs = -1;
     private int framesWithVision = 0, framesAccepted = 0;
     private Pose2D lastFieldPose = new Pose2D(DistanceUnit.METER,0,0,AngleUnit.RADIANS,0);
+    private boolean seeded = false;
+    private boolean firstLockDone = false;
+    private long lastVisionMs = -1;
 
 
     // Constructor
@@ -46,6 +53,14 @@ public class StateEstimator {
         this.opmode = opmode;
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
+    }
+
+    public void seedFieldPose(double x, double y, double hRad) {
+        pinpoint.resetPosAndIMU();
+        pinpoint.setPosition(new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad));
+        pinpoint.setHeading(hRad, AngleUnit.RADIANS);
+        seeded = true;
+        firstLockDone = true;
     }
 
     // Fallback
@@ -64,6 +79,8 @@ public class StateEstimator {
         pinpoint.update();
         if (!fallbackMode) {
             aprilTagLocalizer.update(pinpoint.getHeading(AngleUnit.DEGREES));
+            LLResult r = aprilTagLocalizer.getResult();
+            if (r != null && r.isValid()) lastVisionMs = System.currentTimeMillis();
             lastFieldPose = getFieldPose();
         }
         if (TELEMETRY_ENABLED) addTelemetry();
@@ -130,15 +147,9 @@ public class StateEstimator {
             double angErr = Math.abs(dTheta);
             boolean gate = posErr < GATE_POS_M && angErr < GATE_TH_RAD;
             if (gate) {
-                double posScale = 1.0 - posErr / GATE_POS_M;
-                double angScale = 1.0 - angErr / GATE_TH_RAD;
-
-                double base = Math.min(posScale, angScale);
-                double scale = MIN_TRUST + (1.0 - MIN_TRUST) * clamp01(base);
-
-                appliedX = scale * kPos * dx;
-                appliedY = scale * kPos * dy;
-                appliedTheta = scale * kTheta * dTheta;
+                appliedX = kPos * dx;
+                appliedY = kPos * dy;
+                appliedTheta = kTheta * dTheta;
 
                 visionAccepted = true;
                 framesAccepted++;
@@ -151,9 +162,29 @@ public class StateEstimator {
                         AngleUnit.RADIANS,
                         angleWrap(est.getHeading(AngleUnit.RADIANS) + appliedTheta)
                 );
+                firstLockDone = true;
             } else {
-                visionAccepted = false;
-                appliedX = appliedY = appliedTheta = 0;
+                // If large error but we are stationary, snap Pinpoint to vision
+                ChassisSpeeds vf = getChassisSpeedsField();
+                boolean stationary = Math.hypot(vf.vxMetersPerSecond, vf.vyMetersPerSecond) < STATIONARY_V_MPS
+                        && Math.abs(vf.omegaRadiansPerSecond) < STATIONARY_OMEGA_RAD;
+                boolean goodSnap = posErr < SNAP_POS_M && angErr < SNAP_TH_RAD;
+
+                if (stationary && goodSnap) {
+                    pinpoint.setPosition(new Pose2D(DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTheta));
+                    pinpoint.setHeading(llTheta, AngleUnit.RADIANS);
+                    est = new Pose2D(DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTheta);
+
+                    appliedX = dx; appliedY = dy; appliedTheta = dTheta; // report full correction on snap
+                    visionAccepted = true;
+                    framesAccepted++;
+                    lastVisionAcceptMs = System.currentTimeMillis();
+                    seeded = true;
+                    firstLockDone = true;
+                } else {
+                    visionAccepted = false;
+                    appliedX = appliedY = appliedTheta = 0;
+                }
             }
         } else {
             visionAccepted = false;
@@ -161,6 +192,7 @@ public class StateEstimator {
         }
         return est;
     }
+
 
     public Pose2D getFusedPose() { return lastFieldPose; }
     public double getFusedHeading(AngleUnit angleUnit) { return lastFieldPose.getHeading(angleUnit); }
@@ -210,6 +242,9 @@ public class StateEstimator {
 
             opmode.telemetry.addData("Pose (field)",
                     "(%.3f, %.3f) m  |  %.1f°", ex, ey, ehDeg);
+
+            opmode.telemetry.addData("Seeded/FirstLock", "%b / %b", seeded, firstLockDone);
+            opmode.telemetry.addData("Last vision [ms]", (lastVisionMs < 0) ? -1 : (System.currentTimeMillis() - lastVisionMs));
 
             opmode.telemetry.addData("LL valid / accepted", "%b / %b", visionValid, visionAccepted);
             opmode.telemetry.addData("LL pose (field)",

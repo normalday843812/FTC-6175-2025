@@ -21,7 +21,11 @@ public class Constants {
 
     public static double MIN_TRUST = 0.2;
     public static double GATE_POS_M = 0.75;
-    public static final double GATE_TH_RAD = Math.toRadians(20);
+    public static double GATE_TH_RAD = Math.toRadians(20);
+    public static double STATIONARY_V_MPS = 0.05;
+    public static double STATIONARY_OMEGA_RAD = 0.20;
+    public static double SNAP_POS_M = 1.0;
+    public static double SNAP_TH_RAD = Math.toRadians(30);
 
 
 }
