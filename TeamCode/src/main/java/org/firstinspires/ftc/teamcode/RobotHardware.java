@@ -101,10 +101,17 @@ public class RobotHardware {
         visionPortal = builder.build();
     }
 
-    public void initLimeLight() {
+    public void initLimeLight(int pollRateHz) {
         limelight = inputOpMode.hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.setPollRateHz(50);
-        limelight.start();
+        limelight.setPollRateHz(pollRateHz);
+    }
+
+    public void setLimelightPipeline(int pipelineNum) {
+        try {
+            limelight.pipelineSwitch(pipelineNum);
+        } catch (NullPointerException e) {
+            throw new IllegalStateException("Limelight is not initialized; cannot switch to pipeline " + pipelineNum, e);
+        }
     }
 
     public void initDriveMotors() {
@@ -121,16 +128,18 @@ public class RobotHardware {
         frontRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         backRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        // Odom encoders given frontRightMotor is port 0 and backLeftMotor is port 3
+        // If using two wheel: odom encoders given frontRightMotor is port 0 and backLeftMotor is port 3
         frontRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         frontLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         backLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        frontRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER); // Odom pod
-        frontLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER); // Odom pod
+//        frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // Odom pod
+        frontRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        frontLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//        backLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // Odom pod
     }
 
     public void initIntake() {
@@ -227,17 +236,17 @@ public class RobotHardware {
     }
     public DcMotorEx getOdoPerp() {
         try {
-            return Objects.requireNonNull(frontLeftMotor, "frontLeftMotor not init");
+            return Objects.requireNonNull(backLeftMotor, "backLeftMotor not init");
         } catch (NullPointerException e) {
             initDriveMotors();
-            return frontLeftMotor;
+            return backLeftMotor;
         }
     }
 
     // Servos
     public Servo getHoodServo() {
         try {
-            return Objects.requireNonNull(hoodServo, "frontLeftMotor not init");
+            return Objects.requireNonNull(hoodServo, "hoodServo not init");
         } catch (NullPointerException e) {
             initHood();
             return hoodServo;
@@ -247,7 +256,7 @@ public class RobotHardware {
     // Pinpoint
     public GoBildaPinpointDriver getPinpoint() {
         try {
-            return Objects.requireNonNull(pinpoint, "frontLeftMotor not init");
+            return Objects.requireNonNull(pinpoint, "pinpoint not init");
         } catch (NullPointerException e) {
             initPinpoint();
             return pinpoint;
@@ -257,7 +266,7 @@ public class RobotHardware {
     // IMU
     public IMU getIMU() {
         try {
-            return Objects.requireNonNull(imu, "frontLeftMotor not init");
+            return Objects.requireNonNull(imu, "imu not init");
         } catch (NullPointerException e) {
             initIMU();
             return imu;
@@ -269,6 +278,12 @@ public class RobotHardware {
     public WebcamName getWebcam1() { return webcam1; }
 
     // Limelight
-    public Limelight3A getLimelight() { return limelight; }
-
+    public Limelight3A getLimelight() {
+        try {
+            return Objects.requireNonNull(limelight, "Limelight not init");
+        } catch (NullPointerException e) {
+            initLimeLight(100);
+            return limelight;
+        }
+    }
 }

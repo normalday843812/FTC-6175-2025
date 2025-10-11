@@ -32,7 +32,7 @@ public class ThickOfItOpMode extends LinearOpMode {
         thickOfIt.stopSequence();
         thickOfIt.release();
 
-        telemetry.addData("status:", "stopped; resources released (you'll never even see this lmao)");
+        telemetry.addData("status:", "stopped; resources released");
         telemetry.update();
     }
 }

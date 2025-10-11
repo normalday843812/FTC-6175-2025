@@ -23,7 +23,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 import java.util.List;
 
-public class StateEstimatorTwoWheel {
+public class StateEstimatorWebcamTwoWheel {
     private final OpMode opmode;
     // Sensors
     private final DcMotorEx encParallel;
@@ -51,11 +51,11 @@ public class StateEstimatorTwoWheel {
     private ChassisSpeeds lastVf = new ChassisSpeeds(0,0,0); // field frame
 
     // Constructor
-    public StateEstimatorTwoWheel(OpMode opmode,
-                                  DcMotorEx encParallel,
-                                  DcMotorEx encPerp,
-                                  IMU imu,
-                                  AprilTagLocalizer aprilTagLocalizer) {
+    public StateEstimatorWebcamTwoWheel(OpMode opmode,
+                                        DcMotorEx encParallel,
+                                        DcMotorEx encPerp,
+                                        IMU imu,
+                                        AprilTagLocalizer aprilTagLocalizer) {
         this.opmode = opmode;
         this.encParallel = encParallel;
         this.encPerp = encPerp;

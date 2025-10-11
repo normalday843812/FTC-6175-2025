@@ -15,7 +15,7 @@ public class GamepadMap {
     public boolean fieldCentricToggle;
     public boolean stateEstimatorFallbackToggle;
     public boolean intakeToggle;
-    public boolean shooterToggle;
+    public double shooterButton;
     public boolean resetPinpointButton;
 
     public GamepadMap(OpMode opmode) {
@@ -32,7 +32,7 @@ public class GamepadMap {
         stateEstimatorFallbackToggle = opmode.gamepad1.dpad_down;
         fieldCentricToggle = opmode.gamepad1.x;
         intakeToggle = opmode.gamepad1.right_trigger >= 0.1; // TODO: Check if toggle or direct is better
-        shooterToggle = opmode.gamepad1.left_trigger >= 0.1;
+        shooterButton = opmode.gamepad1.left_trigger;
         resetPinpointButton = opmode.gamepad1.start;
     }
 }

@@ -1,22 +1,22 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
-import static org.firstinspires.ftc.teamcode.localisation.Constants.OUTLIER_POS_M;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_POS_M;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_TH_RAD;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.kPos;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.kTheta;
 
 import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
-import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-
-import java.util.List;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
 public class StateEstimator {
     OpMode opmode;
@@ -28,85 +28,44 @@ public class StateEstimator {
     private final GoBildaPinpointDriver pinpoint;
 
     // April tag localizer
-    AprilTagLocalizer aprilTagLocalizer;
+    AprilTagLocalizerLimelight aprilTagLocalizer;
 
-    // EKF
-    private final EkfPose2D ekf = new EkfPose2D();
-    private int tagAccepted = 0, tagRejected = 0;
+    // Limelight telemetry init
+    private boolean visionValid = false, visionAccepted = false;
+    private double llX_last = Double.NaN, llY_last = Double.NaN, llTheta_last = Double.NaN;
+    private double residX = 0, residY = 0, residTheta = 0;
+    private double appliedX = 0, appliedY = 0, appliedTheta = 0; // gain * residual
+    private long lastVisionAcceptMs = -1;
+    private int framesWithVision = 0, framesAccepted = 0;
+    private Pose2D lastFieldPose = new Pose2D(DistanceUnit.METER,0,0,AngleUnit.RADIANS,0);
+
 
     // Constructor
-    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizer aprilTagLocalizer) {
+    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizerLimelight aprilTagLocalizer) {
         this.opmode = opmode;
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
-        ekf.resetTo(0,0,0);
     }
 
     // Fallback
-    // Toggle fallBackMode
     public void toggleFallbackMode() {
         this.fallbackMode = !this.fallbackMode;
     }
-    // Set fallBackMode
     public void setFallbackMode(boolean enabled) {
         this.fallbackMode = enabled;
     }
-    // Get fallbackMode
     public boolean isFallbackMode() {
         return this.fallbackMode;
     }
 
     // Must call once per loop for updated data
     public void update() {
-        // Get odometry from pinpoint
         pinpoint.update();
-
-        // If fallback is enabled, don't do any EKF or april tag stuff below this
-        if (fallbackMode) {
-            if (TELEMETRY_ENABLED) { addTelemetry(); }
-            return;
+        if (!fallbackMode) {
+            aprilTagLocalizer.update(pinpoint.getHeading(AngleUnit.DEGREES));
+            lastFieldPose = getFieldPose();
         }
-
-        // Predict from robot-frame velocities
-        ChassisSpeeds vr = getChassisSpeedsRobot();
-        ekf.predict(vr.vxMetersPerSecond, vr.vyMetersPerSecond, vr.omegaRadiansPerSecond, System.nanoTime());
-
-        // Take detections and fuse them
-        if (aprilTagLocalizer != null && aprilTagLocalizer.getAprilTag() != null) {
-            List<AprilTagDetection> detections = aprilTagLocalizer.getAprilTag().getDetections();
-            if (detections != null && !detections.isEmpty()) {
-                Pose2D est = ekf.toPose2D();
-                double ex = est.getX(DistanceUnit.METER), ey = est.getY(DistanceUnit.METER);
-                for (AprilTagDetection d : detections) {
-                    if (d == null || d.robotPose == null) continue;
-                    if (d.metadata != null && d.metadata.name != null && d.metadata.name.contains("Obelisk")) continue;
-
-                    if ( TELEMETRY_ENABLED ) {
-                        opmode.telemetry.addLine("--- APRILTAGS ---");
-                        aprilTagLocalizer.addTelemetry(d);
-                    }
-
-                    Pose3D rp = d.robotPose;
-                    Position pMeters = rp.getPosition().toUnit(DistanceUnit.METER);
-                    double zx = pMeters.x;
-                    double zy = pMeters.y;
-                    double zh = rp.getOrientation().getYaw(AngleUnit.RADIANS);
-
-                    if (Math.hypot(zx - ex, zy - ey) > OUTLIER_POS_M) { tagRejected++; continue; }
-
-                    boolean goodAprilTag = ekf.updateFromAprilTag(zx, zy, zh, d.decisionMargin);
-                    if (goodAprilTag) {
-                        tagAccepted++;
-                        est = ekf.toPose2D();
-                        ex = est.getX(DistanceUnit.METER); ey = est.getY(DistanceUnit.METER);
-                    } else {
-                        tagRejected++;
-                    }
-                }
-            }
-        }
-
-        if (TELEMETRY_ENABLED) { addTelemetry(); }
+        if (TELEMETRY_ENABLED) addTelemetry();
     }
 
     // Returns odometry-frame pose (relative to last reset)
@@ -142,14 +101,60 @@ public class StateEstimator {
     }
 
     public Pose2D getFieldPose() {
-        if (fallbackMode) return getPose();
-        return ekf.toPose2D();
+        if (fallbackMode) {
+            opmode.telemetry.addLine("Fallback Mode enabled for getFieldPose()");
+            return getPose();
+        }
+        Pose2D est = getPose();
+
+        LLResult result = aprilTagLocalizer.getResult();
+        Pose3D mt2 = (result != null && result.isValid()) ? result.getBotpose_MT2() : null;
+
+        visionValid = (mt2 != null);
+        if (visionValid) {
+            double llX = mt2.getPosition().x;
+            double llY = mt2.getPosition().y;
+            double llTheta = mt2.getOrientation().getYaw(AngleUnit.RADIANS);
+
+            llX_last = llX; llY_last = llY; llTheta_last = llTheta;
+            framesWithVision++;
+
+            double dx = llX - est.getX(DistanceUnit.METER);
+            double dy = llY - est.getY(DistanceUnit.METER);
+            double dTheta = angleWrap(llTheta - est.getHeading(AngleUnit.RADIANS));
+
+            residX = dx; residY = dy; residTheta = dTheta;
+
+            boolean gate = Math.hypot(dx, dy) < GATE_POS_M && Math.abs(dTheta) < GATE_TH_RAD;
+            if (gate) {
+                appliedX = kPos * dx;
+                appliedY = kPos * dy;
+                appliedTheta = kTheta * dTheta;
+
+                visionAccepted = true;
+                framesAccepted++;
+                lastVisionAcceptMs = System.currentTimeMillis();
+
+                est = new Pose2D(
+                        DistanceUnit.METER,
+                        est.getX(DistanceUnit.METER) + appliedX,
+                        est.getY(DistanceUnit.METER) + appliedY,
+                        AngleUnit.RADIANS,
+                        angleWrap(est.getHeading(AngleUnit.RADIANS) + appliedTheta)
+                );
+            } else {
+                visionAccepted = false;
+                appliedX = appliedY = appliedTheta = 0;
+            }
+        } else {
+            visionAccepted = false;
+            appliedX = appliedY = appliedTheta = 0;
+        }
+        return est;
     }
 
     public void reset() {
         pinpoint.resetPosAndIMU();
-        ekf.resetTo(0, 0, 0);
-        tagAccepted = tagRejected = 0;
     }
 
     public void addTelemetry() {
@@ -185,24 +190,42 @@ public class StateEstimator {
                 vr.vxMetersPerSecond, vr.vyMetersPerSecond, omegaRobotDeg);
 
         if (!fallbackMode) {
-            // EKF
-            Pose2D est = getFieldPose();
+            Pose2D est = lastFieldPose;
             double ex = est.getX(DistanceUnit.METER);
             double ey = est.getY(DistanceUnit.METER);
             double ehRad = est.getHeading(AngleUnit.RADIANS);
             double ehDeg = Math.toDegrees(ehRad);
 
-            opmode.telemetry.addData("EKF pose (field)",
-                    "(%.3f, %.3f) m  |  %.1f°",
-                    ex, ey, ehDeg);
+            opmode.telemetry.addData("Pose (field)",
+                    "(%.3f, %.3f) m  |  %.1f°", ex, ey, ehDeg);
 
-            // AprilTags
-            opmode.telemetry.addData("AprilTags (StateEstimator)",
-                    "accepted=%d  rejected=%d  gate=%.2f m",
-                    tagAccepted, tagRejected, OUTLIER_POS_M);
+            opmode.telemetry.addData("LL valid / accepted", "%b / %b", visionValid, visionAccepted);
+            opmode.telemetry.addData("LL pose (field)",
+                    "(%.3f, %.3f) m | %.1f°", llX_last, llY_last, Math.toDegrees(llTheta_last));
+
+            double posErr = Math.hypot(residX, residY);
+            opmode.telemetry.addData("LL residual",
+                    "dx=%.3f dy=%.3f dθ=%.1f° | ‖pos‖=%.3f m",
+                    residX, residY, Math.toDegrees(residTheta), posErr);
+
+            opmode.telemetry.addData("Gate thresh", "< %.2f m  &  < %.1f°",
+                    GATE_POS_M, Math.toDegrees(GATE_TH_RAD));
+
+            opmode.telemetry.addData("Applied",
+                    "x=%.3f  y=%.3f  θ=%.1f°",
+                    appliedX, appliedY, Math.toDegrees(appliedTheta));
+
+            long sinceMs = lastVisionAcceptMs < 0 ? -1 : (System.currentTimeMillis() - lastVisionAcceptMs);
+            opmode.telemetry.addData("Since last accept [ms] / counts",
+                    "%d  |  seen=%d  accepted=%d", sinceMs, framesWithVision, framesAccepted);
+
+            opmode.telemetry.addData("Yaw to LL [deg]", "%.1f", Math.toDegrees(getHeading()));
         }
     }
 
-//    public int getTagAccepted() { return tagAccepted; }
-//    public int getTagRejected() { return tagRejected; }
+    private static double angleWrap(double a) {
+        while (a > Math.PI) a -= 2*Math.PI;
+        while (a < -Math.PI) a += 2*Math.PI;
+        return a;
+    }
 }

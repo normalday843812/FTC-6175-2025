@@ -16,9 +16,7 @@ public class LimelightTest extends LinearOpMode {
     {
         RobotHardware hw = new RobotHardware(this);
 
-        telemetry.setMsTransmissionInterval(11);
-
-        hw.initLimeLight();
+        hw.initLimeLight(100);
         hw.getLimelight().pipelineSwitch(8);
 
         /*

@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.vision;
 
 
+import static org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerConstants.cameraOrientation;
+import static org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerConstants.cameraPosition;
+
 import android.annotation.SuppressLint;
 
 import com.bylazar.configurables.annotations.Configurable;
@@ -9,7 +12,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
@@ -17,11 +19,6 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 public class AprilTagLocalizer {
     private final OpMode opmode;
     private AprilTagProcessor aprilTag;
-
-    public static Position cameraPosition = new Position(DistanceUnit.METER,
-            0, 0, 0, 0); // TODO: Tune
-    public static YawPitchRollAngles cameraOrientation = new YawPitchRollAngles(AngleUnit.DEGREES,
-            0, -90, 0, 0); // Degrees for simplicity TODO: tune
 
     public AprilTagLocalizer(OpMode opmode) {
         this.opmode = opmode;
