@@ -1,20 +1,16 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimatorTwoWheel;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
-import org.firstinspires.ftc.teamcode.subsystems.MecanumTwoOdom;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
-@Disabled
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
 
@@ -22,14 +18,13 @@ public class InitialTeleop extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
 
-        AprilTagLocalizer aprilTagLocalizer = new AprilTagLocalizer(
-                this
+        AprilTagLocalizerLimelight aprilTagLocalizer = new AprilTagLocalizerLimelight(
+                hw.getLimelight()
         );
 
         hw.initWebcam();
-        hw.initVision(hw.getWebcam1(), aprilTagLocalizer.getAprilTag());
-
-        aprilTagLocalizer.initAprilTag();
+        hw.initLimeLight(100);
+        hw.setLimelightPipeline(0);
 
         hw.initPinpoint();
         StateEstimator state = new StateEstimator(
@@ -37,13 +32,6 @@ public class InitialTeleop extends LinearOpMode {
                 hw.getPinpoint(),
                 aprilTagLocalizer
         );
-//        StateEstimatorTwoWheel state = new StateEstimatorTwoWheel(
-//                this,
-//                hw.getOdoParallel(),
-//                hw.getOdoPerp(),
-//                hw.getIMU(),
-//                aprilTagLocalizer
-//        );
         GamepadMap map = new GamepadMap(this);
 
         hw.initDriveMotors();
@@ -56,15 +44,6 @@ public class InitialTeleop extends LinearOpMode {
                 map,
                 this
         );
-//        MecanumTwoOdom drive = new MecanumTwoOdom(
-//                hw.getFrontLeft(),
-//                hw.getBackLeft(),
-//                hw.getFrontRight(),
-//                hw.getBackRight(),
-//                state,
-//                map,
-//                this
-//        );
 
         hw.initIntake();
         Intake intake = new Intake(

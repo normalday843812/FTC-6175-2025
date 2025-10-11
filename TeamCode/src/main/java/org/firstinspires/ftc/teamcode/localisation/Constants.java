@@ -14,4 +14,11 @@ public class Constants {
     // +X is forward, +Y is robot-left.
     public static double PARALLEL_Y_M = 0.0; // lateral offset of the parallel (forward) wheel
     public static double PERPENDICULAR_X_M = 0.0; // forward offset of the perpendicular (strafe) wheel
+
+    public static double kPos = 0.25;
+
+    public static double kTheta = 0.5;
+
+    public static final double GATE_POS_M = 2.0;
+    public static final double GATE_TH_RAD = Math.toRadians(45);
 }

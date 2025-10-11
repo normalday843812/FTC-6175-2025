@@ -7,17 +7,17 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import static org.firstinspires.ftc.teamcode.subsystems.MecanumConstants.*;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimatorTwoWheel;
+import org.firstinspires.ftc.teamcode.localisation.StateEstimatorWebcamTwoWheel;
 
 @Configurable
-public class MecanumTwoOdom {
+public class MecanumWebcamTwoWheel {
     OpMode opmode;
 
     // Motors
     private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
 
     // State estimation
-    private final StateEstimatorTwoWheel state;
+    private final StateEstimatorWebcamTwoWheel state;
 
     // Controls
     private final GamepadMap map;
@@ -30,7 +30,7 @@ public class MecanumTwoOdom {
     private boolean prevXToggle = false;
 
     // Constructor
-    public MecanumTwoOdom(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimatorTwoWheel state, GamepadMap map, OpMode opmode) {
+    public MecanumWebcamTwoWheel(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimatorWebcamTwoWheel state, GamepadMap map, OpMode opmode) {
         this.frontLeft = frontLeft;
         this.frontRight = frontRight;
         this.backLeft = backLeft;

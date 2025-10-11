@@ -5,10 +5,10 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.localisation.StateEstimatorWebcamPinpoint;
 
 @Configurable
-public class Mecanum {
+public class MecanumWebcamPinpoint {
     OpMode opmode;
 
     // Telemetry
@@ -18,7 +18,7 @@ public class Mecanum {
     private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
 
     // State estimation
-    private final StateEstimator state;
+    private final StateEstimatorWebcamPinpoint state;
 
     // Controls
     private final GamepadMap map;
@@ -29,10 +29,9 @@ public class Mecanum {
     // Angle and slow mode modifiers
     private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
     private double targetHeading = 0;
-    private boolean prevAngleLockToggle = false;
-    private boolean prevSlowModeToggle = false;
-    private boolean prevFieldCentricToggle = false;
-    private boolean prevStateFallbackModeToggle = false;
+    private boolean prevAToggle = false;
+    private boolean prevBToggle = false;
+    private boolean prevXToggle = false;
 
     // PD
     public static double KP = 0.01; // TODO
@@ -44,7 +43,7 @@ public class Mecanum {
     public static double OMEGA_MAX = 1.0; // TODO
 
     // Constructor
-    public Mecanum(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimator state, GamepadMap map, OpMode opmode) {
+    public MecanumWebcamPinpoint(DcMotorEx frontLeft, DcMotorEx backLeft, DcMotorEx frontRight, DcMotorEx backRight, StateEstimatorWebcamPinpoint state, GamepadMap map, OpMode opmode) {
         this.frontLeft = frontLeft;
         this.frontRight = frontRight;
         this.backLeft = backLeft;
@@ -83,25 +82,19 @@ public class Mecanum {
 
     private void handleToggles() {
         boolean aNow = map.angleLockToggle;
-        if (aNow && !prevAngleLockToggle) {
+        if (aNow && !prevAToggle) {
             angleLock = !angleLock;
             if (angleLock) { targetHeading = state.getHeading(); }
         }
-        prevAngleLockToggle = aNow;
+        prevAToggle = aNow;
 
-        boolean slowModeNow = map.slowModeToggle;
-        if (slowModeNow && !prevSlowModeToggle) { slowMode = !slowMode; }
-        prevSlowModeToggle = slowModeNow;
+        boolean bNow = map.slowModeToggle;
+        if (bNow && !prevBToggle) { slowMode = !slowMode; }
+        prevBToggle = bNow;
 
-        boolean fieldCentricNow = map.fieldCentricToggle;
-        if (fieldCentricNow && !prevFieldCentricToggle) { fieldCentricEnabled = !fieldCentricEnabled; }
-        prevFieldCentricToggle = fieldCentricNow;
-
-        boolean stateFallbackModeNow = map.stateEstimatorFallbackToggle;
-        if (stateFallbackModeNow && !prevStateFallbackModeToggle) {
-            state.toggleFallbackMode();
-        }
-        prevStateFallbackModeToggle = stateFallbackModeNow;
+        boolean xNow = map.fieldCentricToggle;
+        if (xNow && !prevXToggle) { fieldCentricEnabled = !fieldCentricEnabled; }
+        prevXToggle = xNow;
     }
 
     private void applyRobotVel(double vx, double vy, double omega) {

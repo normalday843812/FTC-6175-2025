@@ -1,12 +1,13 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.bylazar.configurables.annotations.Configurable;
+
+import static org.firstinspires.ftc.teamcode.subsystems.ShooterConstants.TPRShooter;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 
-@Configurable
 public class Shooter {
     OpMode opmode;
 
@@ -16,38 +17,23 @@ public class Shooter {
     GamepadMap map;
 
     // Hardware
-    private final DcMotor shooterMotor;
+    private final DcMotorEx shooterMotor;
 
-    // Constants
-    public static double SHOOTER_MOTOR_SPEED = 1.5; // tune this
-
-    // Toggles
-    private boolean prevShooterToggle = false;
-    private boolean runShooter = false;
-
-    public Shooter(DcMotor shooterMotor, GamepadMap map, OpMode opmode) {
+    public Shooter(DcMotorEx shooterMotor, GamepadMap map, OpMode opmode) {
         this.shooterMotor = shooterMotor;
         this.map = map;
         this.opmode = opmode;
     }
 
     public void OperateShooter() {
-        handleToggles();
-        shooterMotor.setPower(runShooter ? SHOOTER_MOTOR_SPEED : 0.0);
+        shooterMotor.setPower(map.shooterButton);
         if (TELEMETRY_ENABLED) { addTelemetry(); }
-    }
-
-    private void handleToggles() {
-        boolean shooterToggle = map.shooterToggle; // define later
-        if (shooterToggle && !prevShooterToggle) {
-            runShooter = !runShooter;
-        }
-        prevShooterToggle = shooterToggle;
     }
 
     private void addTelemetry() {
         opmode.telemetry.addLine("--- SHOOTER ---");
-        opmode.telemetry.addData("Run Shooter?:", runShooter);
+        opmode.telemetry.addData("Output RPM:", shooterMotor.getVelocity() * 60.0 / 28.0);
+        opmode.telemetry.addData("Motor RPM:", shooterMotor.getVelocity() * 60.0 / TPRShooter);
         opmode.telemetry.addData("Shooter Motor Power:", shooterMotor.getPower());
     }
 }
