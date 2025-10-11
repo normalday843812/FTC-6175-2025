@@ -4,6 +4,8 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 
@@ -85,7 +87,7 @@ public class Mecanum {
         boolean aNow = map.angleLockToggle;
         if (aNow && !prevAngleLockToggle) {
             angleLock = !angleLock;
-            if (angleLock) { targetHeading = state.getHeading(); }
+            if (angleLock) { targetHeading = state.getFusedHeading(AngleUnit.RADIANS); }
         }
         prevAngleLockToggle = aNow;
 
@@ -143,9 +145,9 @@ public class Mecanum {
 
         if (driverRotating) {
             omegaCmd = rotateStick;
-            targetHeading = state.getHeading();
+            targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
         } else if (angleLock) {
-            double heading = state.getHeading();
+            double heading = state.getFusedHeading(AngleUnit.RADIANS);
             double error = wrapRad(targetHeading - heading);
 
             double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
@@ -162,7 +164,7 @@ public class Mecanum {
     private void fieldCentric() {
         double vxF = deadband(map.forward, STICK_DEAD_BAND);
         double vyF = deadband(map.strafe, STICK_DEAD_BAND);
-        double h = state.getHeading();
+        double h = state.getFusedHeading(AngleUnit.RADIANS);
         double cos = Math.cos(h), sin = Math.sin(h);
 
         double vxR = vxF * cos + vyF * sin;
@@ -173,10 +175,10 @@ public class Mecanum {
         double omegaCmd;
         if (Math.abs(rotateStick) > ROTATE_DEAD_BAND) {
             omegaCmd = rotateStick;
-            targetHeading = state.getHeading();
+            targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
         } else if (angleLock) {
             double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
-            double err = wrapRad(targetHeading - state.getHeading());
+            double err = wrapRad(targetHeading - state.getFusedHeading(AngleUnit.RADIANS));
             omegaCmd = clamp(KP * err - KD * gyroRate, -OMEGA_MAX, OMEGA_MAX);
         } else {
             omegaCmd = 0.0;

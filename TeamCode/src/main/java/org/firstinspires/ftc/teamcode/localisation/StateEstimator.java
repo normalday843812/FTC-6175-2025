@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.localisation;
 
 import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_POS_M;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.GATE_TH_RAD;
+import static org.firstinspires.ftc.teamcode.localisation.Constants.MIN_TRUST;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.kPos;
 import static org.firstinspires.ftc.teamcode.localisation.Constants.kTheta;
@@ -125,11 +126,19 @@ public class StateEstimator {
 
             residX = dx; residY = dy; residTheta = dTheta;
 
-            boolean gate = Math.hypot(dx, dy) < GATE_POS_M && Math.abs(dTheta) < GATE_TH_RAD;
+            double posErr = Math.hypot(dx, dy);
+            double angErr = Math.abs(dTheta);
+            boolean gate = posErr < GATE_POS_M && angErr < GATE_TH_RAD;
             if (gate) {
-                appliedX = kPos * dx;
-                appliedY = kPos * dy;
-                appliedTheta = kTheta * dTheta;
+                double posScale = 1.0 - posErr / GATE_POS_M;
+                double angScale = 1.0 - angErr / GATE_TH_RAD;
+
+                double base = Math.min(posScale, angScale);
+                double scale = MIN_TRUST + (1.0 - MIN_TRUST) * clamp01(base);
+
+                appliedX = scale * kPos * dx;
+                appliedY = scale * kPos * dy;
+                appliedTheta = scale * kTheta * dTheta;
 
                 visionAccepted = true;
                 framesAccepted++;
@@ -152,6 +161,9 @@ public class StateEstimator {
         }
         return est;
     }
+
+    public Pose2D getFusedPose() { return lastFieldPose; }
+    public double getFusedHeading(AngleUnit angleUnit) { return lastFieldPose.getHeading(angleUnit); }
 
     public void reset() {
         pinpoint.resetPosAndIMU();
@@ -228,4 +240,5 @@ public class StateEstimator {
         while (a < -Math.PI) a += 2*Math.PI;
         return a;
     }
+    private static double clamp01(double v) { return Math.max(0.0, Math.min(1.0, v)); }
 }

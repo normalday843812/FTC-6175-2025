@@ -15,6 +15,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterConstants;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.VisionProcessor;
 
@@ -104,6 +105,7 @@ public class RobotHardware {
     public void initLimeLight(int pollRateHz) {
         limelight = inputOpMode.hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(pollRateHz);
+        limelight.start();
     }
 
     public void setLimelightPipeline(int pipelineNum) {
@@ -153,6 +155,8 @@ public class RobotHardware {
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterMotor.setVelocityPIDFCoefficients(
+                ShooterConstants.P, ShooterConstants.I, ShooterConstants.D, ShooterConstants.F);
     }
 
     public void initHood() {

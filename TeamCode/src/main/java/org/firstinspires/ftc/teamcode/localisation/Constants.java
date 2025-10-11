@@ -19,6 +19,9 @@ public class Constants {
 
     public static double kTheta = 0.5;
 
-    public static final double GATE_POS_M = 2.0;
-    public static final double GATE_TH_RAD = Math.toRadians(45);
+    public static double MIN_TRUST = 0.2;
+    public static double GATE_POS_M = 0.75;
+    public static final double GATE_TH_RAD = Math.toRadians(20);
+
+
 }
