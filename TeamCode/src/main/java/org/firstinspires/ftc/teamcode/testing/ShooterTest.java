@@ -29,7 +29,7 @@ public class ShooterTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
-            shooter.operateShooter();
+            shooter.operate();
             telemetry.update();
         }
     }

@@ -1,9 +1,8 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
+import static androidx.core.math.MathUtils.clamp;
 import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.*;
-import static org.firstinspires.ftc.teamcode.localisation.Constants.TELEMETRY_ENABLED;
-import static org.firstinspires.ftc.teamcode.localisation.Constants.kPos;
-import static org.firstinspires.ftc.teamcode.localisation.Constants.kTheta;
+import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 
 import android.annotation.SuppressLint;
 
@@ -17,14 +16,13 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
 
 public class StateEstimator {
-    OpMode opmode;
-
     // Fallback mode
     private boolean fallbackMode = false;
 
@@ -32,38 +30,71 @@ public class StateEstimator {
     private final GoBildaPinpointDriver pinpoint;
 
     // April tag localizer
-    AprilTagLocalizerLimelight aprilTagLocalizer;
+    private final AprilTagLocalizerLimelight aprilTagLocalizer;
 
-    // Limelight telemetry init
-    private boolean visionValid = false, visionAccepted = false;
-    private double llX_last = Double.NaN, llY_last = Double.NaN, llTheta_last = Double.NaN;
-    private double residX = 0, residY = 0, residTheta = 0;
-    private double appliedX = 0, appliedY = 0, appliedTheta = 0; // gain * residual
-    private long lastVisionAcceptMs = -1;
-    private int framesWithVision = 0, framesAccepted = 0;
-    private Pose2D lastFieldPose = new Pose2D(DistanceUnit.METER,0,0,AngleUnit.RADIANS,0);
-    private boolean seeded = false;
-    private boolean firstLockDone = false;
-    private int lastTagCount = 0;
-    private double lastSpan = 0, lastAvgDist = 0;
-    private boolean residStale = true;
-    private final ArrayDeque<Double> omegaHist = new ArrayDeque<>(OMEGA_WINDOW);
-    private long stationarySinceMs = -1;
+    // Telemetry
+    private final TelemetryHelper tele;
+
+    private static final class VisionState {
+        boolean valid = false;
+        boolean accepted = false;
+        long lastAcceptMs = -1;
+        int framesWithVision = 0;
+        int framesAccepted = 0;
+        boolean seeded = false;
+        boolean firstLockDone = false;
+        int lastTagCount = 0;
+        double lastSpan = 0;
+        double lastAvgDist = 0;
+    }
+
+    private static final class VisionPoseState {
+        double llX = Double.NaN;
+        double llY = Double.NaN;
+        double llTheta = Double.NaN;
+        Pose2D lastFieldPose = new Pose2D(DistanceUnit.METER, 0, 0, AngleUnit.RADIANS, 0);
+    }
+
+    private static final class ResidualState {
+        double x = 0;
+        double y = 0;
+        double theta = 0;
+        double appliedX = 0;
+        double appliedY = 0;
+        double appliedTheta = 0;
+        boolean stale = true;
+    }
+
+    private static final class MotionState {
+        final ArrayDeque<Double> omegaHist;
+        long stationarySinceMs = -1;
+
+        MotionState(int omegaWindow) {
+            this.omegaHist = new ArrayDeque<>(omegaWindow);
+        }
+    }
+
+    private final VisionState vision = new VisionState();
+    private final VisionPoseState visionPose = new VisionPoseState();
+    private final ResidualState residual = new ResidualState();
+    private final MotionState motion = new MotionState(OMEGA_WINDOW);
 
 
     // Constructor
-    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizerLimelight aprilTagLocalizer) {
-        this.opmode = opmode;
+    public StateEstimator(OpMode opmode,
+                          GoBildaPinpointDriver pinpoint,
+                          AprilTagLocalizerLimelight aprilTagLocalizer) {
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
+        this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
     public void seedFieldPose(double x, double y, double hRad) {
         pinpoint.resetPosAndIMU();
         pinpoint.setPosition(new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad));
         pinpoint.setHeading(hRad, AngleUnit.RADIANS);
-        seeded = true;
-        firstLockDone = true;
+        vision.seeded = true;
+        vision.firstLockDone = true;
     }
 
     // Fallback
@@ -84,20 +115,20 @@ public class StateEstimator {
             aprilTagLocalizer.update(Math.toDegrees(getFusedHeading(AngleUnit.RADIANS)));
             LLResult r = aprilTagLocalizer.getResult();
 
-            if (!seeded && isUsableVision(r)) {
+            if (!vision.seeded && isUsableVision(r)) {
                 Pose3D p = r.getBotpose_MT2();
                 seedFieldPose(p.getPosition().x, p.getPosition().y,
                         p.getOrientation().getYaw(AngleUnit.RADIANS));
             }
 
             if (r!=null){
-                lastTagCount = r.getBotposeTagCount();
-                lastSpan = r.getBotposeSpan();
-                lastAvgDist = r.getBotposeAvgDist();
+                vision.lastTagCount = r.getBotposeTagCount();
+                vision.lastSpan = r.getBotposeSpan();
+                vision.lastAvgDist = r.getBotposeAvgDist();
             }
-            lastFieldPose = getFieldPose();
+            visionPose.lastFieldPose = getFieldPose();
         }
-        if (TELEMETRY_ENABLED) addTelemetry();
+        addTelemetry();
     }
 
     // Returns odometry-frame pose (relative to last reset)
@@ -141,48 +172,48 @@ public class StateEstimator {
                 && aprilTagLocalizer.getMillisSinceLastUpdate() <= LL_STALE_MS;
         Pose3D p = fresh ? r.getBotpose_MT2() : null;
 
-        visionValid = fresh && p!=null && !isZeroPose(p);
+        vision.valid = fresh && p!=null && !isZeroPose(p);
 
-        if (visionValid){
+        if (vision.valid){
             double llX = p.getPosition().x, llY = p.getPosition().y;
             double llTh = p.getOrientation().getYaw(AngleUnit.RADIANS);
-            llX_last=llX; llY_last=llY; llTheta_last=llTh; framesWithVision++;
+            visionPose.llX=llX; visionPose.llY=llY; visionPose.llTheta=llTh; vision.framesWithVision++;
 
             double dx = llX - est.getX(DistanceUnit.METER);
             double dy = llY - est.getY(DistanceUnit.METER);
-            double dTh= angleWrap(llTh - est.getHeading(AngleUnit.RADIANS));
-            residX=dx; residY=dy; residTheta=dTh; residStale=false;
+            double dTh= wrapRad(llTh - est.getHeading(AngleUnit.RADIANS));
+            residual.x=dx; residual.y=dy; residual.theta=dTh; residual.stale=false;
 
             Mt2Quality q = readQuality(r);
             Gates g = gatesFrom(q);
 
             boolean gate = Math.hypot(dx,dy) < g.gatePos_m && Math.abs(dTh) < g.gateYaw_rad;
             if (gate){
-                appliedX = kPos*dx; appliedY = kPos*dy; appliedTheta = kTheta*dTh;
+                residual.appliedX = kPos*dx; residual.appliedY = kPos*dy; residual.appliedTheta = kTheta*dTh;
                 est = new Pose2D(DistanceUnit.METER,
-                        est.getX(DistanceUnit.METER) + appliedX,
-                        est.getY(DistanceUnit.METER) + appliedY,
+                        est.getX(DistanceUnit.METER) + residual.appliedX,
+                        est.getY(DistanceUnit.METER) + residual.appliedY,
                         AngleUnit.RADIANS,
-                        angleWrap(est.getHeading(AngleUnit.RADIANS) + appliedTheta));
-                visionAccepted=true; framesAccepted++;
-                lastVisionAcceptMs=System.currentTimeMillis(); firstLockDone=true;
+                        wrapRad(est.getHeading(AngleUnit.RADIANS) + residual.appliedTheta));
+                vision.accepted=true; vision.framesAccepted++;
+                vision.lastAcceptMs=System.currentTimeMillis(); vision.firstLockDone=true;
             } else {
                 // Stationary snap with filtered omega
                 ChassisSpeeds vf = getChassisSpeedsField();
                 double omegaRaw = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
                 omegaRaw = clamp(omegaRaw, -OMEGA_CLAMP_RADPS, OMEGA_CLAMP_RADPS);
-                if (omegaHist.size()==OMEGA_WINDOW) omegaHist.removeFirst();
-                omegaHist.addLast(omegaRaw);
-                double omegaFilt = median(omegaHist);
+                if (motion.omegaHist.size()==OMEGA_WINDOW) motion.omegaHist.removeFirst();
+                motion.omegaHist.addLast(omegaRaw);
+                double omegaFilt = median(motion.omegaHist);
 
                 boolean slow = Math.hypot(vf.vxMetersPerSecond, vf.vyMetersPerSecond) < V_STAT_MPS
                         && Math.abs(omegaFilt) < OMEGA_STAT_RADPS;
 
                 long now = System.currentTimeMillis();
-                if (slow){ if (stationarySinceMs<0) stationarySinceMs=now; }
-                else { stationarySinceMs=-1; }
+                if (slow){ if (motion.stationarySinceMs<0) motion.stationarySinceMs=now; }
+                else { motion.stationarySinceMs=-1; }
 
-                boolean held = stationarySinceMs>0 && (now-stationarySinceMs) >= STATIONARY_HOLD_MS;
+                boolean held = motion.stationarySinceMs>0 && (now-motion.stationarySinceMs) >= STATIONARY_HOLD_MS;
                 boolean goodSnap = Math.hypot(dx,dy) < g.snapPos_m && Math.abs(dTh) < g.snapYaw_rad;
 
                 if (held && goodSnap){
@@ -191,22 +222,20 @@ public class StateEstimator {
                     );
                     pinpoint.setHeading(llTh, AngleUnit.RADIANS);
                     est = new Pose2D(DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTh);
-                    appliedX=dx; appliedY=dy; appliedTheta=dTh;
-                    visionAccepted=true; framesAccepted++; lastVisionAcceptMs=now; seeded=true;
-                    firstLockDone=true;
+                    residual.appliedX=dx; residual.appliedY=dy; residual.appliedTheta=dTh;
+                    vision.accepted=true; vision.framesAccepted++; vision.lastAcceptMs=now; vision.seeded=true;
+                    vision.firstLockDone=true;
                 } else {
-                    visionAccepted=false; appliedX=appliedY=appliedTheta=0;
+                    vision.accepted=false; residual.appliedX=residual.appliedY=residual.appliedTheta=0;
                 }
             }
         } else {
-            visionAccepted=false; residStale=true; appliedX=appliedY=appliedTheta=0;
+            vision.accepted=false; residual.stale=true; residual.appliedX=residual.appliedY=residual.appliedTheta=0;
         }
         return est;
     }
 
-
-    public Pose2D getFusedPose() { return lastFieldPose; }
-    public double getFusedHeading(AngleUnit angleUnit) {return lastFieldPose.getHeading(angleUnit);}
+    public double getFusedHeading(AngleUnit angleUnit) {return visionPose.lastFieldPose.getHeading(angleUnit);}
 
     public void reset() {
         pinpoint.resetPosAndIMU();
@@ -231,86 +260,80 @@ public class StateEstimator {
         double omegaFieldDeg = Math.toDegrees(vf.omegaRadiansPerSecond);
         double omegaRobotDeg = Math.toDegrees(vr.omegaRadiansPerSecond);
 
-        opmode.telemetry.addLine(
-                fallbackMode ? "--- StateEstimator Fallback ---" : "--- StateEstimator ---"
-        );
+        tele.addLine(fallbackMode ? "--- StateEstimator Fallback ---" : "--- StateEstimator ---");
 
-        opmode.telemetry.addData("Pinpoint pose (odom)",
+        tele.addData("Pinpoint pose (odom)",
                 "(%.3f, %.3f) m | %.1f°", ox, oy, ohDeg);
 
-        opmode.telemetry.addData("v_field [m/s, deg/s]",
+        tele.addData("v_field [m/s, deg/s]",
                 "vx=%.3f vy=%.3f ω=%.1f",
                 vf.vxMetersPerSecond, vf.vyMetersPerSecond, omegaFieldDeg);
 
-        opmode.telemetry.addData("v_robot [m/s, deg/s]",
+        tele.addData("v_robot [m/s, deg/s]",
                 "vx=%.3f vy=%.3f ω=%.1f",
                 vr.vxMetersPerSecond, vr.vyMetersPerSecond, omegaRobotDeg);
 
         if (!fallbackMode) {
-            Pose2D est = lastFieldPose;
+            Pose2D est = visionPose.lastFieldPose;
             double ex = est.getX(DistanceUnit.METER);
             double ey = est.getY(DistanceUnit.METER);
             double ehRad = est.getHeading(AngleUnit.RADIANS);
             double ehDeg = Math.toDegrees(ehRad);
 
-            opmode.telemetry.addData("Pose (field)",
+            tele.addData("Pose (field)",
                     "(%.3f, %.3f) m | %.1f°", ex, ey, ehDeg);
 
-            opmode.telemetry.addData("Seeded/FirstLock",
+            tele.addData("Seeded/FirstLock",
                     "%b / %b",
-                    seeded,
-                    firstLockDone);
-            opmode.telemetry.addData("Last vision age [ms]",
-                    (aprilTagLocalizer.getMillisSinceLastUpdate()));
+                    vision.seeded,
+                    vision.firstLockDone);
 
-            opmode.telemetry.addData("LL valid / accepted", "%b / %b",
-                    visionValid,
-                    visionAccepted);
-            opmode.telemetry.addData("LL pose (field)",
-                    "(%.3f, %.3f) m | %.1f°", llX_last, llY_last,
-                    Math.toDegrees(llTheta_last));
+            tele.addData("Last vision age [ms]", "%d",
+                    aprilTagLocalizer.getMillisSinceLastUpdate());
 
-            double posErr = Math.hypot(residX, residY);
-            opmode.telemetry.addData("LL residual",
-                    residStale ? "stale" :
+            tele.addData("LL valid / accepted", "%b / %b",
+                    vision.valid,
+                    vision.accepted);
+
+            tele.addData("LL pose (field)",
+                    "(%.3f, %.3f) m | %.1f°",
+                    visionPose.llX, visionPose.llY, Math.toDegrees(visionPose.llTheta));
+
+            double posErr = Math.hypot(residual.x, residual.y);
+            tele.addData("LL residual",
+                    residual.stale ? "stale" :
                             String.format("dx=%.3f dy=%.3f dθ=%.1f° | ‖pos‖=%.3f m",
-                                    residX, residY, Math.toDegrees(residTheta), posErr));
+                                    residual.x, residual.y, Math.toDegrees(residual.theta), posErr));
 
             LLResult rr = aprilTagLocalizer.getResult();
             if (rr != null && rr.isValid()) {
                 Gates g = gatesFrom(readQuality(rr));
-                opmode.telemetry.addData("Gates",
+                tele.addData("Gates",
                         "gate<%.2f m & <%.1f° | snap<%.2f m & <%.1f°",
                         g.gatePos_m, Math.toDegrees(g.gateYaw_rad),
                         g.snapPos_m, Math.toDegrees(g.snapYaw_rad));
             }
 
-            opmode.telemetry.addData("Applied",
+            tele.addData("Applied",
                     "x=%.3f y=%.3f θ=%.1f°",
-                    appliedX, appliedY, Math.toDegrees(appliedTheta));
+                    residual.appliedX, residual.appliedY, Math.toDegrees(residual.appliedTheta));
 
-            long sinceMs = lastVisionAcceptMs < 0 ? -1 :
-                    (System.currentTimeMillis() - lastVisionAcceptMs);
-            opmode.telemetry.addData("Since last accept [ms] / counts",
-                    "%d | seen=%d accepted=%d", sinceMs, framesWithVision, framesAccepted);
+            long sinceMs = vision.lastAcceptMs < 0 ? -1 :
+                    (System.currentTimeMillis() - vision.lastAcceptMs);
+            tele.addData("Since last accept [ms] / counts",
+                    "%d | seen=%d accepted=%d", sinceMs, vision.framesWithVision, vision.framesAccepted);
 
-            opmode.telemetry.addData("LL quality",
+            tele.addData("LL quality",
                     "tags=%d span=%.2f m avgDist=%.2f m",
-                    lastTagCount, lastSpan, lastAvgDist);
-            opmode.telemetry.addData("Heading [deg]", "%.1f",
+                    vision.lastTagCount, vision.lastSpan, vision.lastAvgDist);
+
+            tele.addData("Heading [deg]", "%.1f",
                     Math.toDegrees(getHeading()));
         }
     }
 
-    // Utils or helpers
-    private static double angleWrap(double a) {
-        while (a > Math.PI) a -= 2*Math.PI;
-        while (a < -Math.PI) a += 2*Math.PI;
-        return a;
-    }
 
     // utils
-    private static double clamp(double v, double lo, double hi){ return Math.max(lo, Math.min(hi, v)); }
     private static double median(ArrayDeque<Double> d){
         double[] a = d.stream().mapToDouble(x->x).toArray();
         Arrays.sort(a);
@@ -341,9 +364,13 @@ public class StateEstimator {
             q.sy_m = std[1];
             q.syaw_rad = std[5];
         }
-        if (!(q.sx_m > 0)) q.sx_m = 0.25;
-        if (!(q.sy_m > 0)) q.sy_m = 0.25;
-        if (!(q.syaw_rad > 0)) q.syaw_rad = Math.toRadians(10);
+        double sigmaPosCap = GATE_POS_MAX_M / 3.0;
+        double sigmaPerAxis = sigmaPosCap / Math.sqrt(2.0);
+        double sigmaYawCap = GATE_YAW_MAX_RAD / 3.0;
+
+        if (!(q.sx_m > 0)) q.sx_m = sigmaPerAxis;
+        if (!(q.sy_m > 0)) q.sy_m = sigmaPerAxis;
+        if (!(q.syaw_rad > 0)) q.syaw_rad = sigmaYawCap;
         return q;
     }
 
