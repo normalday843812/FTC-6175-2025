@@ -53,7 +53,8 @@ public class Hood {
 
         hoodServo.setPosition(commanded);
 
-        tele.addData("HoodMode", "%s", manualActive ? "MANUAL" : "AUTO")
+        tele.addLine("--- HOOD ---")
+                .addData("HoodMode", "%s", manualActive ? "MANUAL" : "AUTO")
                 .addData("Cmd", "%.3f", commanded)
                 .addData("AutoTgt", "%.3f", autoTarget)
                 .addData("Axis", "%.3f", axis);
@@ -64,9 +65,9 @@ public class Hood {
         if (!manualActive) commanded = autoTarget;
     }
 
-//    public double getCommanded() { return commanded; }
+    public double getCommanded() { return commanded; }
 
     private static double clamp(double v) {
-        return Math.max(org.firstinspires.ftc.teamcode.config.HoodServoConfig.MIN_POS, Math.min(org.firstinspires.ftc.teamcode.config.HoodServoConfig.MAX_POS, v));
+        return Math.max(MIN_POS, Math.min(MAX_POS, v));
     }
 }
