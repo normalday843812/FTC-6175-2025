@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import static androidx.core.math.MathUtils.clamp;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.*;
+import static org.firstinspires.ftc.teamcode.config.HoodServoConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 
@@ -29,6 +30,8 @@ public class Mecanum {
     // Controls
     private final GamepadMap map;
 
+    // Telemetry
+    private final TelemetryHelper tele;
 
     // Angle and slow mode modifiers
     private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
@@ -43,6 +46,7 @@ public class Mecanum {
         this.state = state;
         this.map = map;
         this.opmode = opmode;
+        this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
     public void operate() {
@@ -61,8 +65,7 @@ public class Mecanum {
     }
 
     private void addTelemetry() {
-        new TelemetryHelper(opmode, TELEMETRY_ENABLED)
-                .addLine("--- Mecanum ---")
+        tele.addLine("--- Mecanum ---")
                 .addData("FL Power:", "%.2f", frontLeft.getPower())
                 .addData("BL Power:", "%.2f", backLeft.getPower())
                 .addData("FR Power:", "%.2f", frontRight.getPower())
@@ -99,17 +102,12 @@ public class Mecanum {
         double frontRightPower = y - x - omega;
         double backRightPower = y + x - omega;
 
-        double max = Stream.of(
-                Math.abs(frontLeftPower),
-                Math.abs(backLeftPower),
-                Math.abs(frontRightPower),
-                Math.abs(backRightPower)
-        ).max(Double::compare).orElse(1.0);
-
-        frontLeftPower /= max;
-        backLeftPower /= max;
-        frontRightPower /= max;
-        backRightPower /= max;
+        double maxMag = Stream.of(Math.abs(frontLeftPower), Math.abs(backLeftPower),
+                        Math.abs(frontRightPower), Math.abs(backRightPower))
+                .max(Double::compare).orElse(0.0);
+        double scale = Math.max(1.0, maxMag);
+        frontLeftPower /= scale; backLeftPower /= scale;
+        frontRightPower /= scale; backRightPower /= scale;
 
         frontLeft.setPower(frontLeftPower);
         backLeft.setPower(backLeftPower);

@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.config.HoodServoConfig;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -14,11 +15,14 @@ public class Shooter {
     private final GamepadMap map;
     private final DcMotorEx motor;
     private double targetRpm = 0.0;
+    // Telemetry
+    private final TelemetryHelper tele;
 
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
         this.motor=motor;
         this.map=map;
         this.opmode=opmode;
+        this.tele = new TelemetryHelper(opmode, HoodServoConfig.TELEMETRY_ENABLED);
     }
 
     public void operate() {
@@ -29,8 +33,7 @@ public class Shooter {
         double motorRPM = tps * 60.0 / ShooterConfig.TPR_MOTOR;
         double outputRPM = tps * 60.0 / ShooterConfig.TPR_OUTPUT;
 
-        new TelemetryHelper(opmode, TELEMETRY_ENABLED)
-                .addLine("--- SHOOTER ---")
+        tele.addLine("--- SHOOTER ---")
                 .addData("Target RPM:", "%.0f", targetRpm)
                 .addData("Output RPM:", "%.0f", outputRPM)
                 .addData("Motor RPM:", "%.0f", motorRPM)
