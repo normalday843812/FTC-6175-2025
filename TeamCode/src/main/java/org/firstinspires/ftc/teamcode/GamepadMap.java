@@ -24,7 +24,7 @@ public class GamepadMap {
 
     // TODO: Make final mapping
     public void update() {
-        forward = -opmode.gamepad1.left_stick_y;
+        forward = opmode.gamepad1.left_stick_y;
         strafe = opmode.gamepad1.left_stick_x;
         rotate = opmode.gamepad1.right_stick_x;
         angleLockToggle = opmode.gamepad1.a;

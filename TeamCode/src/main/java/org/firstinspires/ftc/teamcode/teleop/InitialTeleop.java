@@ -22,7 +22,6 @@ public class InitialTeleop extends LinearOpMode {
                 hw.getLimelight()
         );
 
-        hw.initWebcam();
         hw.initLimeLight(100);
         hw.setLimelightPipeline(0);
 
@@ -67,11 +66,9 @@ public class InitialTeleop extends LinearOpMode {
             map.update();
             state.update();
             drive.operateMecanum();
-            intake.OperateIntake();
-            shooter.OperateShooter();
+            intake.operateIntake();
+            shooter.operateShooter();
             telemetry.update();
         }
-
-        hw.closeVision();
     }
 }
