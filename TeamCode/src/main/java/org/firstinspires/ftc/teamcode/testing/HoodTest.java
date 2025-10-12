@@ -5,10 +5,10 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.Hood;
 
-@TeleOp(name="Intake Test", group = "Testing")
-public class IntakeTest extends LinearOpMode {
+@TeleOp(name="Hood Test", group = "Testing")
+public class HoodTest extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -16,11 +16,11 @@ public class IntakeTest extends LinearOpMode {
 
         GamepadMap map = new GamepadMap(this);
 
-        hw.initIntake();
-        Intake intake = new Intake(
-            hw.getIntakeMotor(),
-            map,
-            this
+        hw.initHood();
+        Hood hood = new Hood(
+                hw.getHoodServo(),
+                map,
+                this
         );
 
         if (isStopRequested()) return;
@@ -29,7 +29,7 @@ public class IntakeTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
-            intake.operate();
+            hood.operate();
             telemetry.update();
         }
     }

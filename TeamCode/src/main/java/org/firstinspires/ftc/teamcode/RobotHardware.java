@@ -1,7 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
-import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.PINPOINT_X_OFFSET_M;
-import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.PINPOINT_Y_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FORWARD_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_X_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_Y_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.STRAFE_ENCODER_DIRECTION;
 
 import android.util.Size;
 
@@ -18,7 +20,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.teamcode.subsystems.ShooterConstants;
+import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.VisionProcessor;
 
@@ -64,8 +66,8 @@ public class RobotHardware {
         pinpoint.setOffsets(PINPOINT_X_OFFSET_M, PINPOINT_Y_OFFSET_M, DistanceUnit.METER);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
 
-        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
-                GoBildaPinpointDriver.EncoderDirection.FORWARD); // TODO: Replace with our robot's configuration
+        pinpoint.setEncoderDirections(FORWARD_ENCODER_DIRECTION,
+                STRAFE_ENCODER_DIRECTION);
         pinpoint.resetPosAndIMU();
     }
 
@@ -157,7 +159,7 @@ public class RobotHardware {
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shooterMotor.setVelocityPIDFCoefficients(
-                ShooterConstants.P, ShooterConstants.I, ShooterConstants.D, ShooterConstants.F);
+                ShooterConfig.P, ShooterConfig.I, ShooterConfig.D, ShooterConfig.F);
     }
 
     public void initHood() {

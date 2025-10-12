@@ -6,6 +6,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.subsystems.DriveMotors;
+import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
@@ -34,11 +36,14 @@ public class InitialTeleop extends LinearOpMode {
         GamepadMap map = new GamepadMap(this);
 
         hw.initDriveMotors();
-        Mecanum drive = new Mecanum(
+        DriveMotors driveMotors = new DriveMotors(
                 hw.getFrontLeft(),
                 hw.getBackLeft(),
                 hw.getFrontRight(),
-                hw.getBackRight(),
+                hw.getBackRight()
+        );
+        Mecanum drive = new Mecanum(
+                driveMotors,
                 state,
                 map,
                 this
@@ -58,6 +63,13 @@ public class InitialTeleop extends LinearOpMode {
         this
         );
 
+        hw.initHood();
+        Hood hood = new Hood(
+                hw.getHoodServo(),
+                map,
+                this
+        );
+
         if (isStopRequested()) return;
 
         waitForStart();
@@ -65,9 +77,10 @@ public class InitialTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             map.update();
             state.update();
-            drive.operateMecanum();
-            intake.operateIntake();
-            shooter.operateShooter();
+            drive.operate();
+            intake.operate();
+            shooter.operate();
+            hood.operate();
             telemetry.update();
         }
     }

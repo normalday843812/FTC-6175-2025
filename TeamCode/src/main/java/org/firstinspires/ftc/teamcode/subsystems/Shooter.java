@@ -1,54 +1,44 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-
-import static org.firstinspires.ftc.teamcode.subsystems.ShooterConstants.MAX_RPM;
-import static org.firstinspires.ftc.teamcode.subsystems.ShooterConstants.TELEMETRY_ENABLED;
-import static org.firstinspires.ftc.teamcode.subsystems.ShooterConstants.TPR_MOTOR;
-import static org.firstinspires.ftc.teamcode.subsystems.ShooterConstants.TPR_OUTPUT;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.config.ShooterConfig;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Shooter {
-    OpMode opmode;
-    GamepadMap map;
-    private final DcMotorEx shooterMotor;
-    private double tps;
-    private double motorRPM;
-    private double outputRPM;
+    private final OpMode opmode;
+    private final GamepadMap map;
+    private final DcMotorEx motor;
     private double targetRpm = 0.0;
 
-    public Shooter(DcMotorEx shooterMotor, GamepadMap map, OpMode opmode) {
-        this.shooterMotor = shooterMotor;
-        this.map = map;
-        this.opmode = opmode;
+    public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
+        this.motor=motor;
+        this.map=map;
+        this.opmode=opmode;
     }
 
-    public void operateShooter() {
-        if (map.shooterButton > 0.0) {
-            targetRpm = map.shooterButton * MAX_RPM;
-        }
+    public void operate() {
+        if (map.shooterTrigger > ShooterConfig.TRIGGER_DB) targetRpm = map.shooterTrigger * ShooterConfig.MAX_RPM;
         setRpm(targetRpm);
 
-        tps = shooterMotor.getVelocity();
-        motorRPM = tps * 60.0 / TPR_MOTOR;
-        outputRPM = tps * 60.0 / TPR_OUTPUT;
-        if (TELEMETRY_ENABLED) { addTelemetry(); }
+        double tps = motor.getVelocity();
+        double motorRPM = tps * 60.0 / ShooterConfig.TPR_MOTOR;
+        double outputRPM = tps * 60.0 / ShooterConfig.TPR_OUTPUT;
+
+        new TelemetryHelper(opmode, TELEMETRY_ENABLED)
+                .addLine("--- SHOOTER ---")
+                .addData("Target RPM:", "%.0f", targetRpm)
+                .addData("Output RPM:", "%.0f", outputRPM)
+                .addData("Motor RPM:", "%.0f", motorRPM)
+                .addData("err tps:", "%.1f", targetRpm * ShooterConfig.TPR_OUTPUT / 60.0 - tps);
     }
 
-    public void setRpm(double rpm) {
-        rpm = Math.max(0.0, Math.min(MAX_RPM, rpm));
-        shooterMotor.setVelocity(rpm * TPR_OUTPUT / 60.0);
-    }
-
-    private void addTelemetry() {
-        double tgtTps = targetRpm * TPR_OUTPUT / 60.0;
-        opmode.telemetry.addLine("--- SHOOTER ---");
-        opmode.telemetry.addData("Target RPM:", targetRpm);
-        opmode.telemetry.addData("Output RPM:", outputRPM);
-        opmode.telemetry.addData("Motor RPM:",  motorRPM);
-        opmode.telemetry.addData("err tps:", tgtTps - tps);
+    public void setRpm(double rpm){
+        rpm = Math.max(0.0, Math.min(ShooterConfig.MAX_RPM, rpm));
+        motor.setVelocity(rpm * ShooterConfig.TPR_OUTPUT / 60.0);
     }
 }

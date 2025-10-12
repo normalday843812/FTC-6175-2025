@@ -9,8 +9,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 
 @Configurable
 public class AprilTagLocalizerConstants {
-    public static Position cameraPosition = new Position(DistanceUnit.METER,
+    public static final Position cameraPosition = new Position(DistanceUnit.METER,
             0, 0, 0, 0); // TODO: Tune
-    public static YawPitchRollAngles cameraOrientation = new YawPitchRollAngles(AngleUnit.DEGREES,
+    public static final YawPitchRollAngles cameraOrientation = new YawPitchRollAngles(AngleUnit.DEGREES,
             0, -90, 0, 0); // Degrees for simplicity TODO: tune
 }
