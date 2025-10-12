@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.PINPOINT_X_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.PINPOINT_Y_OFFSET_M;
+
 import android.util.Size;
 
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
@@ -28,8 +31,6 @@ public class RobotHardware {
 
     // Pinpoint
     GoBildaPinpointDriver pinpoint;
-    public static final double PINPOINT_X_OFFSET_M = 0.229;
-    public static final double PINPOINT_Y_OFFSET_M = 0.127;
 
     // Webcam
     private WebcamName webcam1;
