@@ -26,7 +26,7 @@ public class Shooter {
         this.opmode = opmode;
     }
 
-    public void OperateShooter() {
+    public void operateShooter() {
         if (map.shooterButton > 0.0) {
             targetRpm = map.shooterButton * MAX_RPM;
         }
@@ -51,5 +51,4 @@ public class Shooter {
         opmode.telemetry.addData("Motor RPM:",  motorRPM);
         opmode.telemetry.addData("err tps:", tgtTps - tps);
     }
-
 }

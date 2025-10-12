@@ -29,7 +29,7 @@ public class IntakeTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
-            intake.OperateIntake();
+            intake.operateIntake();
             telemetry.update();
         }
     }

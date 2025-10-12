@@ -12,10 +12,11 @@ public class AprilTagLocalizerLimelight {
         this.limelight = limelight;
     }
 
-    public void update(double yawDeg) {
-        limelight.updateRobotOrientation(yawDeg);
+    public void update(double yawDegField) {
+        limelight.updateRobotOrientation(yawDegField);
         result = limelight.getLatestResult();
     }
 
     public LLResult getResult() { return result; }
+    public long getMillisSinceLastUpdate() { return limelight.getTimeSinceLastUpdate(); }
 }

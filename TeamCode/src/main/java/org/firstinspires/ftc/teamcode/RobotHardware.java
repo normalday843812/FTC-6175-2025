@@ -28,8 +28,8 @@ public class RobotHardware {
 
     // Pinpoint
     GoBildaPinpointDriver pinpoint;
-    public static double pinpointXOffset = -84.0; // TODO: replace with our actual values
-    public static double pinpointYOffset = -168.0; // TODO: replace with our actual values
+    public static final double PINPOINT_X_OFFSET_M = 0.229;
+    public static final double PINPOINT_Y_OFFSET_M = 0.127;
 
     // Webcam
     private WebcamName webcam1;
@@ -60,7 +60,7 @@ public class RobotHardware {
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
-        pinpoint.setOffsets(pinpointXOffset, pinpointYOffset, DistanceUnit.MM);
+        pinpoint.setOffsets(PINPOINT_X_OFFSET_M, PINPOINT_Y_OFFSET_M, DistanceUnit.METER);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
 
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
