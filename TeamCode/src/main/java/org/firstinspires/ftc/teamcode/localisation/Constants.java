@@ -9,23 +9,8 @@ public class Constants {
     public static double TICKS_PER_REV = 2000.0;
     public static double WHEEL_RADIUS_M = 0.016;
     public static double GEAR_RATIO = 1.0;
-
-    // Odometry wheel offsets relative to the robot center (meters):
-    // +X is forward, +Y is robot-left.
-    public static double PARALLEL_Y_M = 0.0; // lateral offset of the parallel (forward) wheel
-    public static double PERPENDICULAR_X_M = 0.0; // forward offset of the perpendicular (strafe) wheel
-
+    public static double PARALLEL_Y_M = 0.0;
+    public static double PERPENDICULAR_X_M = 0.0;
     public static double kPos = 0.25;
-
     public static double kTheta = 0.5;
-
-    public static double MIN_TRUST = 0.2;
-    public static double GATE_POS_M = 0.75;
-    public static double GATE_TH_RAD = Math.toRadians(20);
-    public static double STATIONARY_V_MPS = 0.05;
-    public static double STATIONARY_OMEGA_RAD = 0.20;
-    public static double SNAP_POS_M = 1.0;
-    public static double SNAP_TH_RAD = Math.toRadians(30);
-
-
 }
