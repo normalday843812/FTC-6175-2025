@@ -6,10 +6,8 @@ import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.HOOD_LIS
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.LIMELIGHT_PIPELINE;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.MAX_OMEGA_RAD;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.MAX_VEL_MPS;
-import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.OMEGA_MAX;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.RPM_LIST;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.ROTATE_SCALE;
-import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.STICK_DB;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.TELEMETRY_ROWS;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.YAW_KD;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.YAW_KP;
@@ -183,9 +181,9 @@ public class ShotTuning extends LinearOpMode {
 
     private void driveLoop() {
         // Sticks
-        double fwd = deadband(-gamepad1.left_stick_y, STICK_DB) * DRIVE_SCALE;
-        double str = deadband(-gamepad1.left_stick_x, STICK_DB) * DRIVE_SCALE;
-        double rotStick = deadband(-gamepad1.right_stick_x, STICK_DB) * ROTATE_SCALE;
+        double fwd = deadband(-gamepad1.left_stick_y) * DRIVE_SCALE;
+        double str = deadband(-gamepad1.left_stick_x) * DRIVE_SCALE;
+        double rotStick = deadband(-gamepad1.right_stick_x) * ROTATE_SCALE;
 
         // Field->robot transform
         double h = state.getHeading();
@@ -201,7 +199,7 @@ public class ShotTuning extends LinearOpMode {
         } else {
             double errRad = Math.toRadians(llTxDeg); // +tx = target to right
             ChassisSpeeds vr = state.getChassisSpeedsRobot();
-            omegaCmd = clamp(YAW_KP * errRad - YAW_KD * vr.omegaRadiansPerSecond, -OMEGA_MAX, OMEGA_MAX);
+            omegaCmd = clamp(YAW_KP * errRad - YAW_KD * vr.omegaRadiansPerSecond);
         }
 
         // Mecanum mix
@@ -226,8 +224,8 @@ public class ShotTuning extends LinearOpMode {
         return Range.clip(v, 0, n - 1);
     }
 
-    private static double deadband(double v, double db) { return Math.abs(v) > db ? v : 0.0; }
-    private static double clamp(double v, double lo, double hi) { return Math.max(lo, Math.min(hi, v)); }
+    private static double deadband(double v) { return Math.abs(v) > ShotTuningConstants.STICK_DB ? v : 0.0; }
+    private static double clamp(double v) { return Math.max(-1.2, Math.min(ShotTuningConstants.OMEGA_MAX, v)); }
 
     private double batteryV() {
         double best = 0.0;

@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
-
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
@@ -11,7 +9,6 @@ import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Shooter {
-    private final OpMode opmode;
     private final GamepadMap map;
     private final DcMotorEx motor;
     private double targetRpm = 0.0;
@@ -21,7 +18,6 @@ public class Shooter {
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
         this.motor=motor;
         this.map=map;
-        this.opmode=opmode;
         this.tele = new TelemetryHelper(opmode, HoodServoConfig.TELEMETRY_ENABLED);
     }
 

@@ -19,7 +19,6 @@ import java.util.stream.Stream;
 
 @Configurable
 public class Mecanum {
-    private final OpMode opmode;
 
     // Motors
     private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
@@ -45,7 +44,6 @@ public class Mecanum {
         this.backRight = driveMotors.backRight;
         this.state = state;
         this.map = map;
-        this.opmode = opmode;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 

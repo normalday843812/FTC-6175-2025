@@ -69,15 +69,15 @@ public class StateEstimator {
         final ArrayDeque<Double> omegaHist;
         long stationarySinceMs = -1;
 
-        MotionState(int omegaWindow) {
-            this.omegaHist = new ArrayDeque<>(omegaWindow);
+        MotionState() {
+            this.omegaHist = new ArrayDeque<>(LocalisationConstants.OMEGA_WINDOW);
         }
     }
 
     private final VisionState vision = new VisionState();
     private final VisionPoseState visionPose = new VisionPoseState();
     private final ResidualState residual = new ResidualState();
-    private final MotionState motion = new MotionState(OMEGA_WINDOW);
+    private final MotionState motion = new MotionState();
 
 
     // Constructor

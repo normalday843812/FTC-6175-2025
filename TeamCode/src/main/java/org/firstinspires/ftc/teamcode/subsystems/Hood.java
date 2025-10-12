@@ -40,7 +40,7 @@ public class Hood {
             lastManualTimeSec = now;
 
             commanded += axis * MANUAL_RATE_PER_SEC * dt;
-            commanded = clamp(commanded, MIN_POS, MAX_POS);
+            commanded = clamp(commanded);
         } else {
             //noinspection StatementWithEmptyBody
             if (manualActive && (now - lastManualTimeSec) < MANUAL_HOLD_SEC) {
@@ -60,13 +60,13 @@ public class Hood {
     }
 
     public void setHoodServoPos(double pos) {
-        autoTarget = clamp(pos, MIN_POS, MAX_POS);
+        autoTarget = clamp(pos);
         if (!manualActive) commanded = autoTarget;
     }
 
 //    public double getCommanded() { return commanded; }
 
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
+    private static double clamp(double v) {
+        return Math.max(org.firstinspires.ftc.teamcode.config.HoodServoConfig.MIN_POS, Math.min(org.firstinspires.ftc.teamcode.config.HoodServoConfig.MAX_POS, v));
     }
 }
