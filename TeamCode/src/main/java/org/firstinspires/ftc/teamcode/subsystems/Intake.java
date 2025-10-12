@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
-
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.teamcode.GamepadMap;
@@ -10,7 +8,6 @@ import org.firstinspires.ftc.teamcode.config.IntakeConfig;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Intake {
-    private final OpMode opmode;
     private final DcMotor motor;
     private final GamepadMap map;
     private boolean running=false;
@@ -20,7 +17,6 @@ public class Intake {
     public Intake(DcMotor motor, GamepadMap map, OpMode opmode){
         this.motor=motor;
         this.map=map;
-        this.opmode=opmode;
         this.tele = new TelemetryHelper(opmode, HoodServoConfig.TELEMETRY_ENABLED);
     }
     public void operate() {
