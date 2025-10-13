@@ -7,6 +7,9 @@ import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 import android.annotation.SuppressLint;
 
 import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
+import com.pedropathing.control.KalmanFilter;
+import com.pedropathing.control.KalmanFilterParameters;
+import com.pedropathing.math.MathFunctions;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -34,6 +37,27 @@ public class StateEstimator {
 
     // Telemetry
     private final TelemetryHelper tele;
+    // Pedro Kalman filters
+    private KalmanFilter kx, ky, kth;
+
+    // Filter params
+    private static KalmanFilterParameters paramsPos() {
+        // Use ~1/3 of minimum gate as nominal sigma per axis
+        double sigma = GATE_POS_MIN_M / 3.0;
+        double modelVar = (0.25 * sigma) * (0.25 * sigma);
+        double dataVar  = sigma * sigma;
+        return new KalmanFilterParameters(modelVar, dataVar);
+    }
+    private static KalmanFilterParameters paramsYaw() {
+        double sigmaYaw = GATE_YAW_MIN_RAD / 3.0;
+        double modelVar = (0.25 * sigmaYaw) * (0.25 * sigmaYaw);
+        double dataVar  = sigmaYaw * sigmaYaw;
+        return new KalmanFilterParameters(modelVar, dataVar);
+    }
+
+    // State for fuser
+    private boolean seeded = false;
+    private Pose2D lastOdo = new Pose2D(DistanceUnit.METER, 0, 0, AngleUnit.RADIANS, 0);
 
     private static final class VisionState {
         boolean valid = false;
@@ -87,12 +111,23 @@ public class StateEstimator {
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+        this.kx = new KalmanFilter(paramsPos());
+        this.ky = new KalmanFilter(paramsPos());
+        this.kth = new KalmanFilter(paramsYaw());
     }
 
     public void seedFieldPose(double x, double y, double hRad) {
         pinpoint.resetPosAndIMU();
         pinpoint.setPosition(new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad));
         pinpoint.setHeading(hRad, AngleUnit.RADIANS);
+
+        kx.reset(x, 1e-6, 1);
+        ky.reset(y, 1e-6, 1);
+        kth.reset(hRad, 1e-6, 1);
+
+        lastOdo = new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad);
+        seeded = true;
+
         vision.seeded = true;
         vision.firstLockDone = true;
     }
@@ -101,11 +136,9 @@ public class StateEstimator {
     public void toggleFallbackMode() {
         this.fallbackMode = !this.fallbackMode;
     }
-
     public void setFallbackMode(boolean enabled) {
         this.fallbackMode = enabled;
     }
-
     public boolean isFallbackMode() {
         return this.fallbackMode;
     }
@@ -113,6 +146,12 @@ public class StateEstimator {
     // Must call once per loop for updated data
     public void update() {
         pinpoint.update();
+
+        if (!seeded) {
+            Pose2D odo = getPose();
+            seedFieldPose(odo.getX(DistanceUnit.METER), odo.getY(DistanceUnit.METER), odo.getHeading(AngleUnit.RADIANS));
+        }
+
         if (!fallbackMode) {
             aprilTagLocalizer.update(Math.toDegrees(getFusedHeading(AngleUnit.RADIANS)));
             LLResult r = aprilTagLocalizer.getResult();
@@ -128,8 +167,14 @@ public class StateEstimator {
                 vision.lastSpan = r.getBotposeSpan();
                 vision.lastAvgDist = r.getBotposeAvgDist();
             }
-            visionPose.lastFieldPose = getFieldPose();
         }
+
+        // Run fusion step
+        fuseOnce();
+
+        // Keep last fused pose available
+        visionPose.lastFieldPose = getFieldPose();
+
         addTelemetry();
     }
 
@@ -166,104 +211,30 @@ public class StateEstimator {
     }
 
     public Pose2D getFieldPose() {
-        if (fallbackMode) return getPose();
-
-        Pose2D est = getPose();
-        LLResult r = aprilTagLocalizer.getResult();
-        boolean fresh = r != null && r.isValid()
-                && aprilTagLocalizer.getMillisSinceLastUpdate() <= LL_STALE_MS;
-        Pose3D p = fresh ? r.getBotpose_MT2() : null;
-
-        vision.valid = fresh && p != null && !isZeroPose(p);
-
-        if (vision.valid) {
-            double llX = p.getPosition().x, llY = p.getPosition().y;
-            double llTh = p.getOrientation().getYaw(AngleUnit.RADIANS);
-            visionPose.llX = llX;
-            visionPose.llY = llY;
-            visionPose.llTheta = llTh;
-            vision.framesWithVision++;
-
-            double dx = llX - est.getX(DistanceUnit.METER);
-            double dy = llY - est.getY(DistanceUnit.METER);
-            double dTh = wrapRad(llTh - est.getHeading(AngleUnit.RADIANS));
-            residual.x = dx;
-            residual.y = dy;
-            residual.theta = dTh;
-            residual.stale = false;
-
-            Mt2Quality q = readQuality(r);
-            Gates g = gatesFrom(q);
-
-            boolean gate = Math.hypot(dx, dy) < g.gatePos_m && Math.abs(dTh) < g.gateYaw_rad;
-            if (gate) {
-                residual.appliedX = K_POS * dx;
-                residual.appliedY = K_POS * dy;
-                residual.appliedTheta = K_THETA * dTh;
-                est = new Pose2D(DistanceUnit.METER,
-                        est.getX(DistanceUnit.METER) + residual.appliedX,
-                        est.getY(DistanceUnit.METER) + residual.appliedY,
-                        AngleUnit.RADIANS,
-                        wrapRad(est.getHeading(AngleUnit.RADIANS) + residual.appliedTheta));
-                vision.accepted = true;
-                vision.framesAccepted++;
-                vision.lastAcceptMs = System.currentTimeMillis();
-                vision.firstLockDone = true;
-            } else {
-                // Stationary snap with filtered omega
-                ChassisSpeeds vf = getChassisSpeedsField();
-                double omegaRaw = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
-                omegaRaw = clamp(omegaRaw, -OMEGA_CLAMP_RADPS, OMEGA_CLAMP_RADPS);
-                if (motion.omegaHist.size() == OMEGA_WINDOW) motion.omegaHist.removeFirst();
-                motion.omegaHist.addLast(omegaRaw);
-                double omegaFilt = median(motion.omegaHist);
-
-                boolean slow = Math.hypot(vf.vxMetersPerSecond, vf.vyMetersPerSecond) < V_STAT_MPS
-                        && Math.abs(omegaFilt) < OMEGA_STAT_RADPS;
-
-                long now = System.currentTimeMillis();
-                if (slow) {
-                    if (motion.stationarySinceMs < 0) motion.stationarySinceMs = now;
-                } else {
-                    motion.stationarySinceMs = -1;
-                }
-
-                boolean held = motion.stationarySinceMs > 0 && (now - motion.stationarySinceMs) >= STATIONARY_HOLD_MS;
-                boolean goodSnap = Math.hypot(dx, dy) < g.snapPos_m && Math.abs(dTh) < g.snapYaw_rad;
-
-                if (held && goodSnap) {
-                    pinpoint.setPosition(new Pose2D(
-                            DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTh)
-                    );
-                    pinpoint.setHeading(llTh, AngleUnit.RADIANS);
-                    est = new Pose2D(DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTh);
-                    residual.appliedX = dx;
-                    residual.appliedY = dy;
-                    residual.appliedTheta = dTh;
-                    vision.accepted = true;
-                    vision.framesAccepted++;
-                    vision.lastAcceptMs = now;
-                    vision.seeded = true;
-                    vision.firstLockDone = true;
-                } else {
-                    vision.accepted = false;
-                    residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
-                }
-            }
-        } else {
-            vision.accepted = false;
-            residual.stale = true;
-            residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
-        }
-        return est;
+        return new Pose2D(
+                DistanceUnit.METER,
+                kx.getState(),
+                ky.getState(),
+                AngleUnit.RADIANS,
+                kth.getState()
+        );
     }
 
     public double getFusedHeading(AngleUnit angleUnit) {
-        return visionPose.lastFieldPose.getHeading(angleUnit);
+        if (angleUnit == AngleUnit.DEGREES) return Math.toDegrees(kth.getState());
+        return kth.getState();
     }
 
     public void reset() {
         pinpoint.resetPosAndIMU();
+        Pose2D odo = getPose();
+        kx.reset(odo.getX(DistanceUnit.METER), 1e-6, 1);
+        ky.reset(odo.getY(DistanceUnit.METER), 1e-6, 1);
+        kth.reset(odo.getHeading(AngleUnit.RADIANS), 1e-6, 1);
+        lastOdo = odo;
+        vision.framesWithVision = 0;
+        vision.framesAccepted = 0;
+        vision.lastAcceptMs = -1;
     }
 
     @SuppressLint("DefaultLocale")
@@ -357,6 +328,71 @@ public class StateEstimator {
         }
     }
 
+    private void fuseOnce() {
+        Pose2D odo = getPose();
+        double dx = odo.getX(DistanceUnit.METER) - lastOdo.getX(DistanceUnit.METER);
+        double dy = odo.getY(DistanceUnit.METER) - lastOdo.getY(DistanceUnit.METER);
+        double dth = angleDiffSigned(odo.getHeading(AngleUnit.RADIANS), lastOdo.getHeading(AngleUnit.RADIANS));
+
+        // Predict
+        double predX  = kx.getState()  + dx;
+        double predY  = ky.getState()  + dy;
+        double predTh = kth.getState() + dth;
+
+        // Measurement from Limelight if usable
+        LLResult r = fallbackMode ? null : aprilTagLocalizer.getResult();
+        boolean fresh = r != null && r.isValid() && aprilTagLocalizer.getMillisSinceLastUpdate() <= LL_STALE_MS;
+        Pose3D p = fresh ? r.getBotpose_MT2() : null;
+
+        vision.valid = fresh && p != null && !isZeroPose(p);
+
+        double mx = predX, my = predY, mth = predTh; // default: no external correction
+        vision.accepted = false;
+        residual.stale = true;
+        residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
+
+        if (vision.valid) {
+            visionPose.llX = p.getPosition().x;
+            visionPose.llY = p.getPosition().y;
+            visionPose.llTheta = p.getOrientation().getYaw(AngleUnit.RADIANS);
+            vision.framesWithVision++;
+
+            // Residuals for telemetry and gating
+            double rdx = visionPose.llX - predX;
+            double rdy = visionPose.llY - predY;
+            double rdth = angleDiffSigned(visionPose.llTheta, predTh);
+            residual.x = rdx;
+            residual.y = rdy;
+            residual.theta = rdth;
+            residual.stale = false;
+
+            Mt2Quality q = readQuality(r);
+            Gates g = gatesFrom(q);
+            boolean gateOK = Math.hypot(rdx, rdy) < g.gatePos_m && Math.abs(rdth) < g.gateYaw_rad;
+
+            if (gateOK) {
+                // Use measurement
+                mx = visionPose.llX;
+                my = visionPose.llY;
+                mth = unwrapNear(visionPose.llTheta, predTh);
+
+                residual.appliedX = rdx;
+                residual.appliedY = rdy;
+                residual.appliedTheta = rdth;
+                vision.accepted = true;
+                vision.framesAccepted++;
+                vision.lastAcceptMs = System.currentTimeMillis();
+                vision.firstLockDone = true;
+            }
+        }
+
+
+        kx.update(dx, mx);
+        ky.update(dy, my);
+        kth.update(dth, mth);
+
+        lastOdo = odo;
+    }
 
     // utils
     private static double median(ArrayDeque<Double> d) {
@@ -434,5 +470,21 @@ public class StateEstimator {
         g.snapPos_m = clamp(4.0 * sigmaPos, g.gatePos_m, SNAP_POS_MAX_M);
         g.snapYaw_rad = clamp(4.0 * sigmaYaw, g.gateYaw_rad, SNAP_YAW_MAX_RAD);
         return g;
+    }
+
+    private static double angleDiffSigned(double a, double b) {
+        double na = MathFunctions.normalizeAngle(a);
+        double nb = MathFunctions.normalizeAngle(b);
+        double diff = na - nb;
+        if (diff > Math.PI) diff -= 2 * Math.PI;
+        if (diff < -Math.PI) diff += 2 * Math.PI;
+        return diff;
+    }
+
+    private static double unwrapNear(double angle, double reference) {
+        double a = angle;
+        while (a - reference > Math.PI) a -= 2 * Math.PI;
+        while (a - reference < -Math.PI) a += 2 * Math.PI;
+        return a;
     }
 }

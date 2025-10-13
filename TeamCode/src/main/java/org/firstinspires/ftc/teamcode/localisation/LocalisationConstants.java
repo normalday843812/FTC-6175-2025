@@ -32,4 +32,5 @@ public class LocalisationConstants {
     public static final boolean TELEMETRY_ENABLED = true;
     public static final double K_POS = 0.25;
     public static final double K_THETA = 0.5;
+    public static final double OMEGA_LPF_ALPHA = 0.25;
 }
