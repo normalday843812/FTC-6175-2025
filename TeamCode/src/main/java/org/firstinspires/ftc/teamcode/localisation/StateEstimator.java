@@ -197,9 +197,9 @@ public class StateEstimator {
 
             boolean gate = Math.hypot(dx, dy) < g.gatePos_m && Math.abs(dTh) < g.gateYaw_rad;
             if (gate) {
-                residual.appliedX = kPos * dx;
-                residual.appliedY = kPos * dy;
-                residual.appliedTheta = kTheta * dTh;
+                residual.appliedX = K_POS * dx;
+                residual.appliedY = K_POS * dy;
+                residual.appliedTheta = K_THETA * dTh;
                 est = new Pose2D(DistanceUnit.METER,
                         est.getX(DistanceUnit.METER) + residual.appliedX,
                         est.getY(DistanceUnit.METER) + residual.appliedY,
