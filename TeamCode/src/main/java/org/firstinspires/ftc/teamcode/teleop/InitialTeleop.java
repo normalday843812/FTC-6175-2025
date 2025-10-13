@@ -6,94 +6,62 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
-import org.firstinspires.ftc.teamcode.subsystems.DriveMotors;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
-import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
-
     @Override
     public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
 
-        AprilTagLocalizerLimelight aprilTagLocalizer = new AprilTagLocalizerLimelight(
-                hw.getLimelight()
-        );
-
+        // Vision
+        AprilTagLocalizerLimelight aprilTagLocalizer = new AprilTagLocalizerLimelight(hw.getLimelight());
         hw.initLimeLight(100);
         hw.setLimelightPipeline(0);
 
+        // Odometry / IMU
         hw.initPinpoint();
-        StateEstimator state = new StateEstimator(
-                this,
-                hw.getPinpoint(),
-                aprilTagLocalizer
-        );
+        StateEstimator state = new StateEstimator(this, hw.getPinpoint(), aprilTagLocalizer);
+
         GamepadMap map = new GamepadMap(this);
 
+        // Drive
         hw.initDriveMotors();
-        DriveMotors driveMotors = new DriveMotors(
-                hw.getFrontLeft(),
-                hw.getBackLeft(),
-                hw.getFrontRight(),
-                hw.getBackRight()
-        );
         Mecanum drive = new Mecanum(
-                driveMotors,
                 state,
                 map,
-                this
+                this,
+                hw.getFrontLeft(),
+                hw.getFrontRight(),
+                hw.getBackLeft(),
+                hw.getBackRight()
         );
 
+        // Subsystems
         hw.initIntake();
-        Intake intake = new Intake(
-                hw.getIntakeMotor(),
-                map,
-                this
-        );
+        Intake intake = new Intake(hw.getIntakeMotor(), map, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(
-                hw.getShooterMotor(),
-                map,
-                this
-        );
+        Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
 
         hw.initHood();
-        Hood hood = new Hood(
-                hw.getHoodServo(),
-                map,
-                this
-        );
+        Hood hood = new Hood(hw.getHoodServo(), map, this);
 
-        if (isStopRequested()) {
-            TelemetryHelper.setGlobalEnabled(false);
-            TelemetryHelper.update();
-            TelemetryHelper.reset();
-            return;
-        }
-
+        if (isStopRequested()) return;
         waitForStart();
-        try {
-            while (opModeIsActive()) {
-                map.update();
-                state.update();
-                drive.operate();
-                intake.operate();
-                shooter.operate();
-                hood.operate();
-                TelemetryHelper.update();
-            }
-        } finally {
-            TelemetryHelper.update();
-            TelemetryHelper.setGlobalEnabled(false);
-            TelemetryHelper.update();
-            TelemetryHelper.reset();
+
+        while (opModeIsActive()) {
+            map.update();
+            state.update();
+            drive.operate();
+            intake.operate();
+            shooter.operate();
+            hood.operate();
+            telemetry.update();
         }
     }
 }
