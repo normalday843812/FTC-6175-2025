@@ -35,7 +35,7 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -52,7 +52,7 @@ public class ShotTuning extends LinearOpMode {
     // Hardware / subsystems
     private RobotHardware hw;
     private StateEstimator state;
-    private AprilTagLocalizerLimelight ll;
+    private AprilTagLocalizer ll;
 
     private DcMotorEx fl, fr, bl, br;
 
@@ -101,7 +101,7 @@ public class ShotTuning extends LinearOpMode {
         hw.initLimeLight(100);
         hw.setLimelightPipeline(LIMELIGHT_PIPELINE);
 
-        ll = new AprilTagLocalizerLimelight(hw.getLimelight());
+        ll = new AprilTagLocalizer(hw.getLimelight());
         state = new StateEstimator(this, hw.getPinpoint(), ll);
 
         // Shooter + hood
