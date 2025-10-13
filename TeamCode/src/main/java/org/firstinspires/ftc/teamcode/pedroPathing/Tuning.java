@@ -88,10 +88,10 @@ public class Tuning extends SelectableOpMode {
         if (follower == null) {
             RobotHardware hw = new RobotHardware(this);
 
-            AprilTagLocalizer ll = new AprilTagLocalizer(hw.getLimelight());
             hw.initLimeLight(100);
             hw.setLimelightPipeline(0);
             hw.initPinpoint();
+            AprilTagLocalizer ll = new AprilTagLocalizer(hw.getLimelight());
 
             StateEstimator state = new StateEstimator(this, hw.getPinpoint(), ll);
 

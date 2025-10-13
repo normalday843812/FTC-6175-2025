@@ -20,6 +20,8 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 public class StateEstimator implements Localizer {
+    /* Would like to mention that using PedroPathing's KF is a bit of a black box, but it should
+    be better for integration purposes */
     // Hardware
     private final GoBildaPinpointDriver pinpoint;
     private final AprilTagLocalizer aprilTagLocalizer;
@@ -133,6 +135,10 @@ public class StateEstimator implements Localizer {
             fusedIn = new Pose(xInOdo, yInOdo, h);
             lastImuHeadingRad = h;
             seeded = true;
+            // Initialize filters at the current pose
+            kx.reset(fusedIn.getX(), 1.0, 1.0);
+            ky.reset(fusedIn.getY(), 1.0, 1.0);
+            kth.reset(fusedIn.getHeading(), 1.0, 1.0);
         }
 
         // Unbounded heading accumulator
@@ -150,7 +156,7 @@ public class StateEstimator implements Localizer {
 
         boolean accepted = false;
         double mxIn = 0, myIn = 0, mh = 0;
-
+        // TODO: add better documentation
         if (visionEnabled && fresh) {
             Pose3D p = r.getBotpose_MT2();
             if (!isZeroPose(p)) {
@@ -197,29 +203,36 @@ public class StateEstimator implements Localizer {
             vision.valid = false;
         }
 
+        double dxIn = xInOdo - kx.getState();
+        double dyIn = yInOdo - ky.getState();
+        double dHIn = wrap(h - kth.getState());
+
         // Fusion
         if (accepted) {
-            double dxIn = xInOdo - fusedIn.getX();
-            double dyIn = yInOdo - fusedIn.getY();
-            double dHIn = wrap(h - fusedIn.getHeading());
+            double predictedH = wrap(kth.getState() + dHIn);
+            double mhWrapped = predictedH + wrap(mh - predictedH);
 
             kx.update(dxIn, mxIn);
             ky.update(dyIn, myIn);
-            kth.update(dHIn, mh);
-
-            fusedIn = new Pose(
-                    fusedIn.getX() + kx.getState(),
-                    fusedIn.getY() + ky.getState(),
-                    wrap(fusedIn.getHeading() + kth.getState())
-            );
+            kth.update(dHIn, mhWrapped);
 
             vision.accepted = true;
             vision.framesAccepted++;
             vision.lastAcceptMs = System.currentTimeMillis();
         } else {
-            fusedIn = new Pose(xInOdo, yInOdo, h);
+            kx.update(dxIn, kx.getState() + dxIn);
+            ky.update(dyIn, ky.getState() + dyIn);
+            kth.update(dHIn, wrap(kth.getState() + dHIn));
+
             vision.accepted = false;
         }
+
+        fusedIn = new Pose(
+                fusedIn.getX() + kx.getState(),
+                fusedIn.getY() + ky.getState(),
+                wrap(fusedIn.getHeading() + kth.getState())
+        );
+
         if (vision.valid) vision.framesWithVision++;
 
         velIn = new Pose(vxIn, vyIn, wRps);

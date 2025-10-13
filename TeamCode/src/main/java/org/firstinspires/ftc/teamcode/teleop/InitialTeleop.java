@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.*;
+
 import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -12,6 +14,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 @TeleOp
@@ -21,9 +24,9 @@ public class InitialTeleop extends LinearOpMode {
         RobotHardware hw = new RobotHardware(this);
 
         // Vision
-        AprilTagLocalizer aprilTagLocalizer = new AprilTagLocalizer(hw.getLimelight());
         hw.initLimeLight(100);
         hw.setLimelightPipeline(0);
+        AprilTagLocalizer aprilTagLocalizer = new AprilTagLocalizer(hw.getLimelight());
 
         // Odometry / IMU
         hw.initPinpoint();
@@ -50,6 +53,11 @@ public class InitialTeleop extends LinearOpMode {
         if (isStopRequested()) return;
         waitForStart();
 
+        follower.getDrivetrain().useVoltageCompensation(ENABLE_VOLTAGE_COMPENSATION);
+        follower.setMaxPowerScaling(DEFAULT_MAX_POWER);
+        TelemetryHelper.setGlobalEnabled(ENABLE_TELEMETRY);
+        state.setVisionEnabled(ENABLE_VISION);
+
         while (opModeIsActive()) {
             map.update();
             state.update();
@@ -57,7 +65,7 @@ public class InitialTeleop extends LinearOpMode {
             intake.operate();
             shooter.operate();
             hood.operate();
-            telemetry.update();
+            TelemetryHelper.update();
         }
     }
 }

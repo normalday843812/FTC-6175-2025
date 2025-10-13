@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.config.DriveConfig.FORWARD_ENCODER_
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_X_OFFSET_M;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_Y_OFFSET_M;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.STRAFE_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.isFailFastOnMissingHardware;
 
 import android.util.Size;
 
@@ -23,8 +24,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.VisionProcessor;
-
-import java.util.Objects;
 
 public class RobotHardware {
     private final OpMode inputOpMode;
@@ -119,10 +118,15 @@ public class RobotHardware {
     }
 
     public void setLimelightPipeline(int pipelineNum) {
-        try {
+        if (limelight == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("Limelight is not initialized; cannot switch to pipeline " + pipelineNum);
+            } else {
+                initLimeLight(100);
+                limelight.pipelineSwitch(pipelineNum);
+            }
+        } else {
             limelight.pipelineSwitch(pipelineNum);
-        } catch (NullPointerException e) {
-            throw new IllegalStateException("Limelight is not initialized; cannot switch to pipeline " + pipelineNum, e);
         }
     }
 
@@ -192,104 +196,148 @@ public class RobotHardware {
     // Getters
     // Motors
     public DcMotorEx getFrontRight() {
-        try {
-            return Objects.requireNonNull(frontRightMotor, "frontRightMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (frontRightMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("frontRightMotor not init");
+            } else {
+                initDriveMotors();
+                return frontRightMotor;
+            }
+        } else {
             return frontRightMotor;
         }
     }
 
     public DcMotorEx getFrontLeft() {
-        try {
-            return Objects.requireNonNull(frontLeftMotor, "frontLeftMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (frontLeftMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("frontLeftMotor not init");
+            } else {
+                initDriveMotors();
+                return frontLeftMotor;
+            }
+        } else {
             return frontLeftMotor;
         }
     }
 
     public DcMotorEx getBackRight() {
-        try {
-            return Objects.requireNonNull(backRightMotor, "backRightMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (backRightMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("backRightMotor not init");
+            } else {
+                initDriveMotors();
+                return backRightMotor;
+            }
+        } else {
             return backRightMotor;
         }
     }
 
     public DcMotorEx getBackLeft() {
-        try {
-            return Objects.requireNonNull(backLeftMotor, "backLeftMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (backLeftMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("backLeftMotor not init");
+            } else {
+                initDriveMotors();
+                return backLeftMotor;
+            }
+        } else {
             return backLeftMotor;
         }
     }
 
     public DcMotor getIntakeMotor() {
-        try {
-            return Objects.requireNonNull(intakeMotor, "intakeMotor not init");
-        } catch (NullPointerException e) {
-            initIntake();
+        if (intakeMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("intakeMotor not init");
+            } else {
+                initIntake();
+                return intakeMotor;
+            }
+        } else {
             return intakeMotor;
         }
     }
 
     public DcMotorEx getShooterMotor() {
-        try {
-            return Objects.requireNonNull(shooterMotor, "shooterMotor not init");
-        } catch (NullPointerException e) {
-            initShooter();
+        if (shooterMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("shooterMotor not init");
+            } else {
+                initShooter();
+                return shooterMotor;
+            }
+        } else {
             return shooterMotor;
         }
     }
 
     // Odo encoders
     public DcMotorEx getOdoParallel() {
-        try {
-            return Objects.requireNonNull(frontRightMotor, "frontRightMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (frontRightMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("frontRightMotor (OdoParallel) not init");
+            } else {
+                initDriveMotors();
+                return frontRightMotor;
+            }
+        } else {
             return frontRightMotor;
         }
     }
 
     public DcMotorEx getOdoPerp() {
-        try {
-            return Objects.requireNonNull(backLeftMotor, "backLeftMotor not init");
-        } catch (NullPointerException e) {
-            initDriveMotors();
+        if (backLeftMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("backLeftMotor (odoPerp) not init");
+            } else {
+                initDriveMotors();
+                return backLeftMotor;
+            }
+        } else {
             return backLeftMotor;
         }
     }
 
     // Servos
     public Servo getHoodServo() {
-        try {
-            return Objects.requireNonNull(hoodServo, "hoodServo not init");
-        } catch (NullPointerException e) {
-            initHood();
+        if (hoodServo == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("hoodServo not init");
+            } else {
+                initHood();
+                return hoodServo;
+            }
+        } else {
             return hoodServo;
         }
     }
 
     // Pinpoint
     public GoBildaPinpointDriver getPinpoint() {
-        try {
-            return Objects.requireNonNull(pinpoint, "pinpoint not init");
-        } catch (NullPointerException e) {
-            initPinpoint();
+        if (pinpoint == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("pinpoint not init");
+            } else {
+                initPinpoint();
+                return pinpoint;
+            }
+        } else {
             return pinpoint;
         }
     }
 
     // IMU
     public IMU getIMU() {
-        try {
-            return Objects.requireNonNull(imu, "imu not init");
-        } catch (NullPointerException e) {
-            initIMU();
+        if (imu == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("imu not init");
+            } else {
+                initIMU();
+                return imu;
+            }
+        } else {
             return imu;
         }
     }
@@ -305,10 +353,14 @@ public class RobotHardware {
 
     // Limelight
     public Limelight3A getLimelight() {
-        try {
-            return Objects.requireNonNull(limelight, "Limelight not init");
-        } catch (NullPointerException e) {
-            initLimeLight(100);
+        if (limelight == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("limelight not init");
+            } else {
+                initLimeLight(100);
+                return limelight;
+            }
+        } else {
             return limelight;
         }
     }
