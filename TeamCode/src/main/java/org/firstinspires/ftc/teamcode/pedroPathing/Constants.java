@@ -31,7 +31,6 @@ public class Constants {
     );
 
     public static Follower createFollower(RobotHardware hw, StateEstimator state) {
-        // Ensure motors are initialized before we build the drivetrain
         hw.initDriveMotors();
         Drivetrain drivetrain = getDrivetrain(hw);
 
