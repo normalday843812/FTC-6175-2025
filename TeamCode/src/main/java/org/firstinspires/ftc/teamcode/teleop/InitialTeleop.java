@@ -1,11 +1,13 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -27,19 +29,13 @@ public class InitialTeleop extends LinearOpMode {
         hw.initPinpoint();
         StateEstimator state = new StateEstimator(this, hw.getPinpoint(), aprilTagLocalizer);
 
+        Follower follower = Constants.createFollower(hw, state);
+
         GamepadMap map = new GamepadMap(this);
 
         // Drive
         hw.initDriveMotors();
-        Mecanum drive = new Mecanum(
-                state,
-                map,
-                this,
-                hw.getFrontLeft(),
-                hw.getFrontRight(),
-                hw.getBackLeft(),
-                hw.getBackRight()
-        );
+        Mecanum drive = new Mecanum(state, map, this, follower);
 
         // Subsystems
         hw.initIntake();

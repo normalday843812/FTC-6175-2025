@@ -10,7 +10,7 @@ import android.util.Size;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -27,10 +27,10 @@ import org.firstinspires.ftc.vision.VisionProcessor;
 import java.util.Objects;
 
 public class RobotHardware {
-    private final LinearOpMode inputOpMode;
+    private final OpMode inputOpMode;
 
     // Constructor for OpMode
-    public RobotHardware(LinearOpMode opMode) {
+    public RobotHardware(OpMode opMode) {
         inputOpMode = opMode;
     }
 

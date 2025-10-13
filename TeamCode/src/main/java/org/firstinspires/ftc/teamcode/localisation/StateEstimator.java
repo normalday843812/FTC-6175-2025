@@ -140,6 +140,9 @@ public class StateEstimator implements Localizer {
         totalHeadingRad += dH;
         lastImuHeadingRad = h;
 
+        // Let Limelight know our current field-referenced yaw
+        aprilTagLocalizer.update(Math.toDegrees(h));
+
         // Vision
         LLResult r = aprilTagLocalizer.getResult();
         vision.lastAgeMs = aprilTagLocalizer.getMillisSinceLastUpdate();
