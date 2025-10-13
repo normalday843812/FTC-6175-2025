@@ -22,6 +22,8 @@ import org.firstinspires.ftc.teamcode.localisation.LocalisationConstants;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
+import java.util.function.DoubleSupplier;
+
 public class Mecanum {
     // State estimation
     private final Follower follower;
@@ -42,14 +44,23 @@ public class Mecanum {
     public static class PedroMecanumDrivetrain extends Drivetrain {
         private final DcMotorEx fl, fr, bl, br;
         private double maxPower = 1.0;
-        // These must store calibrated max speeds (in/s)
+        // Store calibrated max speeds (in/s). Set via setXVelocity/YVelocity.
         private double xVel, yVel;
 
+        // Supplier for live battery voltage
+        private final DoubleSupplier voltageSupplier;
+
         public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br) {
+            this(fl, fr, bl, br, () -> 12.0);
+        }
+
+        public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br,
+                                      DoubleSupplier voltageSupplier) {
             this.fl = fl;
             this.fr = fr;
             this.bl = bl;
             this.br = br;
+            this.voltageSupplier = voltageSupplier;
         }
 
         @Override
@@ -79,28 +90,75 @@ public class Mecanum {
 
         @Override
         public void runDrive(double[] p) {
-            fl.setPower(p[0]);
-            fr.setPower(p[1]);
-            bl.setPower(p[2]);
-            br.setPower(p[3]);
+            double scale = 1.0;
+            if (isVoltageCompensation()) {
+                double v = getVoltage();
+                double vNom = getNominalVoltage() > 0 ? getNominalVoltage() : 12.0;
+                if (v > 0) scale = vNom / v;
+            }
+            fl.setPower(p[0] * scale);
+            fr.setPower(p[1] * scale);
+            bl.setPower(p[2] * scale);
+            br.setPower(p[3] * scale);
         }
 
-        @Override public void updateConstants() {}
-        @Override public void breakFollowing() {}
+        @Override
+        public void updateConstants() {
+        }
 
-        @Override public void startTeleopDrive() {}
-        @Override public void startTeleopDrive(boolean brakeMode) {}
+        @Override
+        public void breakFollowing() {
+        }
 
-        @Override public double xVelocity() { return xVel; }
-        @Override public double yVelocity() { return yVel; }
-        @Override public void setXVelocity(double v) { xVel = v; }
-        @Override public void setYVelocity(double v) { yVel = v; }
+        @Override
+        public void startTeleopDrive() {
+        }
 
-        @Override public void setMaxPowerScaling(double s) { maxPower = Math.max(0, Math.min(1, s)); }
-        @Override public double getMaxPowerScaling() { return maxPower; }
+        @Override
+        public void startTeleopDrive(boolean brakeMode) {
+        }
 
-        @Override public double getVoltage() { return 12.0; } // optional voltage compensation hook
-        @Override public String debugString() { return "mecanum"; }
+        // Return calibrated max speeds (in/s)
+        @Override
+        public double xVelocity() {
+            return xVel;
+        }
+
+        @Override
+        public double yVelocity() {
+            return yVel;
+        }
+
+        @Override
+        public void setXVelocity(double v) {
+            xVel = v;
+        }
+
+        @Override
+        public void setYVelocity(double v) {
+            yVel = v;
+        }
+
+        @Override
+        public void setMaxPowerScaling(double s) {
+            maxPower = Math.max(0, Math.min(1, s));
+        }
+
+        @Override
+        public double getMaxPowerScaling() {
+            return maxPower;
+        }
+
+        @Override
+        public double getVoltage() {
+            double v = voltageSupplier != null ? voltageSupplier.getAsDouble() : 12.0;
+            return v > 0 ? v : 12.0;
+        }
+
+        @Override
+        public String debugString() {
+            return "mecanum";
+        }
     }
 
     public Mecanum(StateEstimator state,

@@ -34,6 +34,10 @@ public class RobotHardware {
         inputOpMode = opMode;
     }
 
+    public OpMode getOpMode() {
+        return inputOpMode;
+    }
+
     // Pinpoint
     GoBildaPinpointDriver pinpoint;
 
