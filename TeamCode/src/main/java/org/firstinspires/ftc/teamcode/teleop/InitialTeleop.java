@@ -11,6 +11,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
 @TeleOp
@@ -60,7 +61,7 @@ public class InitialTeleop extends LinearOpMode {
         Shooter shooter = new Shooter(
                 hw.getShooterMotor(),
                 map,
-        this
+                this
         );
 
         hw.initHood();
@@ -70,18 +71,29 @@ public class InitialTeleop extends LinearOpMode {
                 this
         );
 
-        if (isStopRequested()) return;
+        if (isStopRequested()) {
+            TelemetryHelper.setGlobalEnabled(false);
+            TelemetryHelper.update();
+            TelemetryHelper.reset();
+            return;
+        }
 
         waitForStart();
-
-        while (opModeIsActive()) {
-            map.update();
-            state.update();
-            drive.operate();
-            intake.operate();
-            shooter.operate();
-            hood.operate();
-            telemetry.update();
+        try {
+            while (opModeIsActive()) {
+                map.update();
+                state.update();
+                drive.operate();
+                intake.operate();
+                shooter.operate();
+                hood.operate();
+                TelemetryHelper.update();
+            }
+        } finally {
+            TelemetryHelper.update();
+            TelemetryHelper.setGlobalEnabled(false);
+            TelemetryHelper.update();
+            TelemetryHelper.reset();
         }
     }
 }

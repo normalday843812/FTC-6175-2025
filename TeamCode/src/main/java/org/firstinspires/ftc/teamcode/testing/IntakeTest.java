@@ -6,8 +6,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@TeleOp(name="Intake Test", group = "Testing")
+@TeleOp(name = "Intake Test", group = "Testing")
 public class IntakeTest extends LinearOpMode {
 
     @Override
@@ -18,9 +19,9 @@ public class IntakeTest extends LinearOpMode {
 
         hw.initIntake();
         Intake intake = new Intake(
-            hw.getIntakeMotor(),
-            map,
-            this
+                hw.getIntakeMotor(),
+                map,
+                this
         );
 
         if (isStopRequested()) return;
@@ -30,7 +31,7 @@ public class IntakeTest extends LinearOpMode {
         while (opModeIsActive()) {
             map.update();
             intake.operate();
-            telemetry.update();
+            TelemetryHelper.update();
         }
     }
 }

@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode.misc;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@TeleOp(name="Play Thick of It", group="TeleOp")
+@TeleOp(name = "Play Thick of It", group = "TeleOp")
 public class ThickOfItOpMode extends LinearOpMode {
 
     @Override

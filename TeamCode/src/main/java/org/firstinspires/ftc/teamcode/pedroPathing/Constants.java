@@ -29,7 +29,7 @@ public class Constants {
             .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD); // TODO: Input actual motor directions
-            // TODO: Add actual tuning constants: https://pedropathing.com/docs/pathing/tuning/automatic
+    // TODO: Add actual tuning constants: https://pedropathing.com/docs/pathing/tuning/automatic
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
             .forwardPodY(-6) // TODO: tune

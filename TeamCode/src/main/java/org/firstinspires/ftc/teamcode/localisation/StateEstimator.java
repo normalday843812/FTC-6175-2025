@@ -101,9 +101,11 @@ public class StateEstimator {
     public void toggleFallbackMode() {
         this.fallbackMode = !this.fallbackMode;
     }
+
     public void setFallbackMode(boolean enabled) {
         this.fallbackMode = enabled;
     }
+
     public boolean isFallbackMode() {
         return this.fallbackMode;
     }
@@ -121,7 +123,7 @@ public class StateEstimator {
                         p.getOrientation().getYaw(AngleUnit.RADIANS));
             }
 
-            if (r!=null){
+            if (r != null) {
                 vision.lastTagCount = r.getBotposeTagCount();
                 vision.lastSpan = r.getBotposeSpan();
                 vision.lastAvgDist = r.getBotposeAvgDist();
@@ -163,46 +165,56 @@ public class StateEstimator {
         return new ChassisSpeeds(vxR, vyR, omega);
     }
 
-    public Pose2D getFieldPose(){
+    public Pose2D getFieldPose() {
         if (fallbackMode) return getPose();
 
         Pose2D est = getPose();
         LLResult r = aprilTagLocalizer.getResult();
-        boolean fresh = r!=null && r.isValid()
+        boolean fresh = r != null && r.isValid()
                 && aprilTagLocalizer.getMillisSinceLastUpdate() <= LL_STALE_MS;
         Pose3D p = fresh ? r.getBotpose_MT2() : null;
 
-        vision.valid = fresh && p!=null && !isZeroPose(p);
+        vision.valid = fresh && p != null && !isZeroPose(p);
 
-        if (vision.valid){
+        if (vision.valid) {
             double llX = p.getPosition().x, llY = p.getPosition().y;
             double llTh = p.getOrientation().getYaw(AngleUnit.RADIANS);
-            visionPose.llX=llX; visionPose.llY=llY; visionPose.llTheta=llTh; vision.framesWithVision++;
+            visionPose.llX = llX;
+            visionPose.llY = llY;
+            visionPose.llTheta = llTh;
+            vision.framesWithVision++;
 
             double dx = llX - est.getX(DistanceUnit.METER);
             double dy = llY - est.getY(DistanceUnit.METER);
-            double dTh= wrapRad(llTh - est.getHeading(AngleUnit.RADIANS));
-            residual.x=dx; residual.y=dy; residual.theta=dTh; residual.stale=false;
+            double dTh = wrapRad(llTh - est.getHeading(AngleUnit.RADIANS));
+            residual.x = dx;
+            residual.y = dy;
+            residual.theta = dTh;
+            residual.stale = false;
 
             Mt2Quality q = readQuality(r);
             Gates g = gatesFrom(q);
 
-            boolean gate = Math.hypot(dx,dy) < g.gatePos_m && Math.abs(dTh) < g.gateYaw_rad;
-            if (gate){
-                residual.appliedX = kPos*dx; residual.appliedY = kPos*dy; residual.appliedTheta = kTheta*dTh;
+            boolean gate = Math.hypot(dx, dy) < g.gatePos_m && Math.abs(dTh) < g.gateYaw_rad;
+            if (gate) {
+                residual.appliedX = kPos * dx;
+                residual.appliedY = kPos * dy;
+                residual.appliedTheta = kTheta * dTh;
                 est = new Pose2D(DistanceUnit.METER,
                         est.getX(DistanceUnit.METER) + residual.appliedX,
                         est.getY(DistanceUnit.METER) + residual.appliedY,
                         AngleUnit.RADIANS,
                         wrapRad(est.getHeading(AngleUnit.RADIANS) + residual.appliedTheta));
-                vision.accepted=true; vision.framesAccepted++;
-                vision.lastAcceptMs=System.currentTimeMillis(); vision.firstLockDone=true;
+                vision.accepted = true;
+                vision.framesAccepted++;
+                vision.lastAcceptMs = System.currentTimeMillis();
+                vision.firstLockDone = true;
             } else {
                 // Stationary snap with filtered omega
                 ChassisSpeeds vf = getChassisSpeedsField();
                 double omegaRaw = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
                 omegaRaw = clamp(omegaRaw, -OMEGA_CLAMP_RADPS, OMEGA_CLAMP_RADPS);
-                if (motion.omegaHist.size()==OMEGA_WINDOW) motion.omegaHist.removeFirst();
+                if (motion.omegaHist.size() == OMEGA_WINDOW) motion.omegaHist.removeFirst();
                 motion.omegaHist.addLast(omegaRaw);
                 double omegaFilt = median(motion.omegaHist);
 
@@ -210,32 +222,45 @@ public class StateEstimator {
                         && Math.abs(omegaFilt) < OMEGA_STAT_RADPS;
 
                 long now = System.currentTimeMillis();
-                if (slow){ if (motion.stationarySinceMs<0) motion.stationarySinceMs=now; }
-                else { motion.stationarySinceMs=-1; }
+                if (slow) {
+                    if (motion.stationarySinceMs < 0) motion.stationarySinceMs = now;
+                } else {
+                    motion.stationarySinceMs = -1;
+                }
 
-                boolean held = motion.stationarySinceMs>0 && (now-motion.stationarySinceMs) >= STATIONARY_HOLD_MS;
-                boolean goodSnap = Math.hypot(dx,dy) < g.snapPos_m && Math.abs(dTh) < g.snapYaw_rad;
+                boolean held = motion.stationarySinceMs > 0 && (now - motion.stationarySinceMs) >= STATIONARY_HOLD_MS;
+                boolean goodSnap = Math.hypot(dx, dy) < g.snapPos_m && Math.abs(dTh) < g.snapYaw_rad;
 
-                if (held && goodSnap){
+                if (held && goodSnap) {
                     pinpoint.setPosition(new Pose2D(
                             DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTh)
                     );
                     pinpoint.setHeading(llTh, AngleUnit.RADIANS);
                     est = new Pose2D(DistanceUnit.METER, llX, llY, AngleUnit.RADIANS, llTh);
-                    residual.appliedX=dx; residual.appliedY=dy; residual.appliedTheta=dTh;
-                    vision.accepted=true; vision.framesAccepted++; vision.lastAcceptMs=now; vision.seeded=true;
-                    vision.firstLockDone=true;
+                    residual.appliedX = dx;
+                    residual.appliedY = dy;
+                    residual.appliedTheta = dTh;
+                    vision.accepted = true;
+                    vision.framesAccepted++;
+                    vision.lastAcceptMs = now;
+                    vision.seeded = true;
+                    vision.firstLockDone = true;
                 } else {
-                    vision.accepted=false; residual.appliedX=residual.appliedY=residual.appliedTheta=0;
+                    vision.accepted = false;
+                    residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
                 }
             }
         } else {
-            vision.accepted=false; residual.stale=true; residual.appliedX=residual.appliedY=residual.appliedTheta=0;
+            vision.accepted = false;
+            residual.stale = true;
+            residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
         }
         return est;
     }
 
-    public double getFusedHeading(AngleUnit angleUnit) {return visionPose.lastFieldPose.getHeading(angleUnit);}
+    public double getFusedHeading(AngleUnit angleUnit) {
+        return visionPose.lastFieldPose.getHeading(angleUnit);
+    }
 
     public void reset() {
         pinpoint.resetPosAndIMU();
@@ -334,29 +359,34 @@ public class StateEstimator {
 
 
     // utils
-    private static double median(ArrayDeque<Double> d){
-        double[] a = d.stream().mapToDouble(x->x).toArray();
+    private static double median(ArrayDeque<Double> d) {
+        double[] a = d.stream().mapToDouble(x -> x).toArray();
         Arrays.sort(a);
-        int n=a.length; return n==0?0:(n%2==1?a[n/2]:0.5*(a[n/2-1]+a[n/2]));
+        int n = a.length;
+        return n == 0 ? 0 : (n % 2 == 1 ? a[n / 2] : 0.5 * (a[n / 2 - 1] + a[n / 2]));
     }
-    private static boolean isZeroPose(Pose3D p){
-        if (p==null) return true;
-        double x=p.getPosition().x, y=p.getPosition().y, z=p.getPosition().z;
-        double yaw=p.getOrientation().getYaw(AngleUnit.RADIANS);
-        return Math.abs(x)<ZERO_EPS_POS_M
-                && Math.abs(y)<ZERO_EPS_POS_M
-                && Math.abs(z)<ZERO_EPS_POS_M
-                && Math.abs(yaw)<ZERO_EPS_YAW_RAD;
+
+    private static boolean isZeroPose(Pose3D p) {
+        if (p == null) return true;
+        double x = p.getPosition().x, y = p.getPosition().y, z = p.getPosition().z;
+        double yaw = p.getOrientation().getYaw(AngleUnit.RADIANS);
+        return Math.abs(x) < ZERO_EPS_POS_M
+                && Math.abs(y) < ZERO_EPS_POS_M
+                && Math.abs(z) < ZERO_EPS_POS_M
+                && Math.abs(yaw) < ZERO_EPS_YAW_RAD;
     }
+
     private static final class Mt2Quality {
-        int tagCount; double span_m, avgDist_m, avgArea, sx_m, sy_m, syaw_rad;
+        int tagCount;
+        double span_m, avgDist_m, avgArea, sx_m, sy_m, syaw_rad;
     }
-    private static Mt2Quality readQuality(LLResult r){
+
+    private static Mt2Quality readQuality(LLResult r) {
         Mt2Quality q = new Mt2Quality();
         q.tagCount = r.getBotposeTagCount();
         q.span_m = r.getBotposeSpan();
         q.avgDist_m = r.getBotposeAvgDist();
-        q.avgArea =r.getBotposeAvgArea();
+        q.avgArea = r.getBotposeAvgArea();
 
         double[] std = r.getStddevMt2();
         if (std != null && std.length >= 6) {
@@ -374,30 +404,35 @@ public class StateEstimator {
         return q;
     }
 
-    private boolean isUsableVision(LLResult r){
-        if (r==null || !r.isValid()) return false;
+    private boolean isUsableVision(LLResult r) {
+        if (r == null || !r.isValid()) return false;
         if (aprilTagLocalizer.getMillisSinceLastUpdate() > LL_STALE_MS) return false;
-        Pose3D p = r.getBotpose_MT2(); if (isZeroPose(p)) return false;
+        Pose3D p = r.getBotpose_MT2();
+        if (isZeroPose(p)) return false;
 
         Mt2Quality q = readQuality(r);
         if (q.tagCount < MIN_TAGS) return false;
 
         double sigmaPos = Math.hypot(q.sx_m, q.sy_m);
         boolean multi = q.tagCount >= 2;
-        boolean singleOk = (!multi) && (3.0*sigmaPos <= SINGLE_TAG_3SIGMA_POS_MAX_M);
+        boolean singleOk = (!multi) && (3.0 * sigmaPos <= SINGLE_TAG_3SIGMA_POS_MAX_M);
         if (!(multi || singleOk)) return false;
 
         return !(q.avgArea < MIN_AVG_AREA);
     }
-    private static final class Gates { double gatePos_m, gateYaw_rad, snapPos_m, snapYaw_rad; }
-    private static Gates gatesFrom(Mt2Quality q){
+
+    private static final class Gates {
+        double gatePos_m, gateYaw_rad, snapPos_m, snapYaw_rad;
+    }
+
+    private static Gates gatesFrom(Mt2Quality q) {
         double sigmaPos = Math.hypot(q.sx_m, q.sy_m);
         double sigmaYaw = Math.abs(q.syaw_rad);
-        Gates g=new Gates();
-        g.gatePos_m = clamp(3.0*sigmaPos, GATE_POS_MIN_M, GATE_POS_MAX_M);
-        g.gateYaw_rad = clamp(3.0*sigmaYaw, GATE_YAW_MIN_RAD, GATE_YAW_MAX_RAD);
-        g.snapPos_m = clamp(4.0*sigmaPos, g.gatePos_m, SNAP_POS_MAX_M);
-        g.snapYaw_rad = clamp(4.0*sigmaYaw, g.gateYaw_rad, SNAP_YAW_MAX_RAD);
+        Gates g = new Gates();
+        g.gatePos_m = clamp(3.0 * sigmaPos, GATE_POS_MIN_M, GATE_POS_MAX_M);
+        g.gateYaw_rad = clamp(3.0 * sigmaYaw, GATE_YAW_MIN_RAD, GATE_YAW_MAX_RAD);
+        g.snapPos_m = clamp(4.0 * sigmaPos, g.gatePos_m, SNAP_POS_MAX_M);
+        g.snapYaw_rad = clamp(4.0 * sigmaYaw, g.gateYaw_rad, SNAP_YAW_MAX_RAD);
         return g;
     }
 }

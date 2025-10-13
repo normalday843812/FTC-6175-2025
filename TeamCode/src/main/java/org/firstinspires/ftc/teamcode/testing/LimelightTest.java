@@ -8,12 +8,11 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 
-@TeleOp(name="Limelight Test", group = "Testing")
+@TeleOp(name = "Limelight Test", group = "Testing")
 public class LimelightTest extends LinearOpMode {
 
     @Override
-    public void runOpMode() throws InterruptedException
-    {
+    public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
 
         hw.initLimeLight(100);

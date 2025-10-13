@@ -8,6 +8,7 @@ public class StateEstimatorLocaliser implements Localizer {
 
     public StateEstimatorLocaliser() {
     }
+
     /**
      * This returns the current pose estimate from the Localizer.
      *

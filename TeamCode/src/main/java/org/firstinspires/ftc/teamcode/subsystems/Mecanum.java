@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import static androidx.core.math.MathUtils.clamp;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.*;
-import static org.firstinspires.ftc.teamcode.config.HoodServoConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 
@@ -77,16 +76,24 @@ public class Mecanum {
     private void handleToggles() {
         if (map.angleLockToggle) {
             angleLock = !angleLock;
-            if (angleLock) { targetHeading = state.getFusedHeading(AngleUnit.RADIANS); }
+            if (angleLock) {
+                targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
+            }
         }
-        if (map.slowModeToggle) { slowMode = !slowMode; }
-        if (map.fieldCentricToggle) { fieldCentricEnabled = !fieldCentricEnabled; }
-        if (map.stateEstimatorFallbackToggle) { state.toggleFallbackMode(); }
+        if (map.slowModeToggle) {
+            slowMode = !slowMode;
+        }
+        if (map.fieldCentricToggle) {
+            fieldCentricEnabled = !fieldCentricEnabled;
+        }
+        if (map.stateEstimatorFallbackToggle) {
+            state.toggleFallbackMode();
+        }
     }
 
 
     private void applyRobotVel(double vx, double vy, double omega) {
-        if(slowMode) {
+        if (slowMode) {
             vx *= SLOW_MODE_FACTOR;
             vy *= SLOW_MODE_FACTOR;
             omega *= SLOW_MODE_FACTOR;
@@ -104,8 +111,10 @@ public class Mecanum {
                         Math.abs(frontRightPower), Math.abs(backRightPower))
                 .max(Double::compare).orElse(0.0);
         double scale = Math.max(1.0, maxMag);
-        frontLeftPower /= scale; backLeftPower /= scale;
-        frontRightPower /= scale; backRightPower /= scale;
+        frontLeftPower /= scale;
+        backLeftPower /= scale;
+        frontRightPower /= scale;
+        backRightPower /= scale;
 
         frontLeft.setPower(frontLeftPower);
         backLeft.setPower(backLeftPower);

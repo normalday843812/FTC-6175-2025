@@ -28,8 +28,11 @@ import java.util.Objects;
 
 public class RobotHardware {
     private final LinearOpMode inputOpMode;
+
     // Constructor for OpMode
-    public RobotHardware(LinearOpMode opMode) { inputOpMode = opMode; }
+    public RobotHardware(LinearOpMode opMode) {
+        inputOpMode = opMode;
+    }
 
     // Pinpoint
     GoBildaPinpointDriver pinpoint;
@@ -170,9 +173,11 @@ public class RobotHardware {
     public void stopVisionStreaming() {
         if (visionPortal != null) visionPortal.stopStreaming();
     }
+
     public void resumeVisionStreaming() {
         if (visionPortal != null) visionPortal.resumeStreaming();
     }
+
     public void closeVision() {
         if (visionPortal != null) {
             visionPortal.close();
@@ -190,6 +195,7 @@ public class RobotHardware {
             return frontRightMotor;
         }
     }
+
     public DcMotorEx getFrontLeft() {
         try {
             return Objects.requireNonNull(frontLeftMotor, "frontLeftMotor not init");
@@ -198,6 +204,7 @@ public class RobotHardware {
             return frontLeftMotor;
         }
     }
+
     public DcMotorEx getBackRight() {
         try {
             return Objects.requireNonNull(backRightMotor, "backRightMotor not init");
@@ -206,6 +213,7 @@ public class RobotHardware {
             return backRightMotor;
         }
     }
+
     public DcMotorEx getBackLeft() {
         try {
             return Objects.requireNonNull(backLeftMotor, "backLeftMotor not init");
@@ -214,6 +222,7 @@ public class RobotHardware {
             return backLeftMotor;
         }
     }
+
     public DcMotor getIntakeMotor() {
         try {
             return Objects.requireNonNull(intakeMotor, "intakeMotor not init");
@@ -241,6 +250,7 @@ public class RobotHardware {
             return frontRightMotor;
         }
     }
+
     public DcMotorEx getOdoPerp() {
         try {
             return Objects.requireNonNull(backLeftMotor, "backLeftMotor not init");
@@ -281,8 +291,13 @@ public class RobotHardware {
     }
 
     // Webcam
-    public VisionPortal getVisionPortal() { return visionPortal; }
-    public WebcamName getWebcam1() { return webcam1; }
+    public VisionPortal getVisionPortal() {
+        return visionPortal;
+    }
+
+    public WebcamName getWebcam1() {
+        return webcam1;
+    }
 
     // Limelight
     public Limelight3A getLimelight() {
