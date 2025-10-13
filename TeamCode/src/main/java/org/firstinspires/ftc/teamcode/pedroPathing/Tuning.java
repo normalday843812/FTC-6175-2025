@@ -16,13 +16,21 @@ import com.bylazar.field.Style;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
 import com.pedropathing.follower.Follower;
-import com.pedropathing.geometry.*;
-import com.pedropathing.math.*;
-import com.pedropathing.paths.*;
+import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.math.Vector;
+import com.pedropathing.paths.HeadingInterpolator;
+import com.pedropathing.paths.Path;
+import com.pedropathing.paths.PathChain;
 import com.pedropathing.telemetry.SelectableOpMode;
-import com.pedropathing.util.*;
+import com.pedropathing.util.PoseHistory;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,18 +86,33 @@ public class Tuning extends SelectableOpMode {
     @Override
     public void onSelect() {
         if (follower == null) {
-            follower = Constants.createFollower(hardwareMap);
+            RobotHardware hw = new RobotHardware(this);
+
+            AprilTagLocalizer ll = new AprilTagLocalizer(hw.getLimelight());
+            hw.initLimeLight(100);
+            hw.setLimelightPipeline(0);
+            hw.initPinpoint();
+
+            StateEstimator state = new StateEstimator(this, hw.getPinpoint(), ll);
+
+            // Create follower with custom components
+            follower = Constants.createFollower(hw, state);
             PanelsConfigurables.INSTANCE.refreshClass(this);
         } else {
-            follower = Constants.createFollower(hardwareMap);
+            // Recreate with existing hardware
+            RobotHardware hw = new RobotHardware(this);
+            AprilTagLocalizer ll = new AprilTagLocalizer(hw.getLimelight());
+            hw.initLimeLight(100);
+            hw.setLimelightPipeline(0);
+            hw.initPinpoint();
+            StateEstimator state = new StateEstimator(this, hw.getPinpoint(), ll);
+
+            follower = Constants.createFollower(hw, state);
         }
 
         follower.setStartingPose(new Pose());
-
         poseHistory = follower.getPoseHistory();
-
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
-
         Drawing.init();
     }
 

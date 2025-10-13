@@ -1,54 +1,44 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.*;
-
+import com.pedropathing.Drivetrain;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
-import com.pedropathing.ftc.FollowerBuilder;
-import com.pedropathing.ftc.drivetrains.MecanumConstants;
-import com.pedropathing.ftc.localization.constants.PinpointConstants;
 import com.pedropathing.paths.PathConstraints;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(5.0); // TODO: put actual robot mass (kg)
-
-    public static MecanumConstants driveConstants = new MecanumConstants()
-            .maxPower(1.0)
-            .rightFrontMotorName("front_right_drive")
-            .rightRearMotorName("back_right_drive")
-            .leftRearMotorName("back_left_drive")
-            .leftFrontMotorName("front_left_drive")
-            .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightRearMotorDirection(DcMotorSimple.Direction.REVERSE);
-
-    public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(PINPOINT_Y_OFFSET_M)
-            .strafePodX(PINPOINT_X_OFFSET_M)
-            .distanceUnit(DistanceUnit.METER)
-            .hardwareMapName("pinpoint")
-            .encoderResolution(ENCODER_RESOLUTION)
-            .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION)
-            .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION);
+            .mass(5.0);
 
     public static PathConstraints pathConstraints = new PathConstraints(
-            0.80,
-            60.0,
-            1.00,
-            1.00
+            0.995,
+            0.1,
+            0.1,
+            0.007,
+            100,
+            1.0,
+            10,
+            1.0
     );
 
-    public static Follower createFollower(HardwareMap hardwareMap) {
-        return new FollowerBuilder(followerConstants, hardwareMap)
-                .pinpointLocalizer(localizerConstants)
-                .pathConstraints(pathConstraints)
-                .mecanumDrivetrain(driveConstants)
-                .build();
+    public static Follower createFollower(RobotHardware hw, StateEstimator state) {
+        // Ensure motors are initialized before we build the drivetrain
+        hw.initDriveMotors();
+        DcMotorEx fl = hw.getFrontLeft();
+        DcMotorEx fr = hw.getFrontRight();
+        DcMotorEx bl = hw.getBackLeft();
+        DcMotorEx br = hw.getBackRight();
+
+        Drivetrain drivetrain = new Mecanum.PedroMecanumDrivetrain(fl, fr, bl, br);
+
+        // TODO: After running the velocity tuners, set measured max speeds in in/s:
+        // follower.setXVelocity(<forward_ips>);
+        // follower.setYVelocity(<strafe_ips>);
+
+        return new Follower(followerConstants, state, drivetrain, pathConstraints);
     }
 }
