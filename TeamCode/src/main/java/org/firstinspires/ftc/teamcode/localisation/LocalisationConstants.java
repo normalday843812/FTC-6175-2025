@@ -30,6 +30,6 @@ public class LocalisationConstants {
 
     // Other
     public static final boolean TELEMETRY_ENABLED = true;
-    public static final double kPos = 0.25;
-    public static final double kTheta = 0.5;
+    public static final double K_POS = 0.25;
+    public static final double K_THETA = 0.5;
 }
