@@ -17,12 +17,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 public class StateEstimator implements Localizer {
     // Hardware
     private final GoBildaPinpointDriver pinpoint;
-    private final AprilTagLocalizerLimelight aprilTagLocalizer;
+    private final AprilTagLocalizer aprilTagLocalizer;
 
     // Telemetry
     private final TelemetryHelper tele;
@@ -89,7 +89,7 @@ public class StateEstimator implements Localizer {
         return new KalmanFilterParameters(modelVar, dataVar);
     }
 
-    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizerLimelight aprilTagLocalizer) {
+    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizer aprilTagLocalizer) {
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);

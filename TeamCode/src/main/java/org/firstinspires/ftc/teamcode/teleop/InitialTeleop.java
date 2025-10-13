@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
@@ -19,7 +19,7 @@ public class InitialTeleop extends LinearOpMode {
         RobotHardware hw = new RobotHardware(this);
 
         // Vision
-        AprilTagLocalizerLimelight aprilTagLocalizer = new AprilTagLocalizerLimelight(hw.getLimelight());
+        AprilTagLocalizer aprilTagLocalizer = new AprilTagLocalizer(hw.getLimelight());
         hw.initLimeLight(100);
         hw.setLimelightPipeline(0);
 
