@@ -48,5 +48,7 @@ public class AprilTagLocalizer {
         }
     }
 
-    public AprilTagProcessor getAprilTag() { return aprilTag; }
+    public AprilTagProcessor getAprilTag() {
+        return aprilTag;
+    }
 }

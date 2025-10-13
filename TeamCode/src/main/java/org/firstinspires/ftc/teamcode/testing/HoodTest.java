@@ -6,8 +6,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@TeleOp(name="Hood Test", group = "Testing")
+@TeleOp(name = "Hood Test", group = "Testing")
 public class HoodTest extends LinearOpMode {
 
     @Override
@@ -30,7 +31,7 @@ public class HoodTest extends LinearOpMode {
         while (opModeIsActive()) {
             map.update();
             hood.operate();
-            telemetry.update();
+            TelemetryHelper.update();
         }
     }
 }

@@ -5,6 +5,7 @@ import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Servo;
+
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -65,7 +66,9 @@ public class Hood {
         if (!manualActive) commanded = autoTarget;
     }
 
-    public double getCommanded() { return commanded; }
+    public double getCommanded() {
+        return commanded;
+    }
 
     private static double clamp(double v) {
         return Math.max(MIN_POS, Math.min(MAX_POS, v));

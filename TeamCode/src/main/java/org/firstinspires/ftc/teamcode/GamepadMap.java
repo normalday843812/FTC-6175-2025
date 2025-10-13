@@ -20,9 +20,10 @@ public class GamepadMap {
     public boolean resetPinpointButton;
     public double hoodAxis;
 
-    private final EdgeTrigger a=new EdgeTrigger(), b=new EdgeTrigger(), x=new EdgeTrigger(),
-            dpad_down_t=new EdgeTrigger(), right_bumper_t=new EdgeTrigger(),
-            left_bumper_t=new EdgeTrigger();
+    private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
+            dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
+            left_bumper_t = new EdgeTrigger();
+
     public GamepadMap(OpMode opmode) {
         this.opmode = opmode;
     }

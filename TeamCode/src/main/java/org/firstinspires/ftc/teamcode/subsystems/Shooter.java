@@ -4,7 +4,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.config.HoodServoConfig;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -16,13 +15,14 @@ public class Shooter {
     private final TelemetryHelper tele;
 
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
-        this.motor=motor;
-        this.map=map;
-        this.tele = new TelemetryHelper(opmode, HoodServoConfig.TELEMETRY_ENABLED);
+        this.motor = motor;
+        this.map = map;
+        this.tele = new TelemetryHelper(opmode, ShooterConfig.TELEMETRY_ENABLED);
     }
 
     public void operate() {
-        if (map.shooterTrigger > ShooterConfig.TRIGGER_DB) targetRpm = map.shooterTrigger * ShooterConfig.MAX_RPM;
+        if (map.shooterTrigger > ShooterConfig.TRIGGER_DB)
+            targetRpm = map.shooterTrigger * ShooterConfig.MAX_RPM;
         setRpm(targetRpm);
 
         double tps = motor.getVelocity();
@@ -36,7 +36,7 @@ public class Shooter {
                 .addData("err tps:", "%.1f", targetRpm * ShooterConfig.TPR_OUTPUT / 60.0 - tps);
     }
 
-    public void setRpm(double rpm){
+    public void setRpm(double rpm) {
         rpm = Math.max(0.0, Math.min(ShooterConfig.MAX_RPM, rpm));
         motor.setVelocity(rpm * ShooterConfig.TPR_OUTPUT / 60.0);
     }
