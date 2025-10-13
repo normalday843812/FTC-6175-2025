@@ -1,23 +1,29 @@
 package org.firstinspires.ftc.teamcode.tuning;
 
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.*;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.D;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.F;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.I;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.P;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
+import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.DRIVE_SCALE;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.HOOD_LIST;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.LIMELIGHT_PIPELINE;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.MAX_OMEGA_RAD;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.MAX_VEL_MPS;
-import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.RPM_LIST;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.ROTATE_SCALE;
+import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.RPM_LIST;
+import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.STICK_DB;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.TELEMETRY_ROWS;
-import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.YAW_KD;
-import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.YAW_KP;
 
 import android.annotation.SuppressLint;
+import android.os.Environment;
 
-import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.Range;
@@ -31,6 +37,9 @@ import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -64,10 +73,16 @@ public class ShotTuning extends LinearOpMode {
     private boolean llValid = false;
     private double llTxDeg = Double.NaN;
 
+    // CSV logging
+    private String logPath = null;
+
+    private PrintWriter logOut;
+    private int savedCount = 0;
+
     // Log row
     private static class Row {
         int i, j;
-        double rpm_t, rpm_m, hood, x, y, th_deg, psi_deg, V;
+        double rpm_t, rpm_m, hood, x_m, y_m, th_deg, tx_deg, V;
         boolean seen;
     }
     private final List<Row> log = new ArrayList<>();
@@ -89,22 +104,28 @@ public class ShotTuning extends LinearOpMode {
         ll = new AprilTagLocalizerLimelight(hw.getLimelight());
         state = new StateEstimator(this, hw.getPinpoint(), ll);
 
-        Shooter shooter = new Shooter(hw.getShooterMotor(), new GamepadMap(this), this);
+        // Shooter + hood
+        hw.initShooter();
         hw.initHood();
+        GamepadMap map = new GamepadMap(this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
+
+        // CSV
+        openLog();
 
         if (isStopRequested()) return;
         waitForStart();
 
-        // Shooter into velocity mode with your PIDF
-        hw.getShooterMotor().setMode(com.qualcomm.robotcore.hardware.DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        hw.getShooterMotor().setMode(com.qualcomm.robotcore.hardware.DcMotor.RunMode.RUN_USING_ENCODER);
+        // Shooter velocity mode with your PIDF
+        hw.getShooterMotor().setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        hw.getShooterMotor().setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         hw.getShooterMotor().setVelocityPIDFCoefficients(P, I, D, F);
 
         while (opModeIsActive()) {
-            state.update();            // updates Pinpoint and pushes yaw to Limelight
-            updateLimelightSample();   // reads LLResult
+            state.update();            // Pinpoint + Limelight orientation handling inside StateEstimator
+            updateLimelightSample();   // read latest LLResult
 
-            // Grid selection on D-Pad (edge-triggered)
+            // Grid selection
             if (edgeDUp.press(gamepad1.dpad_up))       i = clampIndex(i + 1, RPM_LIST.length);
             if (edgeDDown.press(gamepad1.dpad_down))   i = clampIndex(i - 1, RPM_LIST.length);
             if (edgeDRight.press(gamepad1.dpad_right)) j = clampIndex(j + 1, HOOD_LIST.length);
@@ -120,11 +141,14 @@ public class ShotTuning extends LinearOpMode {
 
             // Log shot on A when settled
             if (edgeA.press(gamepad1.a) && isSettled()) {
-                log.add(snapshot(rpmTarget));
+                Row r = snapshot(rpmTarget);
+                log.add(r);
+                appendCsv(r);
+                savedCount++;
                 stepIndexRowMajor(); // auto-advance
             }
 
-            // Undo last
+            // Undo last (in-memory only)
             if (edgeX.press(gamepad1.x) && !log.isEmpty()) {
                 log.remove(log.size() - 1);
             }
@@ -138,11 +162,56 @@ public class ShotTuning extends LinearOpMode {
             if (edgeRB.press(gamepad1.right_bumper)) {
                 aimLock = !aimLock;
             }
-
-            if (TELEMETRY_ENABLED) {
-                addTelemetry(rpmTarget);
-            }
+            addTelemetry(rpmTarget);
             idle();
+        }
+
+        closeLog();
+    }
+
+    private void openLog() {
+        try {
+            String dirPath = Environment.getExternalStorageDirectory().getPath() + "/FIRST";
+            File dir = new File(dirPath);
+            boolean ok = dir.exists() || dir.mkdirs();
+            if (!ok) {
+                telemetry.addData("LOG", "mkdirs failed: %s", dirPath);
+                telemetry.update();
+                logOut = null;
+                logPath = "(disabled)";
+                return;
+            }
+
+            File file = new File(dir, "shot_tuning.csv");
+            boolean writeHeader = !file.exists();
+            logOut = new PrintWriter(new FileWriter(file, true));
+            logPath = file.getPath();
+            if (writeHeader) {
+                logOut.println("i,j,rpm_t,rpm_m,hood,x_m,y_m,theta_deg,tx_deg,seen,batt_V");
+                logOut.flush();
+            }
+        } catch (Exception e) {
+            telemetry.addData("LOG", "open failed: %s", e.getMessage());
+            telemetry.update();
+            logOut = null;
+            logPath = "(disabled)";
+        }
+    }
+
+
+    private void appendCsv(Row r) {
+        if (logOut == null) return;
+        logOut.printf(Locale.US,
+                "%d,%d,%.0f,%.0f,%.3f,%.3f,%.3f,%.1f,%.1f,%s,%.2f%n",
+                r.i, r.j, r.rpm_t, r.rpm_m, r.hood, r.x_m, r.y_m, r.th_deg,
+                (Double.isNaN(r.tx_deg) ? 999.0 : r.tx_deg), r.seen ? "Y" : "N", r.V);
+        logOut.flush();
+    }
+
+    private void closeLog() {
+        if (logOut != null) {
+            try { logOut.flush(); logOut.close(); } catch (Exception ignored) {}
+            logOut = null;
         }
     }
 
@@ -152,10 +221,12 @@ public class ShotTuning extends LinearOpMode {
         llTxDeg = llValid ? r.getTx() : Double.NaN;
     }
 
+    // Uses Pedro velocity from Localizer; converts inches/s -> m/s with IN_TO_M
     private boolean isSettled() {
-        ChassisSpeeds vf = state.getChassisSpeedsField();
-        return Math.hypot(vf.vxMetersPerSecond, vf.vyMetersPerSecond) < MAX_VEL_MPS
-                && Math.abs(vf.omegaRadiansPerSecond) < MAX_OMEGA_RAD;
+        Pose vIn = state.getVelocity(); // in/s, rad/s
+        double vxy_mps = Math.hypot(vIn.getX(), vIn.getY()) * IN_TO_M;
+        double w = vIn.getHeading(); // rad/s
+        return vxy_mps < MAX_VEL_MPS && Math.abs(w) < MAX_OMEGA_RAD;
     }
 
     private Row snapshot(double rpmTarget) {
@@ -167,14 +238,14 @@ public class ShotTuning extends LinearOpMode {
         double tps = hw.getShooterMotor().getVelocity(); // ticks/s at motor encoder
         row.rpm_m = tps * 60.0 / TPR_MOTOR;
 
-        Pose2D pose = state.getPose(); // odometry-frame is fine for logging
-        row.x = pose.getX(DistanceUnit.METER);
-        row.y = pose.getY(DistanceUnit.METER);
+        Pose2D pose = state.getFieldPose(); // meters + radians
+        row.x_m = pose.getX(DistanceUnit.METER);
+        row.y_m = pose.getY(DistanceUnit.METER);
         row.th_deg = Math.toDegrees(pose.getHeading(AngleUnit.RADIANS));
 
         row.hood = HOOD_LIST[j];
         row.seen = llValid;
-        row.psi_deg = llValid ? llTxDeg : Double.NaN;
+        row.tx_deg = llValid ? llTxDeg : Double.NaN;
         row.V = batteryV();
         return row;
     }
@@ -185,21 +256,24 @@ public class ShotTuning extends LinearOpMode {
         double str = deadband(-gamepad1.left_stick_x) * DRIVE_SCALE;
         double rotStick = deadband(-gamepad1.right_stick_x) * ROTATE_SCALE;
 
-        // Field->robot transform
-        double h = state.getHeading();
+        // Field->robot transform using fused heading
+        double h = state.getFusedHeading(AngleUnit.RADIANS);
         double cos = Math.cos(h), sin = Math.sin(h);
         double vxR = fwd * cos + str * sin;
         double vyR = -fwd * sin + str * cos;
 
-        // Yaw command: manual if rotating or no vision/lock; else PD on tx
+        // Yaw command: manual if rotating or no vision/lock; else PD on tx using Pedro angular vel
         double omegaCmd;
         boolean driverRot = Math.abs(rotStick) > 0.01;
         if (driverRot || !aimLock || !llValid) {
             omegaCmd = rotStick;
         } else {
             double errRad = Math.toRadians(llTxDeg); // +tx = target to right
-            ChassisSpeeds vr = state.getChassisSpeedsRobot();
-            omegaCmd = clamp(YAW_KP * errRad - YAW_KD * vr.omegaRadiansPerSecond);
+            double omega = state.getVelocity().getHeading(); // rad/s from Localizer
+            omegaCmd = clamp(
+                    ShotTuningConstants.YAW_KP * errRad
+                            - ShotTuningConstants.YAW_KD * omega
+            );
         }
 
         // Mecanum mix
@@ -224,7 +298,7 @@ public class ShotTuning extends LinearOpMode {
         return Range.clip(v, 0, n - 1);
     }
 
-    private static double deadband(double v) { return Math.abs(v) > ShotTuningConstants.STICK_DB ? v : 0.0; }
+    private static double deadband(double v) { return Math.abs(v) > STICK_DB ? v : 0.0; }
     private static double clamp(double v) { return Math.max(-1.2, Math.min(ShotTuningConstants.OMEGA_MAX, v)); }
 
     private double batteryV() {
@@ -242,7 +316,7 @@ public class ShotTuning extends LinearOpMode {
         telemetry.addData("grid", "i=%d/%d  j=%d/%d", i, RPM_LIST.length - 1, j, HOOD_LIST.length - 1);
         telemetry.addData("lock", aimLock ? "ON" : "OFF");
 
-        Pose2D pose = state.getPose();
+        Pose2D pose = state.getFieldPose();
         double x = pose.getX(DistanceUnit.METER);
         double y = pose.getY(DistanceUnit.METER);
         double thDeg = Math.toDegrees(pose.getHeading(AngleUnit.RADIANS));
@@ -255,17 +329,19 @@ public class ShotTuning extends LinearOpMode {
         telemetry.addData("pose", "(%.3f, %.3f) m  θ=%.1f°", x, y, thDeg);
         telemetry.addData("LL",   "seen=%b  tx=%.1f°  pipe=%d", llValid, llValid ? llTxDeg : Double.NaN, LIMELIGHT_PIPELINE);
 
-        telemetry.addLine("#  i  j  rpm_t  rpm_m  hood   x     y    θdeg  ψerr°  seen  Vv");
+        telemetry.addData("csv", "%s  saved=%d", logPath, savedCount);
+
+        telemetry.addLine("#  i  j  rpm_t  rpm_m  hood   x     y    θdeg  ψerr°  seen  V");
         int start = Math.max(0, log.size() - TELEMETRY_ROWS);
         for (int k = start; k < log.size(); k++) {
             Row r = log.get(k);
             telemetry.addLine(String.format(Locale.US,
                     "%2d %2d %2d %5.0f %5.0f  %.3f  %.2f  %.2f  %6.1f  %6.1f  %4s  %.2f",
-                    k, r.i, r.j, r.rpm_t, r.rpm_m, r.hood, r.x, r.y, r.th_deg,
-                    (Double.isNaN(r.psi_deg) ? 999.0 : r.psi_deg),
+                    k, r.i, r.j, r.rpm_t, r.rpm_m, r.hood, r.x_m, r.y_m, r.th_deg,
+                    (Double.isNaN(r.tx_deg) ? 999.0 : r.tx_deg),
                     r.seen ? "Y" : "N", r.V));
         }
-        telemetry.addLine("A=log  X=undo  Y=skip  RB=toggle lock  DPad=select  LS/RS=drive");
+        telemetry.addLine("A=log  X=undo(mem)  Y=skip  RB=toggle lock  DPad=select  LS/RS=drive");
         telemetry.update();
     }
 
