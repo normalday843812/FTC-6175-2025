@@ -1,9 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.FORWARD_ENCODER_DIRECTION;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_X_OFFSET_M;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.PINPOINT_Y_OFFSET_M;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.STRAFE_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ENCODER_RESOLUTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_ENCODER_DIRECTION;
+
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.isFailFastOnMissingHardware;
 
 import android.util.Size;
@@ -70,7 +72,7 @@ public class RobotHardware {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
         pinpoint.setOffsets(PINPOINT_X_OFFSET_M, PINPOINT_Y_OFFSET_M, DistanceUnit.METER);
-        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        pinpoint.setEncoderResolution(ENCODER_RESOLUTION);
 
         pinpoint.setEncoderDirections(FORWARD_ENCODER_DIRECTION,
                 STRAFE_ENCODER_DIRECTION);

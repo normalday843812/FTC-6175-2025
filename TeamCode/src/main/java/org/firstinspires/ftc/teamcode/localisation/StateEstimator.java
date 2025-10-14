@@ -1,6 +1,17 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
-import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.*;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.M_TO_IN;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_POS_MAX_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_POS_MIN_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_YAW_MAX_RAD;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_YAW_MIN_RAD;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.LL_STALE_MS;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.MIN_AVG_AREA;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.SINGLE_TAG_3SIGMA_POS_MAX_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ZERO_EPS_POS_M;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ZERO_EPS_YAW_RAD;
 
 import com.pedropathing.control.KalmanFilter;
 import com.pedropathing.control.KalmanFilterParameters;
@@ -237,7 +248,6 @@ public class StateEstimator implements Localizer {
 
         velIn = new Pose(vxIn, vyIn, wRps);
 
-        // Legacy field pose in meters for your other code
         visionPose.lastFieldPose = new Pose2D(
                 DistanceUnit.METER,
                 fusedIn.getX() * IN_TO_M,

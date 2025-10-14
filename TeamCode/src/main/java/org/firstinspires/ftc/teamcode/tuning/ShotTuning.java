@@ -1,11 +1,11 @@
 package org.firstinspires.ftc.teamcode.tuning;
 
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.D;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.F;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.I;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.P;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
-import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.DRIVE_SCALE;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.HOOD_LIST;
 import static org.firstinspires.ftc.teamcode.tuning.ShotTuningConstants.LIMELIGHT_PIPELINE;
