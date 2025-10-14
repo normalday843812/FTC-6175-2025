@@ -12,4 +12,8 @@ public class GlobalConfig {
     public static boolean isFailFastOnMissingHardware() {
         return !COMPETITION_MODE;
     }
+
+    // Units
+    public static final double M_TO_IN = 39.37007874015748;
+    public static final double IN_TO_M = 1.0 / M_TO_IN;
 }

@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.SLOW_MODE_FACTOR;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 
@@ -18,7 +19,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.localisation.LocalisationConstants;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -242,7 +242,7 @@ public class Mecanum {
                 .addData("Toggles", "slow=%b angleLock=%b", slowMode, angleLock)
                 .addData("Cmd", "vx=%.2f vy=%.2f ω=%.2f", vx, vy, omegaCmd)
                 .addData("Pose_in", "(%.1f, %.1f) | %.1f°", pIn.getX(), pIn.getY(), headingDeg)
-                .addData("Pose_m", "(%.3f, %.3f) | %.1f°", pIn.getX() * LocalisationConstants.IN_TO_M, pIn.getY() * LocalisationConstants.IN_TO_M, headingDeg)
+                .addData("Pose_m", "(%.3f, %.3f) | %.1f°", pIn.getX() * IN_TO_M, pIn.getY() * IN_TO_M, headingDeg)
                 .addData("Vel_in/s", "vx=%.2f vy=%.2f", vIn.getXComponent(), vIn.getYComponent())
                 .addData("HeadingErr_deg", "%.2f", Math.toDegrees(wrapRad(targetHeading - pIn.getHeading())))
                 .addData("Follower", "busy=%b teleop=%b stuck=%b",
