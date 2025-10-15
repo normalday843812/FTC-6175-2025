@@ -239,9 +239,9 @@ public class StateEstimator implements Localizer {
         }
 
         fusedIn = new Pose(
-                fusedIn.getX() + kx.getState(),
-                fusedIn.getY() + ky.getState(),
-                wrap(fusedIn.getHeading() + kth.getState())
+                kx.getState(),
+                ky.getState(),
+                wrap(kth.getState())
         );
 
         if (vision.valid) vision.framesWithVision++;
