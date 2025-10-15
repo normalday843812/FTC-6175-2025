@@ -1,92 +1,181 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
+import static androidx.core.math.MathUtils.clamp;
+import static org.firstinspires.ftc.teamcode.localisation.LocalisationConstants.*;
+import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
+
+import android.annotation.SuppressLint;
+
 import com.arcrobotics.ftclib.kinematics.wpilibkinematics.ChassisSpeeds;
+import com.pedropathing.control.KalmanFilter;
+import com.pedropathing.control.KalmanFilterParameters;
+import com.pedropathing.math.MathFunctions;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
-import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizerLimelight;
 
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 
 public class StateEstimator {
-    OpMode opmode;
-
-    // Telemetry
-    public static boolean TELEMETRY_ENABLED = true;
-
-    // Coarse spatial gate
-    public static double OUTLIER_POS_M = 3.0; // TODO
+    // Fallback mode
+    private boolean fallbackMode = false;
 
     // Pinpoint
     private final GoBildaPinpointDriver pinpoint;
 
     // April tag localizer
-    AprilTagLocalizer aprilTagLocalizer;
+    private final AprilTagLocalizerLimelight aprilTagLocalizer;
 
-    // EKF
-    private final EkfPose2D ekf = new EkfPose2D();
-    private int tagAccepted = 0, tagRejected = 0;
+    // Telemetry
+    private final TelemetryHelper tele;
+    // Pedro Kalman filters
+    private KalmanFilter kx, ky, kth;
+
+    // Filter params
+    private static KalmanFilterParameters paramsPos() {
+        // Use ~1/3 of minimum gate as nominal sigma per axis
+        double sigma = GATE_POS_MIN_M / 3.0;
+        double modelVar = (0.25 * sigma) * (0.25 * sigma);
+        double dataVar  = sigma * sigma;
+        return new KalmanFilterParameters(modelVar, dataVar);
+    }
+    private static KalmanFilterParameters paramsYaw() {
+        double sigmaYaw = GATE_YAW_MIN_RAD / 3.0;
+        double modelVar = (0.25 * sigmaYaw) * (0.25 * sigmaYaw);
+        double dataVar  = sigmaYaw * sigmaYaw;
+        return new KalmanFilterParameters(modelVar, dataVar);
+    }
+
+    // State for fuser
+    private boolean seeded = false;
+    private Pose2D lastOdo = new Pose2D(DistanceUnit.METER, 0, 0, AngleUnit.RADIANS, 0);
+
+    private static final class VisionState {
+        boolean valid = false;
+        boolean accepted = false;
+        long lastAcceptMs = -1;
+        int framesWithVision = 0;
+        int framesAccepted = 0;
+        boolean seeded = false;
+        boolean firstLockDone = false;
+        int lastTagCount = 0;
+        double lastSpan = 0;
+        double lastAvgDist = 0;
+    }
+
+    private static final class VisionPoseState {
+        double llX = Double.NaN;
+        double llY = Double.NaN;
+        double llTheta = Double.NaN;
+        Pose2D lastFieldPose = new Pose2D(DistanceUnit.METER, 0, 0, AngleUnit.RADIANS, 0);
+    }
+
+    private static final class ResidualState {
+        double x = 0;
+        double y = 0;
+        double theta = 0;
+        double appliedX = 0;
+        double appliedY = 0;
+        double appliedTheta = 0;
+        boolean stale = true;
+    }
+
+    private static final class MotionState {
+        final ArrayDeque<Double> omegaHist;
+        long stationarySinceMs = -1;
+
+        MotionState() {
+            this.omegaHist = new ArrayDeque<>(LocalisationConstants.OMEGA_WINDOW);
+        }
+    }
+
+    private final VisionState vision = new VisionState();
+    private final VisionPoseState visionPose = new VisionPoseState();
+    private final ResidualState residual = new ResidualState();
+    private final MotionState motion = new MotionState();
+
 
     // Constructor
-    public StateEstimator(OpMode opmode, GoBildaPinpointDriver pinpoint, AprilTagLocalizer aprilTagLocalizer) {
-        this.opmode = opmode;
+    public StateEstimator(OpMode opmode,
+                          GoBildaPinpointDriver pinpoint,
+                          AprilTagLocalizerLimelight aprilTagLocalizer) {
         this.pinpoint = pinpoint;
         this.aprilTagLocalizer = aprilTagLocalizer;
-        ekf.resetTo(0,0,0);
+        this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+        this.kx = new KalmanFilter(paramsPos());
+        this.ky = new KalmanFilter(paramsPos());
+        this.kth = new KalmanFilter(paramsYaw());
+    }
+
+    public void seedFieldPose(double x, double y, double hRad) {
+        pinpoint.resetPosAndIMU();
+        pinpoint.setPosition(new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad));
+        pinpoint.setHeading(hRad, AngleUnit.RADIANS);
+
+        kx.reset(x, 1e-6, 1);
+        ky.reset(y, 1e-6, 1);
+        kth.reset(hRad, 1e-6, 1);
+
+        lastOdo = new Pose2D(DistanceUnit.METER, x, y, AngleUnit.RADIANS, hRad);
+        seeded = true;
+
+        vision.seeded = true;
+        vision.firstLockDone = true;
+    }
+
+    // Fallback
+    public void toggleFallbackMode() {
+        this.fallbackMode = !this.fallbackMode;
+    }
+    public void setFallbackMode(boolean enabled) {
+        this.fallbackMode = enabled;
+    }
+    public boolean isFallbackMode() {
+        return this.fallbackMode;
     }
 
     // Must call once per loop for updated data
     public void update() {
-        // Get odometry from pinpoint
         pinpoint.update();
 
-        // Predict from robot-frame velocities
-        ChassisSpeeds vr = getChassisSpeedsRobot();
-        ekf.predict(vr.vxMetersPerSecond, vr.vyMetersPerSecond, vr.omegaRadiansPerSecond, System.nanoTime());
+        if (!seeded) {
+            Pose2D odo = getPose();
+            seedFieldPose(odo.getX(DistanceUnit.METER), odo.getY(DistanceUnit.METER), odo.getHeading(AngleUnit.RADIANS));
+        }
 
-        // Take detections and fuse them
-        if (aprilTagLocalizer != null && aprilTagLocalizer.getAprilTag() != null) {
-            List<AprilTagDetection> detections = aprilTagLocalizer.getAprilTag().getDetections();
-            if (detections != null && !detections.isEmpty()) {
-                Pose2D est = ekf.toPose2D();
-                double ex = est.getX(DistanceUnit.METER), ey = est.getY(DistanceUnit.METER);
-                for (AprilTagDetection d : detections) {
-                    if (d == null || d.robotPose == null) continue;
-                    if (d.metadata != null && d.metadata.name != null && d.metadata.name.contains("Obelisk")) continue;
+        if (!fallbackMode) {
+            aprilTagLocalizer.update(Math.toDegrees(getFusedHeading(AngleUnit.RADIANS)));
+            LLResult r = aprilTagLocalizer.getResult();
 
-                    if ( TELEMETRY_ENABLED ) {
-                        opmode.telemetry.addLine("--- APRILTAGS ---");
-                        aprilTagLocalizer.addTelemetry(d);
-                    }
+            if (!vision.seeded && isUsableVision(r)) {
+                Pose3D p = r.getBotpose_MT2();
+                seedFieldPose(p.getPosition().x, p.getPosition().y,
+                        p.getOrientation().getYaw(AngleUnit.RADIANS));
+            }
 
-                    Pose3D rp = d.robotPose;
-                    Position pMeters = rp.getPosition().toUnit(DistanceUnit.METER);
-                    double zx = pMeters.x;
-                    double zy = pMeters.y;
-                    double zh = rp.getOrientation().getYaw(AngleUnit.RADIANS);
-
-                    if (Math.hypot(zx - ex, zy - ey) > OUTLIER_POS_M) { tagRejected++; continue; }
-
-                    boolean goodAprilTag = ekf.updateFromAprilTag(zx, zy, zh, d.decisionMargin);
-                    if (goodAprilTag) {
-                        tagAccepted++;
-                        est = ekf.toPose2D();
-                        ex = est.getX(DistanceUnit.METER); ey = est.getY(DistanceUnit.METER);
-                    } else {
-                        tagRejected++;
-                    }
-                }
+            if (r != null) {
+                vision.lastTagCount = r.getBotposeTagCount();
+                vision.lastSpan = r.getBotposeSpan();
+                vision.lastAvgDist = r.getBotposeAvgDist();
             }
         }
 
-        if (TELEMETRY_ENABLED) { addTelemetry(); }
+        // Run fusion step
+        fuseOnce();
+
+        // Keep last fused pose available
+        visionPose.lastFieldPose = getFieldPose();
+
+        addTelemetry();
     }
 
     // Returns odometry-frame pose (relative to last reset)
@@ -122,15 +211,33 @@ public class StateEstimator {
     }
 
     public Pose2D getFieldPose() {
-        return ekf.toPose2D();
+        return new Pose2D(
+                DistanceUnit.METER,
+                kx.getState(),
+                ky.getState(),
+                AngleUnit.RADIANS,
+                kth.getState()
+        );
+    }
+
+    public double getFusedHeading(AngleUnit angleUnit) {
+        if (angleUnit == AngleUnit.DEGREES) return Math.toDegrees(kth.getState());
+        return kth.getState();
     }
 
     public void reset() {
         pinpoint.resetPosAndIMU();
-        ekf.resetTo(0, 0, 0);
-        tagAccepted = tagRejected = 0;
+        Pose2D odo = getPose();
+        kx.reset(odo.getX(DistanceUnit.METER), 1e-6, 1);
+        ky.reset(odo.getY(DistanceUnit.METER), 1e-6, 1);
+        kth.reset(odo.getHeading(AngleUnit.RADIANS), 1e-6, 1);
+        lastOdo = odo;
+        vision.framesWithVision = 0;
+        vision.framesAccepted = 0;
+        vision.lastAcceptMs = -1;
     }
 
+    @SuppressLint("DefaultLocale")
     public void addTelemetry() {
         // Odometry-frame pose (Pinpoint)
         Pose2D odo = getPose();
@@ -138,47 +245,246 @@ public class StateEstimator {
         double oy = odo.getY(DistanceUnit.METER);
         double ohRad = odo.getHeading(AngleUnit.RADIANS);
 
-        // Field-frame pose (EKF estimate)
-        Pose2D est = getFieldPose();
-        double ex = est.getX(DistanceUnit.METER);
-        double ey = est.getY(DistanceUnit.METER);
-        double ehRad = est.getHeading(AngleUnit.RADIANS);
-
         // Velocities
         ChassisSpeeds vf = getChassisSpeedsField();
         ChassisSpeeds vr = getChassisSpeedsRobot();
 
-        // Headings in degrees for readability
+        // Headings in degrees
         double ohDeg = Math.toDegrees(ohRad);
-        double ehDeg = Math.toDegrees(ehRad);
 
         // Angular rates in deg/s
         double omegaFieldDeg = Math.toDegrees(vf.omegaRadiansPerSecond);
         double omegaRobotDeg = Math.toDegrees(vr.omegaRadiansPerSecond);
 
-        opmode.telemetry.addLine("--- StateEstimator ---");
+        tele.addLine(fallbackMode ? "--- StateEstimator Fallback ---" : "--- StateEstimator ---");
 
-        opmode.telemetry.addData("Pinpoint pose (odom)",
-                "(%.3f, %.3f) m  |  %.1f°",
-                ox, oy, ohDeg);
+        tele.addData("Pinpoint pose (odom)",
+                "(%.3f, %.3f) m | %.1f°", ox, oy, ohDeg);
 
-        opmode.telemetry.addData("EKF pose (field)",
-                "(%.3f, %.3f) m  |  %.1f°",
-                ex, ey, ehDeg);
-
-        opmode.telemetry.addData("v_field [m/s, deg/s]",
-                "vx=%.3f  vy=%.3f  ω=%.1f",
+        tele.addData("v_field [m/s, deg/s]",
+                "vx=%.3f vy=%.3f ω=%.1f",
                 vf.vxMetersPerSecond, vf.vyMetersPerSecond, omegaFieldDeg);
 
-        opmode.telemetry.addData("v_robot [m/s, deg/s]",
-                "vx=%.3f  vy=%.3f  ω=%.1f",
+        tele.addData("v_robot [m/s, deg/s]",
+                "vx=%.3f vy=%.3f ω=%.1f",
                 vr.vxMetersPerSecond, vr.vyMetersPerSecond, omegaRobotDeg);
 
-        opmode.telemetry.addData("AprilTags (StateEstimator)",
-                "accepted=%d  rejected=%d  gate=%.2f m",
-                tagAccepted, tagRejected, OUTLIER_POS_M);
+        if (!fallbackMode) {
+            Pose2D est = visionPose.lastFieldPose;
+            double ex = est.getX(DistanceUnit.METER);
+            double ey = est.getY(DistanceUnit.METER);
+            double ehRad = est.getHeading(AngleUnit.RADIANS);
+            double ehDeg = Math.toDegrees(ehRad);
+
+            tele.addData("Pose (field)",
+                    "(%.3f, %.3f) m | %.1f°", ex, ey, ehDeg);
+
+            tele.addData("Seeded/FirstLock",
+                    "%b / %b",
+                    vision.seeded,
+                    vision.firstLockDone);
+
+            tele.addData("Last vision age [ms]", "%d",
+                    aprilTagLocalizer.getMillisSinceLastUpdate());
+
+            tele.addData("LL valid / accepted", "%b / %b",
+                    vision.valid,
+                    vision.accepted);
+
+            tele.addData("LL pose (field)",
+                    "(%.3f, %.3f) m | %.1f°",
+                    visionPose.llX, visionPose.llY, Math.toDegrees(visionPose.llTheta));
+
+            double posErr = Math.hypot(residual.x, residual.y);
+            tele.addData("LL residual",
+                    residual.stale ? "stale" :
+                            String.format("dx=%.3f dy=%.3f dθ=%.1f° | ‖pos‖=%.3f m",
+                                    residual.x, residual.y, Math.toDegrees(residual.theta), posErr));
+
+            LLResult rr = aprilTagLocalizer.getResult();
+            if (rr != null && rr.isValid()) {
+                Gates g = gatesFrom(readQuality(rr));
+                tele.addData("Gates",
+                        "gate<%.2f m & <%.1f° | snap<%.2f m & <%.1f°",
+                        g.gatePos_m, Math.toDegrees(g.gateYaw_rad),
+                        g.snapPos_m, Math.toDegrees(g.snapYaw_rad));
+            }
+
+            tele.addData("Applied",
+                    "x=%.3f y=%.3f θ=%.1f°",
+                    residual.appliedX, residual.appliedY, Math.toDegrees(residual.appliedTheta));
+
+            long sinceMs = vision.lastAcceptMs < 0 ? -1 :
+                    (System.currentTimeMillis() - vision.lastAcceptMs);
+            tele.addData("Since last accept [ms] / counts",
+                    "%d | seen=%d accepted=%d", sinceMs, vision.framesWithVision, vision.framesAccepted);
+
+            tele.addData("LL quality",
+                    "tags=%d span=%.2f m avgDist=%.2f m",
+                    vision.lastTagCount, vision.lastSpan, vision.lastAvgDist);
+
+            tele.addData("Heading [deg]", "%.1f",
+                    Math.toDegrees(getHeading()));
+        }
     }
 
-    public int getTagAccepted() { return tagAccepted; }
-    public int getTagRejected() { return tagRejected; }
+    private void fuseOnce() {
+        Pose2D odo = getPose();
+        double dx = odo.getX(DistanceUnit.METER) - lastOdo.getX(DistanceUnit.METER);
+        double dy = odo.getY(DistanceUnit.METER) - lastOdo.getY(DistanceUnit.METER);
+        double dth = angleDiffSigned(odo.getHeading(AngleUnit.RADIANS), lastOdo.getHeading(AngleUnit.RADIANS));
+
+        // Predict
+        double predX  = kx.getState()  + dx;
+        double predY  = ky.getState()  + dy;
+        double predTh = kth.getState() + dth;
+
+        // Measurement from Limelight if usable
+        LLResult r = fallbackMode ? null : aprilTagLocalizer.getResult();
+        boolean fresh = r != null && r.isValid() && aprilTagLocalizer.getMillisSinceLastUpdate() <= LL_STALE_MS;
+        Pose3D p = fresh ? r.getBotpose_MT2() : null;
+
+        vision.valid = fresh && p != null && !isZeroPose(p);
+
+        double mx = predX, my = predY, mth = predTh; // default: no external correction
+        vision.accepted = false;
+        residual.stale = true;
+        residual.appliedX = residual.appliedY = residual.appliedTheta = 0;
+
+        if (vision.valid) {
+            visionPose.llX = p.getPosition().x;
+            visionPose.llY = p.getPosition().y;
+            visionPose.llTheta = p.getOrientation().getYaw(AngleUnit.RADIANS);
+            vision.framesWithVision++;
+
+            // Residuals for telemetry and gating
+            double rdx = visionPose.llX - predX;
+            double rdy = visionPose.llY - predY;
+            double rdth = angleDiffSigned(visionPose.llTheta, predTh);
+            residual.x = rdx;
+            residual.y = rdy;
+            residual.theta = rdth;
+            residual.stale = false;
+
+            Mt2Quality q = readQuality(r);
+            Gates g = gatesFrom(q);
+            boolean gateOK = Math.hypot(rdx, rdy) < g.gatePos_m && Math.abs(rdth) < g.gateYaw_rad;
+
+            if (gateOK) {
+                // Use measurement
+                mx = visionPose.llX;
+                my = visionPose.llY;
+                mth = unwrapNear(visionPose.llTheta, predTh);
+
+                residual.appliedX = rdx;
+                residual.appliedY = rdy;
+                residual.appliedTheta = rdth;
+                vision.accepted = true;
+                vision.framesAccepted++;
+                vision.lastAcceptMs = System.currentTimeMillis();
+                vision.firstLockDone = true;
+            }
+        }
+
+
+        kx.update(dx, mx);
+        ky.update(dy, my);
+        kth.update(dth, mth);
+
+        lastOdo = odo;
+    }
+
+    // utils
+    private static double median(ArrayDeque<Double> d) {
+        double[] a = d.stream().mapToDouble(x -> x).toArray();
+        Arrays.sort(a);
+        int n = a.length;
+        return n == 0 ? 0 : (n % 2 == 1 ? a[n / 2] : 0.5 * (a[n / 2 - 1] + a[n / 2]));
+    }
+
+    private static boolean isZeroPose(Pose3D p) {
+        if (p == null) return true;
+        double x = p.getPosition().x, y = p.getPosition().y, z = p.getPosition().z;
+        double yaw = p.getOrientation().getYaw(AngleUnit.RADIANS);
+        return Math.abs(x) < ZERO_EPS_POS_M
+                && Math.abs(y) < ZERO_EPS_POS_M
+                && Math.abs(z) < ZERO_EPS_POS_M
+                && Math.abs(yaw) < ZERO_EPS_YAW_RAD;
+    }
+
+    private static final class Mt2Quality {
+        int tagCount;
+        double span_m, avgDist_m, avgArea, sx_m, sy_m, syaw_rad;
+    }
+
+    private static Mt2Quality readQuality(LLResult r) {
+        Mt2Quality q = new Mt2Quality();
+        q.tagCount = r.getBotposeTagCount();
+        q.span_m = r.getBotposeSpan();
+        q.avgDist_m = r.getBotposeAvgDist();
+        q.avgArea = r.getBotposeAvgArea();
+
+        double[] std = r.getStddevMt2();
+        if (std != null && std.length >= 6) {
+            q.sx_m = std[0];
+            q.sy_m = std[1];
+            q.syaw_rad = std[5];
+        }
+        double sigmaPosCap = GATE_POS_MAX_M / 3.0;
+        double sigmaPerAxis = sigmaPosCap / Math.sqrt(2.0);
+        double sigmaYawCap = GATE_YAW_MAX_RAD / 3.0;
+
+        if (!(q.sx_m > 0)) q.sx_m = sigmaPerAxis;
+        if (!(q.sy_m > 0)) q.sy_m = sigmaPerAxis;
+        if (!(q.syaw_rad > 0)) q.syaw_rad = sigmaYawCap;
+        return q;
+    }
+
+    private boolean isUsableVision(LLResult r) {
+        if (r == null || !r.isValid()) return false;
+        if (aprilTagLocalizer.getMillisSinceLastUpdate() > LL_STALE_MS) return false;
+        Pose3D p = r.getBotpose_MT2();
+        if (isZeroPose(p)) return false;
+
+        Mt2Quality q = readQuality(r);
+        if (q.tagCount < MIN_TAGS) return false;
+
+        double sigmaPos = Math.hypot(q.sx_m, q.sy_m);
+        boolean multi = q.tagCount >= 2;
+        boolean singleOk = (!multi) && (3.0 * sigmaPos <= SINGLE_TAG_3SIGMA_POS_MAX_M);
+        if (!(multi || singleOk)) return false;
+
+        return !(q.avgArea < MIN_AVG_AREA);
+    }
+
+    private static final class Gates {
+        double gatePos_m, gateYaw_rad, snapPos_m, snapYaw_rad;
+    }
+
+    private static Gates gatesFrom(Mt2Quality q) {
+        double sigmaPos = Math.hypot(q.sx_m, q.sy_m);
+        double sigmaYaw = Math.abs(q.syaw_rad);
+        Gates g = new Gates();
+        g.gatePos_m = clamp(3.0 * sigmaPos, GATE_POS_MIN_M, GATE_POS_MAX_M);
+        g.gateYaw_rad = clamp(3.0 * sigmaYaw, GATE_YAW_MIN_RAD, GATE_YAW_MAX_RAD);
+        g.snapPos_m = clamp(4.0 * sigmaPos, g.gatePos_m, SNAP_POS_MAX_M);
+        g.snapYaw_rad = clamp(4.0 * sigmaYaw, g.gateYaw_rad, SNAP_YAW_MAX_RAD);
+        return g;
+    }
+
+    private static double angleDiffSigned(double a, double b) {
+        double na = MathFunctions.normalizeAngle(a);
+        double nb = MathFunctions.normalizeAngle(b);
+        double diff = na - nb;
+        if (diff > Math.PI) diff -= 2 * Math.PI;
+        if (diff < -Math.PI) diff += 2 * Math.PI;
+        return diff;
+    }
+
+    private static double unwrapNear(double angle, double reference) {
+        double a = angle;
+        while (a - reference > Math.PI) a -= 2 * Math.PI;
+        while (a - reference < -Math.PI) a += 2 * Math.PI;
+        return a;
+    }
 }

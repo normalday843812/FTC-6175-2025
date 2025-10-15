@@ -1,12 +1,15 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.ENCODER_RESOLUTION;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FORWARD_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.STRAFE_ENCODER_DIRECTION;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.ftc.FollowerBuilder;
 import com.pedropathing.ftc.drivetrains.MecanumConstants;
 import com.pedropathing.ftc.localization.constants.PinpointConstants;
 import com.pedropathing.paths.PathConstraints;
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -26,16 +29,16 @@ public class Constants {
             .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD); // TODO: Input actual motor directions
-            // TODO: Add actual tuning constants: https://pedropathing.com/docs/pathing/tuning/automatic
+    // TODO: Add actual tuning constants: https://pedropathing.com/docs/pathing/tuning/automatic
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
             .forwardPodY(-6) // TODO: tune
             .strafePodX(0.0) // TODO
-            .distanceUnit(DistanceUnit.INCH)
+            .distanceUnit(DistanceUnit.METER)
             .hardwareMapName("pinpoint")
-            .encoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD)
-            .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD) // TODO
-            .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD); // TODO
+            .encoderResolution(ENCODER_RESOLUTION)
+            .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION) // TODO
+            .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION); // TODO
 
     public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
 

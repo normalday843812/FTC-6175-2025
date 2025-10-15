@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.misc;
 
 import org.firstinspires.ftc.robotcore.external.android.AndroidSoundPool;
+
 import com.qualcomm.ftccommon.SoundPlayer;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -71,9 +72,11 @@ public class ThickOfIt {
         isPlaying = false;
         currentSoundIndex = 1;
     }
+
     public int getCurrentIndex() {
         return currentSoundIndex;
     }
+
     public boolean isPlaying() {
         return isPlaying;
     }

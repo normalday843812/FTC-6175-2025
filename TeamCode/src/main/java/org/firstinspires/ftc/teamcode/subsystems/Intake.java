@@ -1,53 +1,33 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.config.IntakeConfig;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@Configurable
 public class Intake {
-    OpMode opmode;
+    private final DcMotor motor;
+    private final GamepadMap map;
+    private boolean running = false;
+    private boolean reverse = false;
+    private final TelemetryHelper tele;
 
-    // Telemetry
-    public static boolean TELEMETRY_ENABLED = true;
-
-    GamepadMap map;
-
-    // Hardware
-    private final DcMotor intakeMotor;
-
-    // Constants
-    public static double INTAKE_MOTOR_SPEED = 1.0; // TODO
-
-    // Toggles
-    private boolean prevIntakeToggle = false;
-    private boolean runIntake = false;
-
-    public Intake(DcMotor intakeMotor, GamepadMap map, OpMode opmode) {
-        this.intakeMotor = intakeMotor;
+    public Intake(DcMotor motor, GamepadMap map, OpMode opmode) {
+        this.motor = motor;
         this.map = map;
-        this.opmode = opmode;
+        this.tele = new TelemetryHelper(opmode, IntakeConfig.TELEMETRY_ENABLED);
     }
 
-    public void OperateIntake() {
-        handleToggles();
-        intakeMotor.setPower(runIntake ? INTAKE_MOTOR_SPEED : 0.0);
-        if (TELEMETRY_ENABLED) { addTelemetry(); }
-    }
+    public void operate() {
+        if (map.intakeToggle) running = !running;
+        if (map.intakeReverseToggle) reverse = !reverse;
+        double power = running ? (reverse ? IntakeConfig.REVERSE_PWR : IntakeConfig.FORWARD_PWR) : 0.0;
+        motor.setPower(power);
 
-    private void handleToggles() {
-        boolean intakeToggle = map.intakeToggle;
-        if (intakeToggle && !prevIntakeToggle) {
-            runIntake = !runIntake;
-        }
-        prevIntakeToggle = intakeToggle;
-    }
-
-    private void addTelemetry() {
-        opmode.telemetry.addLine("--- INTAKE ---");
-        opmode.telemetry.addData("Run Intake?:", runIntake);
-        opmode.telemetry.addData("Intake Motor Power:", intakeMotor.getPower());
+        tele.addLine("--- INTAKE ---")
+                .addData("Running:", "%b", running)
+                .addData("Power:", "%.2f", motor.getPower());
     }
 }

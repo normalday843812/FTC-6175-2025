@@ -5,13 +5,13 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
 
-@TeleOp
+@TeleOp(name = "Simple Mecanum Test", group = "Testing")
 public class SimpleMecanumTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
         RobotHardware hw = new RobotHardware(this);
-        hw.initHardware();
+        hw.initDriveMotors();
 
 
         waitForStart();
@@ -29,10 +29,10 @@ public class SimpleMecanumTest extends LinearOpMode {
             double frontRightPower = (y - x - rx) / denominator;
             double backRightPower = (y + x - rx) / denominator;
 
-//            hw.getFrontLeft().setPower(frontLeftPower);
-//            hw.getBackLeft().setPower(backLeftPower);
-//            hw.getFrontRight().setPower(frontRightPower);
-//            hw.getBackRight().setPower(backRightPower);
+            hw.getFrontLeft().setPower(frontLeftPower);
+            hw.getBackLeft().setPower(backLeftPower);
+            hw.getFrontRight().setPower(frontRightPower);
+            hw.getBackRight().setPower(backRightPower);
         }
     }
 }
