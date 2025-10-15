@@ -175,6 +175,7 @@ public class Mecanum {
         handleToggles();
 
         if (!teleopStarted) {
+            follower.update();
             follower.startTeleopDrive();
             teleopStarted = true;
         }
@@ -188,9 +189,9 @@ public class Mecanum {
 
         if (driverRotating) {
             omegaCmd = rotateStick;
-            targetHeading = follower.getPose().getHeading();
+            targetHeading = state.getPose().getHeading();
         } else if (angleLock) {
-            double heading = follower.getPose().getHeading();
+            double heading = state.getPose().getHeading();
             double error = wrapRad(targetHeading - heading);
             double omega = follower.getAngularVelocity();
             omegaCmd = KP_YAW * error - KD_YAW * omega;
@@ -209,9 +210,8 @@ public class Mecanum {
         }
 
         boolean isRobotCentric = !fieldCentricEnabled;
-        follower.setTeleOpDrive(vx, vy, omegaCmd, isRobotCentric);
         follower.update();
-
+        follower.setTeleOpDrive(vx, vy, omegaCmd, isRobotCentric);
         addTelemetry(vx, vy, omegaCmd, isRobotCentric);
     }
 

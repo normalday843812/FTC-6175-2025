@@ -53,6 +53,9 @@ public class InitialTeleop extends LinearOpMode {
         if (isStopRequested()) return;
         waitForStart();
 
+        state.update();
+        follower.update();
+
         follower.getDrivetrain().useVoltageCompensation(ENABLE_VOLTAGE_COMPENSATION);
         follower.setMaxPowerScaling(DEFAULT_MAX_POWER);
         TelemetryHelper.setGlobalEnabled(ENABLE_TELEMETRY);
