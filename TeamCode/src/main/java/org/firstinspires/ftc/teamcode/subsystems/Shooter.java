@@ -1,37 +1,43 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.config.ShooterConfig;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@Configurable
 public class Shooter {
-    OpMode opmode;
-
+    private final GamepadMap map;
+    private final DcMotorEx motor;
+    private double targetRpm = 0.0;
     // Telemetry
-    public static boolean TELEMETRY_ENABLED = true;
+    private final TelemetryHelper tele;
 
-    GamepadMap map;
-
-    // Hardware
-    private final DcMotor shooterMotor;
-
-    public Shooter(DcMotor shooterMotor, GamepadMap map, OpMode opmode) {
-        this.shooterMotor = shooterMotor;
+    public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
+        this.motor = motor;
         this.map = map;
-        this.opmode = opmode;
+        this.tele = new TelemetryHelper(opmode, ShooterConfig.TELEMETRY_ENABLED);
     }
 
-    public void OperateShooter() {
-        shooterMotor.setPower(map.shooterButton);
-        if (TELEMETRY_ENABLED) { addTelemetry(); }
+    public void operate() {
+        if (map.shooterTrigger > ShooterConfig.TRIGGER_DB)
+            targetRpm = map.shooterTrigger * ShooterConfig.MAX_RPM;
+        setRpm(targetRpm);
+
+        double tps = motor.getVelocity();
+        double motorRPM = tps * 60.0 / ShooterConfig.TPR_MOTOR;
+        double outputRPM = tps * 60.0 / ShooterConfig.TPR_OUTPUT;
+
+        tele.addLine("--- SHOOTER ---")
+                .addData("Target RPM:", "%.0f", targetRpm)
+                .addData("Output RPM:", "%.0f", outputRPM)
+                .addData("Motor RPM:", "%.0f", motorRPM)
+                .addData("err tps:", "%.1f", targetRpm * ShooterConfig.TPR_OUTPUT / 60.0 - tps);
     }
 
-
-    private void addTelemetry() {
-        opmode.telemetry.addLine("--- SHOOTER ---");
-        opmode.telemetry.addData("Shooter Motor Power:", shooterMotor.getPower());
+    public void setRpm(double rpm) {
+        rpm = Math.max(0.0, Math.min(ShooterConfig.MAX_RPM, rpm));
+        motor.setVelocity(rpm * ShooterConfig.TPR_OUTPUT / 60.0);
     }
 }
