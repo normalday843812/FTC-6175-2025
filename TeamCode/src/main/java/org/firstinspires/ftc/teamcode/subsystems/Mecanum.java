@@ -1,28 +1,32 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static androidx.core.math.MathUtils.clamp;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.*;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.KD_YAW;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.KP_YAW;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.OMEGA_MAX;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.SLOW_MODE_FACTOR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_DB;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
 
-import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.Drivetrain;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.math.Vector;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-import java.util.stream.Stream;
+import java.util.function.DoubleSupplier;
 
-@Configurable
 public class Mecanum {
-
-    // Motors
-    private final DcMotorEx frontLeft, frontRight, backLeft, backRight;
-
     // State estimation
+    private final Follower follower;
     private final StateEstimator state;
 
     // Controls
@@ -33,14 +37,135 @@ public class Mecanum {
 
     // Angle and slow mode modifiers
     private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
-    private double targetHeading = 0;
+    private double targetHeading = 0.0;
+    private boolean teleopStarted = false;
 
-    // Constructor
-    public Mecanum(DriveMotors driveMotors, StateEstimator state, GamepadMap map, OpMode opmode) {
-        this.frontLeft = driveMotors.frontLeft;
-        this.frontRight = driveMotors.frontRight;
-        this.backLeft = driveMotors.backLeft;
-        this.backRight = driveMotors.backRight;
+    // Drivetrain bridge
+    public static class PedroMecanumDrivetrain extends Drivetrain {
+        private final DcMotorEx fl, fr, bl, br;
+        private double maxPower = 1.0;
+        // Store calibrated max speeds (in/s). Set via setXVelocity/YVelocity.
+        private double xVel, yVel;
+
+        // Supplier for live battery voltage
+        private final DoubleSupplier voltageSupplier;
+
+        public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br) {
+            this(fl, fr, bl, br, () -> 12.0);
+        }
+
+        public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br,
+                                      DoubleSupplier voltageSupplier) {
+            this.fl = fl;
+            this.fr = fr;
+            this.bl = bl;
+            this.br = br;
+            this.voltageSupplier = voltageSupplier;
+        }
+
+        @Override
+        public double[] calculateDrive(Vector correctivePower, Vector headingPower, Vector pathingPower, double robotHeading) {
+            double xF = correctivePower.getXComponent() + pathingPower.getXComponent();
+            double yF = correctivePower.getYComponent() + pathingPower.getYComponent();
+
+            double cos = Math.cos(robotHeading), sin = Math.sin(robotHeading);
+            double xR = xF * cos + yF * sin;
+            double yR = -xF * sin + yF * cos;
+
+            double sign = Math.cos(headingPower.getTheta() - robotHeading) >= 0 ? 1 : -1;
+            double turn = headingPower.getMagnitude() * sign;
+
+            double flP = yR + xR + turn;
+            double blP = yR - xR + turn;
+            double frP = yR - xR - turn;
+            double brP = yR + xR - turn;
+
+            double maxMag = Math.max(1.0, Math.max(Math.abs(flP),
+                    Math.max(Math.abs(frP), Math.max(Math.abs(blP), Math.abs(brP)))));
+            return new double[]{
+                    (flP / maxMag) * maxPower, (frP / maxMag) * maxPower,
+                    (blP / maxMag) * maxPower, (brP / maxMag) * maxPower
+            };
+        }
+
+        @Override
+        public void runDrive(double[] p) {
+            double scale = 1.0;
+            if (isVoltageCompensation()) {
+                double v = getVoltage();
+                double vNom = getNominalVoltage() > 0 ? getNominalVoltage() : 12.0;
+                if (v > 0) scale = vNom / v;
+            }
+            fl.setPower(p[0] * scale);
+            fr.setPower(p[1] * scale);
+            bl.setPower(p[2] * scale);
+            br.setPower(p[3] * scale);
+        }
+
+        @Override
+        public void updateConstants() {
+        }
+
+        @Override
+        public void breakFollowing() {
+        }
+
+        @Override
+        public void startTeleopDrive() {
+        }
+
+        @Override
+        public void startTeleopDrive(boolean brakeMode) {
+        }
+
+        // Return calibrated max speeds (in/s)
+        @Override
+        public double xVelocity() {
+            return xVel;
+        }
+
+        @Override
+        public double yVelocity() {
+            return yVel;
+        }
+
+        @Override
+        public void setXVelocity(double v) {
+            xVel = v;
+        }
+
+        @Override
+        public void setYVelocity(double v) {
+            yVel = v;
+        }
+
+        @Override
+        public void setMaxPowerScaling(double s) {
+            maxPower = Math.max(0, Math.min(1, s));
+        }
+
+        @Override
+        public double getMaxPowerScaling() {
+            return maxPower;
+        }
+
+        @Override
+        public double getVoltage() {
+            double v = voltageSupplier != null ? voltageSupplier.getAsDouble() : 12.0;
+            return v > 0 ? v : 12.0;
+        }
+
+        @Override
+        public String debugString() {
+            return "mecanum";
+        }
+    }
+
+    public Mecanum(StateEstimator state,
+                   GamepadMap map,
+                   OpMode opmode,
+                   Follower follower) {
+        this.follower = follower;
         this.state = state;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
@@ -48,134 +173,80 @@ public class Mecanum {
 
     public void operate() {
         handleToggles();
-        if (map.resetPinpointButton) {
-            resetFieldCentric();
-        }
-        if (fieldCentricEnabled) {
-            fieldCentric();
-        } else {
-            robotCentric();
-        }
-        if (TELEMETRY_ENABLED) {
-            addTelemetry();
-        }
-    }
 
-    private void addTelemetry() {
-        tele.addLine("--- Mecanum ---")
-                .addData("FL Power:", "%.2f", frontLeft.getPower())
-                .addData("BL Power:", "%.2f", backLeft.getPower())
-                .addData("FR Power:", "%.2f", frontRight.getPower())
-                .addData("BR Power:", "%.2f", backRight.getPower())
-                .addData("Control:", "%s", fieldCentricEnabled ? "Field" : "Robot")
-                .addData("Slow Mode:", "%b", slowMode)
-                .addData("Angle Lock:", "%b", angleLock)
-                .addData("Target Heading:", "%.1f°", Math.toDegrees(targetHeading));
+        if (!teleopStarted) {
+            follower.update();
+            follower.startTeleopDrive();
+            teleopStarted = true;
+        }
+
+        double vx = deadband(map.forward, STICK_DB);
+        double vy = deadband(map.strafe, STICK_DB);
+        double rotateStick = map.rotate;
+
+        boolean driverRotating = Math.abs(rotateStick) > ROT_DB;
+        double omegaCmd;
+
+        if (driverRotating) {
+            omegaCmd = rotateStick;
+            targetHeading = state.getPose().getHeading();
+        } else if (angleLock) {
+            double heading = state.getPose().getHeading();
+            double error = wrapRad(targetHeading - heading);
+            double omega = follower.getAngularVelocity();
+            omegaCmd = KP_YAW * error - KD_YAW * omega;
+            omegaCmd = Math.max(-OMEGA_MAX, Math.min(OMEGA_MAX, omegaCmd));
+        } else {
+            omegaCmd = 0.0;
+        }
+
+        if (slowMode) {
+            vx *= SLOW_MODE_FACTOR;
+            vy *= SLOW_MODE_FACTOR;
+            omegaCmd *= SLOW_MODE_FACTOR;
+            follower.setMaxPowerScaling(SLOW_MODE_FACTOR);
+        } else {
+            follower.setMaxPowerScaling(1.0);
+        }
+
+        boolean isRobotCentric = !fieldCentricEnabled;
+        follower.update();
+        follower.setTeleOpDrive(vx, vy, omegaCmd, isRobotCentric);
+        addTelemetry(vx, vy, omegaCmd, isRobotCentric);
     }
 
     private void handleToggles() {
         if (map.angleLockToggle) {
             angleLock = !angleLock;
-            if (angleLock) {
-                targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
-            }
+            if (angleLock) targetHeading = follower.getPose().getHeading();
         }
-        if (map.slowModeToggle) {
-            slowMode = !slowMode;
-        }
-        if (map.fieldCentricToggle) {
-            fieldCentricEnabled = !fieldCentricEnabled;
-        }
-        if (map.stateEstimatorFallbackToggle) {
-            state.toggleFallbackMode();
-        }
-    }
-
-
-    private void applyRobotVel(double vx, double vy, double omega) {
-        if (slowMode) {
-            vx *= SLOW_MODE_FACTOR;
-            vy *= SLOW_MODE_FACTOR;
-            omega *= SLOW_MODE_FACTOR;
-        }
-
-        double x = vy;
-        double y = vx;
-
-        double frontLeftPower = y + x + omega;
-        double backLeftPower = y - x + omega;
-        double frontRightPower = y - x - omega;
-        double backRightPower = y + x - omega;
-
-        double maxMag = Stream.of(Math.abs(frontLeftPower), Math.abs(backLeftPower),
-                        Math.abs(frontRightPower), Math.abs(backRightPower))
-                .max(Double::compare).orElse(0.0);
-        double scale = Math.max(1.0, maxMag);
-        frontLeftPower /= scale;
-        backLeftPower /= scale;
-        frontRightPower /= scale;
-        backRightPower /= scale;
-
-        frontLeft.setPower(frontLeftPower);
-        backLeft.setPower(backLeftPower);
-        frontRight.setPower(frontRightPower);
-        backRight.setPower(backRightPower);
-    }
-
-    private void robotCentric() {
-        double vx = deadband(map.forward, STICK_DB);
-        double vy = deadband(map.strafe, STICK_DB);
-        double rotateStick = map.rotate;
-
-        double omegaCmd;
-        boolean driverRotating = Math.abs(rotateStick) > ROT_DB;
-
-        if (driverRotating) {
-            omegaCmd = rotateStick;
-            targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
-        } else if (angleLock) {
-            double heading = state.getFusedHeading(AngleUnit.RADIANS);
-            double error = wrapRad(targetHeading - heading);
-
-            double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
-
-            omegaCmd = KP_YAW * error - KD_YAW * gyroRate;
-            omegaCmd = clamp(omegaCmd, -OMEGA_MAX, OMEGA_MAX);
-        } else {
-            omegaCmd = 0;
-        }
-
-        applyRobotVel(vx, vy, omegaCmd);
-    }
-
-    private void fieldCentric() {
-        double vxF = deadband(map.forward, STICK_DB);
-        double vyF = deadband(map.strafe, STICK_DB);
-        double h = state.getFusedHeading(AngleUnit.RADIANS);
-        double cos = Math.cos(h), sin = Math.sin(h);
-
-        double vxR = vxF * cos + vyF * sin;
-        double vyR = -vxF * sin + vyF * cos;
-
-        double rotateStick = map.rotate;
-
-        double omegaCmd;
-        if (Math.abs(rotateStick) > ROT_DB) {
-            omegaCmd = rotateStick;
-            targetHeading = state.getFusedHeading(AngleUnit.RADIANS);
-        } else if (angleLock) {
-            double gyroRate = state.getChassisSpeedsRobot().omegaRadiansPerSecond;
-            double err = wrapRad(targetHeading - state.getFusedHeading(AngleUnit.RADIANS));
-            omegaCmd = clamp(KP_YAW * err - KD_YAW * gyroRate, -OMEGA_MAX, OMEGA_MAX);
-        } else {
-            omegaCmd = 0.0;
-        }
-
-        applyRobotVel(vxR, vyR, omegaCmd);
+        if (map.slowModeToggle) slowMode = !slowMode;
+        if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
+        if (map.stateEstimatorFallbackToggle) state.setVisionEnabled(!state.isVisionEnabled());
+        if (map.resetPinpointButton) resetFieldCentric();
     }
 
     private void resetFieldCentric() {
-        state.reset();
-        targetHeading = 0.0;  // Reset angle lock target too
+        state.resetIMU();
+        state.setStartPose(new Pose(0, 0, 0));
+        targetHeading = 0.0;
+    }
+
+    private void addTelemetry(double vx, double vy, double omegaCmd, boolean isRobotCentric) {
+        Pose pIn = follower.getPose();
+        Vector vIn = follower.getVelocity();
+        double headingDeg = Math.toDegrees(pIn.getHeading());
+
+        tele.addLine("--- Mecanum [Pedro TeleOp] ---")
+                .addData("Mode", "%s", isRobotCentric ? "Robot" : "Field")
+                .addData("Toggles", "slow=%b angleLock=%b", slowMode, angleLock)
+                .addData("Cmd", "vx=%.2f vy=%.2f ω=%.2f", vx, vy, omegaCmd)
+                .addData("Pose_in", "(%.1f, %.1f) | %.1f°", pIn.getX(), pIn.getY(), headingDeg)
+                .addData("Pose_m", "(%.3f, %.3f) | %.1f°", pIn.getX() * IN_TO_M, pIn.getY() * IN_TO_M, headingDeg)
+                .addData("Vel_in/s", "vx=%.2f vy=%.2f", vIn.getXComponent(), vIn.getYComponent())
+                .addData("HeadingErr_deg", "%.2f", Math.toDegrees(wrapRad(targetHeading - pIn.getHeading())))
+                .addData("Follower", "busy=%b teleop=%b stuck=%b",
+                        follower.isBusy(), follower.isTeleopDrive(), follower.isRobotStuck())
+                .addData("MaxPower", "%.2f", follower.getMaxPowerScaling());
     }
 }

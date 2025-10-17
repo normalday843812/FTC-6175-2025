@@ -1,52 +1,65 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.ENCODER_RESOLUTION;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.FORWARD_ENCODER_DIRECTION;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.STRAFE_ENCODER_DIRECTION;
+import androidx.annotation.NonNull;
 
+import com.pedropathing.Drivetrain;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
-import com.pedropathing.ftc.FollowerBuilder;
-import com.pedropathing.ftc.drivetrains.MecanumConstants;
-import com.pedropathing.ftc.localization.constants.PinpointConstants;
 import com.pedropathing.paths.PathConstraints;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
+
+import java.util.function.DoubleSupplier;
 
 public class Constants {
-    public static FollowerConstants followerConstants = new FollowerConstants().mass(5.0); // TODO: put our robot's actual mass
+    public static FollowerConstants followerConstants = new FollowerConstants()
+            .mass(5.0);
 
-    // Can't use RobotHardware because not an OpMode
-    public static MecanumConstants driveConstants = new MecanumConstants()
-            .maxPower(1.0)
-            .rightFrontMotorName("front_right_drive")
-            .rightRearMotorName("back_right_drive")
-            .leftRearMotorName("back_left_drive")
-            .leftFrontMotorName("front_left_drive")
-            .leftFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD); // TODO: Input actual motor directions
-    // TODO: Add actual tuning constants: https://pedropathing.com/docs/pathing/tuning/automatic
+    public static PathConstraints pathConstraints = new PathConstraints(
+            0.995,
+            0.1,
+            0.1,
+            0.007,
+            100,
+            1.0,
+            10,
+            1.0
+    );
 
-    public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(-6) // TODO: tune
-            .strafePodX(0.0) // TODO
-            .distanceUnit(DistanceUnit.METER)
-            .hardwareMapName("pinpoint")
-            .encoderResolution(ENCODER_RESOLUTION)
-            .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION) // TODO
-            .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION); // TODO
+    public static Follower createFollower(RobotHardware hw, StateEstimator state) {
+        hw.initDriveMotors();
+        Drivetrain drivetrain = getDrivetrain(hw);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
+        // TODO: After running the velocity tuners, set measured max speeds in in/s:
+        // follower.setXVelocity(<forward_ips>);
+        // follower.setYVelocity(<strafe_ips>);
 
-    public static Follower createFollower(HardwareMap hardwareMap) {
-        return new FollowerBuilder(followerConstants, hardwareMap)
-                .pinpointLocalizer(localizerConstants)
-                .pathConstraints(pathConstraints)
-                .mecanumDrivetrain(driveConstants)
-                .build();
+        Follower follower = new Follower(followerConstants, state, drivetrain, pathConstraints);
+        follower.getDrivetrain().setNominalVoltage(12.0);
+        follower.getDrivetrain().useVoltageCompensation(true);
+        return follower;
+    }
+
+    @NonNull
+    private static Drivetrain getDrivetrain(RobotHardware hw) {
+        DcMotorEx fl = hw.getFrontLeft();
+        DcMotorEx fr = hw.getFrontRight();
+        DcMotorEx bl = hw.getBackLeft();
+        DcMotorEx br = hw.getBackRight();
+
+        DoubleSupplier vsup = () -> {
+            double best = 0.0;
+            for (VoltageSensor vs : hw.getOpMode().hardwareMap.voltageSensor) {
+                double v = vs.getVoltage();
+                if (!Double.isNaN(v) && v > best) best = v;
+            }
+            return best;
+        };
+
+        return new Mecanum.PedroMecanumDrivetrain(fl, fr, bl, br, vsup);
     }
 }
