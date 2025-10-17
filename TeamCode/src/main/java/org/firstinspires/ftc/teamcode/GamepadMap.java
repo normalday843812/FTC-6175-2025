@@ -30,8 +30,8 @@ public class GamepadMap {
 
     // TODO: Make final mapping
     public void update() {
-        forward = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
-        strafe = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
+        forward = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
+        strafe = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
         rotate = deadband(opmode.gamepad1.right_stick_x, ROT_DB);
 
         angleLockToggle = a.rose(opmode.gamepad1.a);
@@ -45,6 +45,6 @@ public class GamepadMap {
         shooterTrigger = opmode.gamepad1.left_trigger;
         resetPinpointButton = opmode.gamepad1.start;
 
-        hoodAxis = opmode.gamepad1.right_trigger - opmode.gamepad1.left_trigger;
+        hoodAxis = opmode.gamepad2.right_trigger - opmode.gamepad2.left_trigger;
     }
 }
