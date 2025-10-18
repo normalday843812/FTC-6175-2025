@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.FALLBACK_MODE;
 import static org.firstinspires.ftc.teamcode.config.HoodServoConfig.*;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 
@@ -29,6 +30,11 @@ public class Hood {
     }
 
     public void operate() {
+        if (FALLBACK_MODE) {
+            operateFallback();
+            return;
+        }
+
         double now = opmode.getRuntime();
         double dt = lastUpdateSec < 0 ? 0 : Math.max(0, now - lastUpdateSec);
         lastUpdateSec = now;
@@ -48,7 +54,7 @@ public class Hood {
                 // Hold commanded
             } else {
                 manualActive = false;
-                commanded = autoTarget;
+//                commanded = autoTarget;
             }
         }
 
@@ -59,6 +65,13 @@ public class Hood {
                 .addData("Cmd", "%.3f", commanded)
                 .addData("AutoTgt", "%.3f", autoTarget)
                 .addData("Axis", "%.3f", axis);
+    }
+
+    private void operateFallback() {
+        double axis = map.hoodAxis;
+        manualActive = true;
+        commanded = clamp(commanded + axis * MANUAL_RATE_PER_SEC);
+        hoodServo.setPosition(commanded);
     }
 
     public void setHoodServoPos(double pos) {

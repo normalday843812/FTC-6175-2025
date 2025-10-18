@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.SLOW_MODE_FACTOR;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.FALLBACK_MODE;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
@@ -65,27 +66,27 @@ public class Mecanum {
 
         @Override
         public double[] calculateDrive(Vector correctivePower, Vector headingPower, Vector pathingPower, double robotHeading) {
-            double xF = correctivePower.getXComponent() + pathingPower.getXComponent();
-            double yF = correctivePower.getYComponent() + pathingPower.getYComponent();
+            double vx = correctivePower.getXComponent() + pathingPower.getXComponent();
+            double vy = correctivePower.getYComponent() + pathingPower.getYComponent();
 
-            double cos = Math.cos(robotHeading), sin = Math.sin(robotHeading);
-            double xR = xF * cos + yF * sin;
-            double yR = -xF * sin + yF * cos;
+            double c = Math.cos(robotHeading), s = Math.sin(robotHeading);
+            double fwd = vx * c + vy * s;
+            double str = -vx * s + vy * c;
 
-            double sign = Math.cos(headingPower.getTheta() - robotHeading) >= 0 ? 1 : -1;
-            double turn = headingPower.getMagnitude() * sign;
+            fwd = -fwd;
 
-            double flP = yR + xR + turn;
-            double blP = yR - xR + turn;
-            double frP = yR - xR - turn;
-            double brP = yR + xR - turn;
+            double turn = headingPower.getXComponent() * c + headingPower.getYComponent() * s;
 
-            double maxMag = Math.max(1.0, Math.max(Math.abs(flP),
-                    Math.max(Math.abs(frP), Math.max(Math.abs(blP), Math.abs(brP)))));
-            return new double[]{
-                    (flP / maxMag) * maxPower, (frP / maxMag) * maxPower,
-                    (blP / maxMag) * maxPower, (brP / maxMag) * maxPower
-            };
+            // Mecanum mix
+            double fl = fwd + str + turn;
+            double fr = fwd - str - turn;
+            double bl = fwd - str + turn;
+            double br = fwd + str - turn;
+
+            double max = Math.max(1.0, Math.max(Math.abs(fl),
+                    Math.max(Math.abs(fr), Math.max(Math.abs(bl), Math.abs(br)))));
+            return new double[]{(fl / max) * maxPower, (fr / max) * maxPower,
+                    (bl / max) * maxPower, (br / max) * maxPower};
         }
 
         @Override
@@ -172,10 +173,31 @@ public class Mecanum {
     }
 
     public void operate() {
+        if (FALLBACK_MODE) {
+            if (!teleopStarted) {
+                follower.startTeleopDrive();
+                teleopStarted = true;
+            }
+
+            follower.setMaxPowerScaling(1.0); // hardcode max power to 1
+            double fwd = map.forward;
+            double str = map.strafe;
+            double turn = map.rotate;
+
+            // Robot-centric only
+            follower.setTeleOpDrive(fwd, str, turn, true);
+
+            // Minimal telemetry
+            tele.addLine("--- Mecanum [Fallback] ---")
+                    .addData("Mode", "Robot")
+                    .addData("Cmd", "vx=%.2f vy=%.2f ω=%.2f", fwd, str, turn)
+                    .addData("MaxPower", "%.2f", follower.getMaxPowerScaling());
+            return;
+        }
+
         handleToggles();
 
         if (!teleopStarted) {
-            follower.update();
             follower.startTeleopDrive();
             teleopStarted = true;
         }

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.localisation;
 
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.FALLBACK_MODE;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.M_TO_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_POS_MAX_M;
@@ -8,10 +9,11 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_YAW_
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.GATE_YAW_MIN_RAD;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.LL_STALE_MS;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.MIN_AVG_AREA;
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.SINGLE_TAG_3SIGMA_POS_MAX_M;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ZERO_EPS_POS_M;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ZERO_EPS_YAW_RAD;
+
+import android.annotation.SuppressLint;
 
 import com.pedropathing.control.KalmanFilter;
 import com.pedropathing.control.KalmanFilterParameters;
@@ -55,11 +57,12 @@ public class StateEstimator implements Localizer {
     private boolean seeded = false;
     private boolean visionEnabled = true;
 
+    private boolean frameAlignedToLL = false;
+
     // Vision bookkeeping
     private static final class VisionState {
         boolean valid = false;
         boolean accepted = false;
-        long lastAcceptMs = -1;
         int framesWithVision = 0;
         int framesAccepted = 0;
         int lastTagCount = 0;
@@ -130,131 +133,194 @@ public class StateEstimator implements Localizer {
         pinpoint.update();
         double xM = pinpoint.getPosX(DistanceUnit.METER);
         double yM = pinpoint.getPosY(DistanceUnit.METER);
-        double h = pinpoint.getHeading(AngleUnit.RADIANS);
+        double h  = pinpoint.getHeading(AngleUnit.RADIANS);
 
         double vxMps = pinpoint.getVelX(DistanceUnit.METER);
         double vyMps = pinpoint.getVelY(DistanceUnit.METER);
-        double wRps = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
+        double wRps  = pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
 
-        // Pedro boundary conversion
-        double xInOdo = xM * M_TO_IN;
-        double yInOdo = yM * M_TO_IN;
-        double vxIn = vxMps * M_TO_IN;
-        double vyIn = vyMps * M_TO_IN;
-
+        // Seed once
         if (!seeded) {
-            fusedIn = new Pose(xInOdo, yInOdo, h);
+            fusedIn = new Pose(xM * M_TO_IN, yM * M_TO_IN, h);
             lastImuHeadingRad = h;
+            totalHeadingRad = 0.0;
             seeded = true;
             // Initialize filters at the current pose
             kx.reset(fusedIn.getX(), 1.0, 1.0);
             ky.reset(fusedIn.getY(), 1.0, 1.0);
             kth.reset(fusedIn.getHeading(), 1.0, 1.0);
+        } else {
+            double dH = wrap(h - lastImuHeadingRad);
+            totalHeadingRad += dH;
+            lastImuHeadingRad = h;
         }
-
-        // Unbounded heading accumulator
-        double dH = wrap(h - lastImuHeadingRad);
-        totalHeadingRad += dH;
-        lastImuHeadingRad = h;
 
         // Let Limelight know our current field-referenced yaw
         aprilTagLocalizer.update(Math.toDegrees(h));
 
+        if (FALLBACK_MODE) {
+            fusedIn = new Pose(xM * M_TO_IN, yM * M_TO_IN, wrap(h));
+            double vxIn = vxMps * M_TO_IN, vyIn = vyMps * M_TO_IN;
+            double c = Math.cos(h), s = Math.sin(h);
+            velIn = new Pose(vxIn * c - vyIn * s, vxIn * s + vyIn * c, wRps);
+
+            vision.valid = false;
+            vision.accepted = false;
+            vision.lastAgeMs = -1;
+            addTelemetry(xM, yM, h, null);
+            return;
+        }
+
         // Vision
         LLResult r = aprilTagLocalizer.getResult();
         vision.lastAgeMs = aprilTagLocalizer.getMillisSinceLastUpdate();
-        boolean fresh = r != null && r.isValid() && vision.lastAgeMs <= LL_STALE_MS;
+        boolean fresh = r != null && r.isValid() && visionEnabled && (vision.lastAgeMs <= LL_STALE_MS);
 
-        boolean accepted = false;
-        double mxIn = 0, myIn = 0, mh = 0;
+        int tagCount = 0;
+        Pose3D p;
+        double llx_m = Double.NaN, lly_m = Double.NaN, llh = Double.NaN;
+
+        if (fresh) {
+            tagCount = r.getBotposeTagCount();
+            p = r.getBotpose_MT2();
+            if (tagCount >= 1 && isFinitePose(p) && !isZeroPose(p)) {
+                llx_m = p.getPosition().x;
+                lly_m = p.getPosition().y;
+                llh   = p.getOrientation().getYaw(AngleUnit.RADIANS);
+            } else {
+                fresh = false;
+            }
+        }
+
         // TODO: add better documentation
-        if (visionEnabled && fresh) {
-            Pose3D p = r.getBotpose_MT2();
-            if (!isZeroPose(p)) {
-                vision.lastTagCount = r.getBotposeTagCount();
+        if (!frameAlignedToLL) {
+            if (fresh) {
+                double[] std = r.getStddevMt2();
+                double sx = (std != null && std.length >= 2 && isFinite(std[0])) ? std[0] : 0.25;
+                double sy = (std != null && std.length >= 2 && isFinite(std[1])) ? std[1] : 0.25;
+                double syaw = (std != null && std.length >= 6 && isFinite(std[5])) ? Math.abs(std[5]) : Math.toRadians(15);
+                double sigmaPos = Math.hypot(sx, sy);
+                boolean ok = sigmaPos <= 0.35 && syaw <= Math.toRadians(15);
+
+                vision.lastTagCount = tagCount;
                 vision.lastSpan = r.getBotposeSpan();
                 vision.lastAvgDist = r.getBotposeAvgDist();
-
-                visionPose.llX = p.getPosition().x;
-                visionPose.llY = p.getPosition().y;
-                visionPose.llTheta = p.getOrientation().getYaw(AngleUnit.RADIANS);
-
-                double[] std = r.getStddevMt2();
-                double sx = (std != null && std.length >= 2 && std[0] > 0) ? std[0] : GATE_POS_MAX_M / (3.0 * Math.sqrt(2.0));
-                double sy = (std != null && std.length >= 2 && std[1] > 0) ? std[1] : GATE_POS_MAX_M / (3.0 * Math.sqrt(2.0));
-                double syaw = (std != null && std.length >= 6 && std[5] > 0) ? Math.abs(std[5]) : GATE_YAW_MAX_RAD / 3.0;
-
-                double sigmaPos = Math.hypot(sx, sy);
-                boolean multi = vision.lastTagCount >= 2;
-                boolean singleOk = (!multi) && (3.0 * sigmaPos <= SINGLE_TAG_3SIGMA_POS_MAX_M);
                 boolean areaOk = r.getBotposeAvgArea() >= MIN_AVG_AREA;
-                vision.valid = areaOk && (multi || singleOk);
 
-                residual.x_m = visionPose.llX - xM;
-                residual.y_m = visionPose.llY - yM;
-                residual.theta_rad = wrap(visionPose.llTheta - h);
+                if (ok && areaOk) {
+                    pinpoint.setPosition(new Pose2D(DistanceUnit.METER, llx_m, lly_m, AngleUnit.RADIANS, llh));
 
-                Gates g = gatesFrom(sx, sy, syaw);
-                residual.gatePos_m = g.gatePos_m;
-                residual.gateYaw_rad = g.gateYaw_rad;
+                    // Set fused pose
+                    fusedIn = new Pose(llx_m * M_TO_IN, lly_m * M_TO_IN, wrap(llh));
 
-                boolean pass = Math.hypot(residual.x_m, residual.y_m) < g.gatePos_m
-                        && Math.abs(residual.theta_rad) < g.gateYaw_rad;
+                    // Field-frame velocities
+                    double vxIn = vxMps * M_TO_IN, vyIn = vyMps * M_TO_IN;
+                    double c = Math.cos(llh), s = Math.sin(llh);
+                    velIn = new Pose(vxIn * c - vyIn * s, vxIn * s + vyIn * c, wRps);
 
-                if (vision.valid && pass) {
-                    mxIn = visionPose.llX * M_TO_IN;
-                    myIn = visionPose.llY * M_TO_IN;
-                    mh = visionPose.llTheta;
-                    accepted = true;
+                    frameAlignedToLL = true;
+                    vision.valid = true;
+                    vision.accepted = true;
+                    vision.framesAccepted++;
+                    vision.framesWithVision++;
+                    vision.lastAgeMs = aprilTagLocalizer.getMillisSinceLastUpdate();
+
+                    // Reset KFs
+                    kx.reset(fusedIn.getX(), 1.0, 1.0);
+                    ky.reset(fusedIn.getY(), 1.0, 1.0);
+                    kth.reset(fusedIn.getHeading(), 1.0, 1.0);
+
+                    // Cache LL pose for telemetry
+                    visionPose.llX = llx_m;
+                    visionPose.llY = lly_m;
+                    visionPose.llTheta = llh;
+                    visionPose.lastFieldPose = new Pose2D(DistanceUnit.METER, llx_m, lly_m, AngleUnit.RADIANS, llh);
+
+                    residual.x_m = 0;
+                    residual.y_m = 0;
+                    residual.theta_rad = 0;
+                    residual.gatePos_m = GATE_POS_MIN_M;
+                    residual.gateYaw_rad = GATE_YAW_MIN_RAD;
+
+                    addTelemetry(llx_m, lly_m, llh, r);
+                    return;
                 }
-            } else {
-                vision.valid = false;
             }
+
+            fusedIn = new Pose(xM * M_TO_IN, yM * M_TO_IN, wrap(h));
+            double vxIn = vxMps * M_TO_IN, vyIn = vyMps * M_TO_IN;
+            double c = Math.cos(h), s = Math.sin(h);
+            velIn = new Pose(vxIn * c - vyIn * s, vxIn * s + vyIn * c, wRps);
+
+            vision.valid = fresh;
+            vision.accepted = false;
+            if (fresh) vision.framesWithVision++;
+
+            // Telemetry LL pose cache
+            if (fresh) {
+                visionPose.llX = llx_m;
+                visionPose.llY = lly_m;
+                visionPose.llTheta = llh;
+                visionPose.lastFieldPose = new Pose2D(DistanceUnit.METER, llx_m, lly_m, AngleUnit.RADIANS, llh);
+            } else {
+                visionPose.llX = Double.NaN;
+                visionPose.llY = Double.NaN;
+                visionPose.llTheta = Double.NaN;
+            }
+
+            // Residuals not meaningful pre-alignment
+            residual.x_m = 0;
+            residual.y_m = 0;
+            residual.theta_rad = 0;
+            residual.gatePos_m = 0;
+            residual.gateYaw_rad = 0;
+
+            addTelemetry(xM, yM, h, r);
+            return;
+        }
+
+        // If already aligned go to pinpoint only
+        fusedIn = new Pose(xM * M_TO_IN, yM * M_TO_IN, wrap(h));
+        double vxIn = vxMps * M_TO_IN, vyIn = vyMps * M_TO_IN;
+        double c = Math.cos(h), s = Math.sin(h);
+        velIn = new Pose(vxIn * c - vyIn * s, vxIn * s + vyIn * c, wRps);
+
+        // Report, but do not fuse
+        if (fresh) {
+            vision.valid = true;
+            vision.accepted = false;
+            vision.framesWithVision++;
+            visionPose.llX = llx_m;
+            visionPose.llY = lly_m;
+            visionPose.llTheta = llh;
+            visionPose.lastFieldPose = new Pose2D(DistanceUnit.METER, llx_m, lly_m, AngleUnit.RADIANS, llh);
+
+            residual.x_m = llx_m - xM;
+            residual.y_m = lly_m - yM;
+            residual.theta_rad = wrap(llh - h);
+
+            double[] std = r.getStddevMt2();
+            double sx = (std != null && std.length >= 2 && isFinite(std[0])) ? std[0] : GATE_POS_MIN_M;
+            double sy = (std != null && std.length >= 2 && isFinite(std[1])) ? std[1] : GATE_POS_MIN_M;
+            Gates g = gatesFrom(sx, sy, Math.abs(residual.theta_rad));
+            residual.gatePos_m = g.gatePos_m;
+            residual.gateYaw_rad = g.gateYaw_rad;
+
+            vision.lastTagCount = tagCount;
+            vision.lastSpan = r.getBotposeSpan();
+            vision.lastAvgDist = r.getBotposeAvgDist();
         } else {
             vision.valid = false;
-        }
-
-        double dxIn = xInOdo - kx.getState();
-        double dyIn = yInOdo - ky.getState();
-        double dHIn = wrap(h - kth.getState());
-
-        // Fusion
-        if (accepted) {
-            double predictedH = wrap(kth.getState() + dHIn);
-            double mhWrapped = predictedH + wrap(mh - predictedH);
-
-            kx.update(dxIn, mxIn);
-            ky.update(dyIn, myIn);
-            kth.update(dHIn, mhWrapped);
-
-            vision.accepted = true;
-            vision.framesAccepted++;
-            vision.lastAcceptMs = System.currentTimeMillis();
-        } else {
-            kx.update(dxIn, kx.getState() + dxIn);
-            ky.update(dyIn, ky.getState() + dyIn);
-            kth.update(dHIn, wrap(kth.getState() + dHIn));
-
             vision.accepted = false;
+            visionPose.llX = Double.NaN;
+            visionPose.llY = Double.NaN;
+            visionPose.llTheta = Double.NaN;
+            residual.x_m = 0;
+            residual.y_m = 0;
+            residual.theta_rad = 0;
+            residual.gatePos_m = 0;
+            residual.gateYaw_rad = 0;
         }
-
-        fusedIn = new Pose(
-                kx.getState(),
-                ky.getState(),
-                wrap(kth.getState())
-        );
-
-        if (vision.valid) vision.framesWithVision++;
-
-        velIn = new Pose(vxIn, vyIn, wRps);
-
-        visionPose.lastFieldPose = new Pose2D(
-                DistanceUnit.METER,
-                fusedIn.getX() * IN_TO_M,
-                fusedIn.getY() * IN_TO_M,
-                AngleUnit.RADIANS,
-                fusedIn.getHeading()
-        );
 
         addTelemetry(xM, yM, h, r);
     }
@@ -367,6 +433,15 @@ public class StateEstimator implements Localizer {
         return Math.max(lo, Math.min(hi, v));
     }
 
+    private static boolean isFinite(double v) { return !Double.isNaN(v) && !Double.isInfinite(v); }
+    private static boolean isFinitePose(Pose3D p) {
+        if (p == null) return false;
+        double x = p.getPosition().x;
+        double y = p.getPosition().y;
+        double yaw = p.getOrientation().getYaw(AngleUnit.RADIANS);
+        return isFinite(x) && isFinite(y) && isFinite(yaw);
+    }
+
     private void addTelemetry(double xM, double yM, double h, LLResult r) {
         tele.addLine("--- StateEstimator [Pedro Localizer] ---")
                 .addData("Pose_fused [in | deg]", "(%.2f, %.2f) | %.1f°",
@@ -374,17 +449,31 @@ public class StateEstimator implements Localizer {
                 .addData("Pose_odom [m | deg]", "(%.3f, %.3f) | %.1f°",
                         xM, yM, Math.toDegrees(h))
                 .addData("Vel [in/s | deg/s]", "vx=%.2f vy=%.2f ω=%.1f",
-                        velIn.getX(), velIn.getY(), Math.toDegrees(velIn.getHeading()))
-                .addData("LL fresh/valid/accepted", "%b / %b / %b",
-                        (r != null && r.isValid()), vision.valid, vision.accepted)
+                        velIn.getX(), velIn.getY(), Math.toDegrees(velIn.getHeading()));
+
+        boolean fresh = (r != null && r.isValid());
+
+        tele.addData("LL fresh/valid/accepted", "%b / %b / %b",
+                        fresh, vision.valid, vision.accepted)
                 .addData("LL age[ms] tags/span/avgDist", "%d | %d / %.2f / %.2f",
                         vision.lastAgeMs, vision.lastTagCount, vision.lastSpan, vision.lastAvgDist)
-                .addData("LL pose [m | deg]", "(%.3f, %.3f) | %.1f°",
-                        visionPose.llX, visionPose.llY, Math.toDegrees(visionPose.llTheta))
+                .addData("LL pose [m | deg]", "(%s, %s) | %s",
+                        toStr(visionPose.llX), toStr(visionPose.llY),
+                        toStrDeg(visionPose.llTheta))
                 .addData("Residuals [m | deg]", "dx=%.3f dy=%.3f dθ=%.2f°",
                         residual.x_m, residual.y_m, Math.toDegrees(residual.theta_rad))
                 .addData("Gates [m | deg]", "pos<%.2f yaw<%.1f°",
                         residual.gatePos_m, Math.toDegrees(residual.gateYaw_rad))
-                .addData("Frames seen/accepted", "%d / %d", vision.framesWithVision, vision.framesAccepted);
+                .addData("Frames seen/accepted", "%d / %d",
+                        vision.framesWithVision, vision.framesAccepted);
+    }
+
+    @SuppressLint("DefaultLocale")
+    private static String toStr(double v) {
+        return (Double.isNaN(v) || Double.isInfinite(v)) ? "NaN" : String.format("%.3f", v);
+    }
+    @SuppressLint("DefaultLocale")
+    private static String toStrDeg(double v) {
+        return (Double.isNaN(v) || Double.isInfinite(v)) ? "NaN" : String.format("%.1f", Math.toDegrees(v));
     }
 }

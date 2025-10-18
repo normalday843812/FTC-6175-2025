@@ -63,7 +63,6 @@ public class InitialTeleop extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
-            state.update();
             drive.operate();
             intake.operate();
             shooter.operate();
