@@ -131,7 +131,7 @@ public class RobotHardware {
             limelight.pipelineSwitch(pipelineNum);
         }
     }
-
+    
     public void initDriveMotors() {
         frontRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "front_right_drive");
         frontLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "front_left_drive");
@@ -143,8 +143,10 @@ public class RobotHardware {
         backRightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backLeftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        frontRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-        backRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontLeftMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        frontRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        backLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // If using two wheel: odom encoders given frontRightMotor is port 0 and backLeftMotor is port 3
         frontRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);

@@ -13,7 +13,7 @@ public class VelocityPIDFTuner extends LinearOpMode {
     private static final double TICKS_PER_REV = 384.5397923875; // output shaft TPR for your gearbox
 
     // Characterization steps (duty cycles). You can change these if needed.
-    private static final double[] POWERS = {0.20, 0.40, 0.60, 0.80, 1.00};
+    private static final double[] POWERS = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.70, 0.80, 0.90, 1.00};
     private static final long WARMUP_MS = 800;   // time to reach steady state before sampling
     private static final long SAMPLE_MS = 1200;  // averaging window per step
 
@@ -208,6 +208,6 @@ public class VelocityPIDFTuner extends LinearOpMode {
     }
 
     private static String format(double v) {
-        return String.format(java.util.Locale.US, "%.3f", v);
+        return String.format(java.util.Locale.US, "%.6f", v);
     }
 }

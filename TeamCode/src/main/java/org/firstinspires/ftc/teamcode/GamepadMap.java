@@ -30,8 +30,8 @@ public class GamepadMap {
 
     // TODO: Make final mapping
     public void update() {
-        forward = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
-        strafe = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
+        forward = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
+        strafe = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
         rotate = deadband(opmode.gamepad1.right_stick_x, ROT_DB);
 
         angleLockToggle = a.rose(opmode.gamepad1.a);

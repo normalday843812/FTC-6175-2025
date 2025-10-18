@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.testing;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
 
@@ -13,6 +14,10 @@ public class SimpleMecanumTest extends LinearOpMode {
         RobotHardware hw = new RobotHardware(this);
         hw.initDriveMotors();
 
+        hw.getFrontLeft().setDirection(DcMotorSimple.Direction.FORWARD);
+        hw.getBackLeft().setDirection(DcMotorSimple.Direction.FORWARD);
+        hw.getFrontRight().setDirection(DcMotorSimple.Direction.REVERSE);
+        hw.getBackRight().setDirection(DcMotorSimple.Direction.REVERSE);
 
         waitForStart();
 

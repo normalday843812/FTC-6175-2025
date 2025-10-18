@@ -17,7 +17,7 @@ import java.util.function.DoubleSupplier;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(5.0);
+            .mass(6.8);
 
     public static PathConstraints pathConstraints = new PathConstraints(
             0.995,
@@ -38,7 +38,7 @@ public class Constants {
         // follower.setXVelocity(<forward_ips>);
         // follower.setYVelocity(<strafe_ips>);
 
-        Follower follower = new Follower(followerConstants, state, drivetrain, pathConstraints);
+        Follower follower = new Follower(followerConstants, state, drivetrain);
         follower.getDrivetrain().setNominalVoltage(12.0);
         follower.getDrivetrain().useVoltageCompensation(true);
         return follower;
