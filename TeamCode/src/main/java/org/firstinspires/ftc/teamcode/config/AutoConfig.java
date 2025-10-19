@@ -19,6 +19,11 @@ public class AutoConfig {
     public static Pose START_RED_DEPOT = new Pose(117.5,131.2,Math.toRadians(-142));
     public static Pose START_BLUE_DEPOT = new Pose(27.29,131.2, Math.toRadians(-36));
 
+    // Poses
+    public static Pose LEAVE_LAUNCH_LINE_BLUE = new Pose(56,58, Math.toRadians(180));
+    public static Pose LEAVE_LAUNCH_LINE_RED = new Pose(88,58, Math.toRadians(0));
+
+
     // Vision
     public static int APRIL_TAG_BLUE = 20;
     public static int APRIL_TAG_RED = 24;
@@ -26,7 +31,7 @@ public class AutoConfig {
     public static int APRIL_TAG_PGP = 22;
     public static int APRIL_TAG_PPG = 23;
     // Restrictions
-    public static final double PADDING = 4;
+    public static final double PADDING = 1;
     public static final double MAXIMUM_BLUE_X = (FIELD_WIDTH / 2) - (MAX_SIZE * Math.cos(Math.toRadians(45))) - PADDING;
     public static final double MINIMUM_BLUE_X = MAX_SIZE / 2;
     public static final double MINIMUM_RED_X = (FIELD_WIDTH / 2) + (MAX_SIZE * Math.cos(Math.toRadians(45))) - PADDING;

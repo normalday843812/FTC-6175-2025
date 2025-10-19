@@ -24,6 +24,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
@@ -58,6 +59,9 @@ public class RobotHardware {
     // Limelight
     private Limelight3A limelight;
 
+    // Color sensor
+    private NormalizedColorSensor intakeColorSensor;
+
     // IMU
     IMU imu;
     IMU.Parameters imuParams;
@@ -84,6 +88,10 @@ public class RobotHardware {
         pinpoint.setEncoderDirections(FORWARD_ENCODER_DIRECTION,
                 STRAFE_ENCODER_DIRECTION);
         pinpoint.resetPosAndIMU();
+    }
+
+    public void initIntakeColorSensor() {
+        intakeColorSensor = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor");
     }
 
     public void initIMU() {
@@ -326,6 +334,19 @@ public class RobotHardware {
             }
         } else {
             return spindexerServo;
+        }
+    }
+
+    public NormalizedColorSensor getIntakeColorSensor() {
+        if (intakeColorSensor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("intakeColorSensor not init");
+            } else {
+                initIntakeColorSensor();
+                return intakeColorSensor;
+            }
+        } else {
+            return intakeColorSensor;
         }
     }
 

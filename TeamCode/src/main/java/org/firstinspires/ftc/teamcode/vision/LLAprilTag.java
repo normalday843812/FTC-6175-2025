@@ -1,17 +1,18 @@
 package org.firstinspires.ftc.teamcode.vision;
 
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_BLUE;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_GPP;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PGP;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PPG;
-import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.*;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
+import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TELEMETRY_ENABLED;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -78,10 +79,13 @@ public class LLAprilTag {
         tele.addLine("=== LL APRILTAG ===")
                 .addData("Pattern ID", () -> SELECTED_PATTERN_TAG_ID)
                 .addData("Pattern Confidence", "%.3f", selectedPatternConfidence)
-                .addData("Pose Set", poseAvailable ? "yes" : "no")
-                .addData("Bot Pose", getBotPose().toString());
+                .addData("Pose Set", poseAvailable ? "yes" : "no");
 
         if (result != null) {
+            Pose3D botpose = result.getBotpose();
+            tele.addData("LL x", "%.2f", botpose.getPosition().x)
+                .addData("LL y", "%.2f", botpose.getPosition().y)
+                .addData("LL yaw", "%.2f", botpose.getOrientation().getYaw(AngleUnit.DEGREES));
             boolean sawBlueOrRed = false;
             List<LLResultTypes.FiducialResult> tags = result.getFiducialResults();
             if (tags != null) {
