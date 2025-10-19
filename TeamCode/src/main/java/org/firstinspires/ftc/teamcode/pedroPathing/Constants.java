@@ -1,65 +1,62 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
-import androidx.annotation.NonNull;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_RIGHT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_RIGHT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_LEFT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_LEFT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_RIGHT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_RIGHT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROBOT_MASS;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ENCODER_RESOLUTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_IN;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
 
-import com.pedropathing.Drivetrain;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
+import com.pedropathing.ftc.FollowerBuilder;
+import com.pedropathing.ftc.drivetrains.MecanumConstants;
+import com.pedropathing.ftc.localization.constants.PinpointConstants;
 import com.pedropathing.paths.PathConstraints;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
-import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
-import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-import java.util.function.DoubleSupplier;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(6.8);
+            .mass(ROBOT_MASS);
 
-    public static PathConstraints pathConstraints = new PathConstraints(
-            0.995,
-            0.1,
-            0.1,
-            0.007,
-            100,
-            1.0,
-            10,
-            1.0
-    );
+    public static MecanumConstants driveConstants = new MecanumConstants()
+            .maxPower(1)
+            .rightFrontMotorName(FRONT_RIGHT_NAME)
+            .rightRearMotorName(BACK_RIGHT_NAME)
+            .leftRearMotorName(BACK_LEFT_NAME)
+            .leftFrontMotorName(FRONT_LEFT_NAME)
+            .leftFrontMotorDirection(FRONT_LEFT_DIR)
+            .leftRearMotorDirection(BACK_LEFT_DIR)
+            .rightFrontMotorDirection(FRONT_RIGHT_DIR)
+            .rightRearMotorDirection(BACK_RIGHT_DIR);
 
-    public static Follower createFollower(RobotHardware hw, StateEstimator state) {
-        hw.initDriveMotors();
-        Drivetrain drivetrain = getDrivetrain(hw);
+    public static PinpointConstants localizerConstants = new PinpointConstants()
+            .forwardPodY(PINPOINT_Y_OFFSET_IN)
+            .strafePodX(PINPOINT_X_OFFSET_IN)
+            .distanceUnit(DistanceUnit.INCH)
+            .hardwareMapName("pinpoint")
+            .encoderResolution(ENCODER_RESOLUTION)
+            .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION)
+            .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION);
 
-        // TODO: After running the velocity tuners, set measured max speeds in in/s:
-        // follower.setXVelocity(<forward_ips>);
-        // follower.setYVelocity(<strafe_ips>);
+    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
 
-        Follower follower = new Follower(followerConstants, state, drivetrain);
-        follower.getDrivetrain().setNominalVoltage(12.0);
-        follower.getDrivetrain().useVoltageCompensation(true);
-        return follower;
-    }
-
-    @NonNull
-    private static Drivetrain getDrivetrain(RobotHardware hw) {
-        DcMotorEx fl = hw.getFrontLeft();
-        DcMotorEx fr = hw.getFrontRight();
-        DcMotorEx bl = hw.getBackLeft();
-        DcMotorEx br = hw.getBackRight();
-
-        DoubleSupplier vsup = () -> {
-            double best = 0.0;
-            for (VoltageSensor vs : hw.getOpMode().hardwareMap.voltageSensor) {
-                double v = vs.getVoltage();
-                if (!Double.isNaN(v) && v > best) best = v;
-            }
-            return best;
-        };
-
-        return new Mecanum.PedroMecanumDrivetrain(fl, fr, bl, br, vsup);
+    public static Follower createFollower(HardwareMap hardwareMap) {
+        return new FollowerBuilder(followerConstants, hardwareMap)
+                .pinpointLocalizer(localizerConstants)
+                .pathConstraints(pathConstraints)
+                .mecanumDrivetrain(driveConstants)
+                .build();
     }
 }
