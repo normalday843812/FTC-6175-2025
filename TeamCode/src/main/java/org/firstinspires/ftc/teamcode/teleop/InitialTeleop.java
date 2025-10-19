@@ -7,6 +7,7 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
@@ -43,6 +44,9 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexer();
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
+        hw.initIntakeColorSensor();
+        IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
+
         if (isStopRequested()) return;
         waitForStart();
 
@@ -50,6 +54,7 @@ public class InitialTeleop extends LinearOpMode {
 
         while (opModeIsActive()) {
             map.update();
+            intakeColorSensor.update();
             aprilTag.update();
             drive.operate();
             intake.operate();
