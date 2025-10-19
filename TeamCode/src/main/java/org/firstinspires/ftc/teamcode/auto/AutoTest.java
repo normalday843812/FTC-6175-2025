@@ -1,74 +1,104 @@
 package org.firstinspires.ftc.teamcode.auto;
 
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.DEFAULT_MAX_POWER;
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.ENABLE_TELEMETRY;
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.ENABLE_VISION;
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.ENABLE_VOLTAGE_COMPENSATION;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_AUDIENCE;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_DEPOT;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_AUDIENCE;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_DEPOT;
 
 import com.pedropathing.follower.Follower;
-import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.paths.PathChain;
+import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
-import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
-import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
+import org.firstinspires.ftc.teamcode.util.Menu;
 
 @Autonomous(name = "Auto test", group = "Pedro")
 public class AutoTest extends LinearOpMode {
+    private Follower follower;
+    private Timer pathTimer, actionTimer, opmodeTimer;
+    private int pathState;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        // Hardware
-        RobotHardware hw = new RobotHardware(this);
-
-        // Vision
-        hw.initLimeLight(100);
-        hw.setLimelightPipeline(0);
-        AprilTagLocalizer ll = new AprilTagLocalizer(hw.getLimelight());
-
-        // Localisation
-        hw.initPinpoint();
-        StateEstimator state = new StateEstimator(this, hw.getPinpoint(), ll);
-
-        Follower follower = Constants.createFollower(hw, state);
-
-        Pose startPose = new Pose(0, 0, 0);
-        follower.setStartingPose(startPose);
-
-        PathChain chain = follower.pathBuilder()
-                .addPath(new BezierLine(
-                        new Pose(0, 0),
-                        new Pose(36, 0)
+        Menu menu = new Menu(this)
+                .add(new Menu.Item(
+                        "Alliance",
+                        "Red (B)", () -> gamepad1.b,
+                        "Blue (X)", () -> gamepad1.x,
+                        true))
+                .add(new Menu.Item(
+                        "Side",
+                        "Audience", () -> gamepad1.y,
+                        "Depot", () -> gamepad1.a,
+                        true
                 ))
-                .setConstantHeadingInterpolation(0)
-                .build();
+                .add(new Menu.Item(
+                        "Actively intake?",
+                        "Yes (A)", () -> gamepad1.a,
+                        "No (B)", () -> gamepad1.b,
+                        true))
+                .add(new Menu.Item(
+                        "Shoot Preloaded?",
+                        "Yes (A)", () -> gamepad1.a,
+                        "No (B)", () -> gamepad1.b,
+                        true
+                ))
+                .add(new Menu.Item(
+                        "Move?",
+                        "Yes (A)", () -> gamepad1.a,
+                        "No (B)", () -> gamepad1.b,
+                        true
+                ));
+
+        menu.showUntilStart();
+
+        boolean isRed = menu.get("Alliance");
+        boolean isAudienceSide = menu.get("Side");
+        boolean activelyIntake = menu.get("Actively intake?");
+        boolean shootPreloaded = menu.get("Shoot Preloaded?");
+        boolean move = menu.get("Move?");
+
+        telemetry.addData("Alliance", isRed ? "RED" : "BLUE");
+        telemetry.addData("Side", isAudienceSide ? "AUDIENCE" : "DEPOT");
+        telemetry.addData("Actively Intake", activelyIntake ? "YES" : "NO");
+        if ((activelyIntake || shootPreloaded) && !move) {
+            move = true;
+            String result;
+            if (activelyIntake && shootPreloaded) {
+                result = "Actively Intake and Shoot Preloaded require movement!";
+            } else if (activelyIntake) {
+                result = "Actively Intake requires movement!";
+            } else {
+                result = "Shoot Preloaded requires movement!";
+            }
+            telemetry.addLine(result);
+            telemetry.addData("Move", "YES");
+        } else {
+            telemetry.addData("Move", move ? "YES" : "NO");
+        }
+        telemetry.update();
+
+        Pose startPose;
+        if (isRed) {
+            if (isAudienceSide) {
+                startPose = START_RED_AUDIENCE;
+            } else {
+                startPose = START_RED_DEPOT;
+            }
+        } else {
+            if (isAudienceSide) {
+                startPose = START_BLUE_AUDIENCE;
+            } else {
+                startPose = START_BLUE_DEPOT;
+            }
+        }
 
         if (isStopRequested()) return;
         waitForStart();
 
-        follower.getDrivetrain().useVoltageCompensation(ENABLE_VOLTAGE_COMPENSATION);
-        follower.setMaxPowerScaling(DEFAULT_MAX_POWER);
-        org.firstinspires.ftc.teamcode.util.TelemetryHelper.setGlobalEnabled(ENABLE_TELEMETRY);
-        state.setVisionEnabled(ENABLE_VISION);
-
-        follower.followPath(chain, true);
-
-        // Main loop
         while (opModeIsActive()) {
-            follower.update();
-
-            // End-of-path reached and no longer busy
-            if (!follower.isBusy()) {
-                // Do whatever here
-                break;
-            }
-
-            TelemetryHelper.update();
+            sleep(20);
         }
     }
 }
