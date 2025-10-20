@@ -50,7 +50,7 @@ public class InitialTeleop extends LinearOpMode {
         if (isStopRequested()) return;
         waitForStart();
 
-        drive.start();
+        drive.startTeleop();
 
         while (opModeIsActive()) {
             map.update();
