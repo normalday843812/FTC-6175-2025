@@ -1,13 +1,17 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.FALLBACK_MODE;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_OUTPUT;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_DB;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
+import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Shooter {
@@ -16,7 +20,7 @@ public class Shooter {
     // Telemetry
     private final TelemetryHelper tele;
 
-
+    private SubsystemMode mode = SubsystemMode.MANUAL;
     private static double targetRpm = 0.0;
 
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
@@ -25,44 +29,56 @@ public class Shooter {
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
+    public void startTeleop() {
+        mode = SubsystemMode.MANUAL;
+    }
+
+    public void startAuto() {
+        mode = SubsystemMode.AUTO;
+    }
+
     public void operate() {
-        if (FALLBACK_MODE) {
-            operateFallback();
-            return;
+        if (mode == SubsystemMode.MANUAL) {
+            operateManual();
+        } else {
+            // AUTO: hold target RPM set via setAutoRpm
+            motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
         }
-
-        double desired = (map.shooterTrigger > ShooterConfig.TRIGGER_DB)
-                ? map.shooterTrigger * ShooterConfig.MAX_RPM
-                : 0.0;
-
-        setRpm(desired);
         addTelemetry();
     }
 
-    private void operateFallback() {
-        motor.setPower(map.shooterTrigger);
-        tele.addLine("--- SHOOTER FALLBACK ---")
-                .addData("Power:", "%.2f", motor.getPower());
+    private void operateManual() {
+        if (map == null) return;
+        targetRpm = (map.shooterTrigger > TRIGGER_DB)
+                ? map.shooterTrigger * MAX_RPM
+                : 0.0;
+        motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
     }
 
-    public void setRpm(double rpm) {
+    public void setAutoRpm(double rpm) {
         targetRpm = Math.max(0.0, Math.min(ShooterConfig.MAX_RPM, rpm));
-        motor.setVelocity(targetRpm * ShooterConfig.TPR_OUTPUT / 60.0);
     }
 
     public double getMotorRPM() {
-        return motor.getVelocity() * 60.0 / ShooterConfig.TPR_OUTPUT;
+        double tps = motor.getVelocity();
+        return tps * 60.0 / TPR_MOTOR;
+    }
+
+    public double getOutputRPM() {
+        double tps = motor.getVelocity();
+        return tps * 60.0 / TPR_OUTPUT;
+    }
+
+    public boolean isAtTarget(double band) {
+        return Math.abs(getOutputRPM() - targetRpm) <= band;
     }
 
     private void addTelemetry() {
         double tps = motor.getVelocity();
-        double motorRPM = tps * 60.0 / ShooterConfig.TPR_MOTOR;
-        double outputRPM = tps * 60.0 / ShooterConfig.TPR_OUTPUT;
-
-        tele.addLine("--- SHOOTER ---")
+        tele.addLine("=== SHOOTER ===")
+                .addData("Mode", mode::name)
                 .addData("Target RPM:", "%.0f", targetRpm)
-                .addData("Output RPM:", "%.0f", outputRPM)
-                .addData("Motor RPM:", "%.0f", motorRPM)
-                .addData("err tps:", "%.1f", targetRpm * ShooterConfig.TPR_OUTPUT / 60.0 - tps);
+                .addData("Output RPM:", "%.0f", tps * 60.0 / TPR_OUTPUT)
+                .addData("Motor RPM:", "%.0f", tps * 60.0 / TPR_MOTOR);
     }
 }
