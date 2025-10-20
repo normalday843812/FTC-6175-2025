@@ -51,6 +51,10 @@ public class InitialTeleop extends LinearOpMode {
         waitForStart();
 
         drive.startTeleop();
+        intake.startTeleop();
+        shooter.startTeleop();
+        hood.startTeleop();
+        spindexer.startTeleop();
 
         while (opModeIsActive()) {
             map.update();
