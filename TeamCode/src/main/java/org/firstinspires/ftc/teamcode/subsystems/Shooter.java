@@ -51,7 +51,7 @@ public class Shooter {
     }
 
     public double getMotorRPM() {
-        return motor.getVelocity() * 60.0 / ShooterConfig.TPR_MOTOR;
+        return motor.getVelocity() * 60.0 / ShooterConfig.TPR_OUTPUT;
     }
 
     private void addTelemetry() {

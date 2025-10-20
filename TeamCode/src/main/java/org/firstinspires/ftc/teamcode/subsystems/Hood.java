@@ -54,7 +54,7 @@ public class Hood {
                 // Hold commanded
             } else {
                 manualActive = false;
-//                commanded = autoTarget;
+                commanded = autoTarget;
             }
         }
 

@@ -82,7 +82,7 @@ public class RobotHardware {
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
-        pinpoint.setOffsets(PINPOINT_X_OFFSET_IN, PINPOINT_Y_OFFSET_IN, DistanceUnit.METER);
+        pinpoint.setOffsets(PINPOINT_X_OFFSET_IN, PINPOINT_Y_OFFSET_IN, DistanceUnit.INCH);
         pinpoint.setEncoderResolution(ENCODER_RESOLUTION);
 
         pinpoint.setEncoderDirections(FORWARD_ENCODER_DIRECTION,
