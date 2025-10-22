@@ -13,7 +13,6 @@ public class SimpleMecanumTest extends LinearOpMode {
         RobotHardware hw = new RobotHardware(this);
         hw.initDriveMotors();
 
-
         waitForStart();
 
         if (isStopRequested()) return;

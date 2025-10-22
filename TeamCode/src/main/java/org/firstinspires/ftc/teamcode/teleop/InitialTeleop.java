@@ -1,21 +1,18 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.*;
-
-import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
-import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.AprilTagLocalizer;
+import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
@@ -23,22 +20,16 @@ public class InitialTeleop extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
 
-        // Vision
-        hw.initLimeLight(100);
-        hw.setLimelightPipeline(0);
-        AprilTagLocalizer aprilTagLocalizer = new AprilTagLocalizer(hw.getLimelight());
-
-        // Odometry / IMU
-        hw.initPinpoint();
-        StateEstimator state = new StateEstimator(this, hw.getPinpoint(), aprilTagLocalizer);
-
-        Follower follower = Constants.createFollower(hw, state);
-
         GamepadMap map = new GamepadMap(this);
 
         // Drive
-        hw.initDriveMotors();
-        Mecanum drive = new Mecanum(state, map, this, follower);
+        Mecanum drive = new Mecanum(this, map);
+        drive.init();
+
+        // Limelight
+        hw.initLimeLight(100);
+        hw.setLimelightPipeline(0);
+        LLAprilTag aprilTag = new LLAprilTag(hw.getLimelight(), this);
 
         // Subsystems
         hw.initIntake();
@@ -50,24 +41,30 @@ public class InitialTeleop extends LinearOpMode {
         hw.initHood();
         Hood hood = new Hood(hw.getHoodServo(), map, this);
 
+        hw.initSpindexer();
+        Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
+
+        hw.initIntakeColorSensor();
+        IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
+
         if (isStopRequested()) return;
         waitForStart();
 
-        state.update();
-        follower.update();
-
-        follower.getDrivetrain().useVoltageCompensation(ENABLE_VOLTAGE_COMPENSATION);
-        follower.setMaxPowerScaling(DEFAULT_MAX_POWER);
-        TelemetryHelper.setGlobalEnabled(ENABLE_TELEMETRY);
-        state.setVisionEnabled(ENABLE_VISION);
+        drive.startTeleop();
+        intake.startTeleop();
+        shooter.startTeleop();
+        hood.startTeleop();
+        spindexer.startTeleop();
 
         while (opModeIsActive()) {
             map.update();
-            state.update();
+            intakeColorSensor.update();
+            aprilTag.update();
             drive.operate();
             intake.operate();
             shooter.operate();
             hood.operate();
+            spindexer.operate();
             TelemetryHelper.update();
         }
     }

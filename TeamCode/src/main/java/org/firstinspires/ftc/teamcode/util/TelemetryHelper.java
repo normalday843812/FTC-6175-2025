@@ -1,12 +1,13 @@
 package org.firstinspires.ftc.teamcode.util;
 
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-
-import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.robotcore.external.Func;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.ENABLE_TELEMETRY;
 
 import com.bylazar.telemetry.JoinedTelemetry;
 import com.bylazar.telemetry.PanelsTelemetry;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+
+import org.firstinspires.ftc.robotcore.external.Func;
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +29,7 @@ import java.util.Map;
  */
 public final class TelemetryHelper {
     private static Telemetry SHARED;
-    private static boolean GLOBAL_ENABLED = true;
+    private static boolean GLOBAL_ENABLED = ENABLE_TELEMETRY;
     private static final Map<String, Long> LAST = new HashMap<>();
 
     private final boolean isEnabled;
