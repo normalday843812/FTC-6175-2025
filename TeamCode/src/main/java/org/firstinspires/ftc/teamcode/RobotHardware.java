@@ -78,6 +78,7 @@ public class RobotHardware {
     // Servos
     private Servo hoodServo;
     private Servo spindexerServo;
+    private Servo transferServo;
 
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -105,6 +106,10 @@ public class RobotHardware {
         );
 
         imu.initialize(imuParams);
+    }
+
+    public void initTransfer() {
+        transferServo = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo");
     }
 
     public void initWebcam() {
@@ -321,6 +326,19 @@ public class RobotHardware {
             }
         } else {
             return hoodServo;
+        }
+    }
+
+    public Servo getTransferServo() {
+        if (transferServo == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("transferServo not init");
+            } else {
+                initTransfer();
+                return transferServo;
+            }
+        } else {
+            return transferServo;
         }
     }
 
