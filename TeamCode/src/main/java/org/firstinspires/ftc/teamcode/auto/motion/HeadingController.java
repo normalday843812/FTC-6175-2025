@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
+import static com.pedropathing.math.MathFunctions.clamp;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.*;
 
 public class HeadingController {
@@ -24,10 +25,6 @@ public class HeadingController {
         cmd /= 90.0; // Normalize so 90 deg error should map to 1.0 before the clamping
 
         return clamp(cmd, -HEADING_MAX_ROT, HEADING_MAX_ROT);
-    }
-
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 
     private static double wrapDeg(double a) {

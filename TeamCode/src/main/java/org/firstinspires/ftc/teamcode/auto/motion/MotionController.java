@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
+import static com.pedropathing.math.MathFunctions.clamp;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_APPROACH_GAIN;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_MAX_VEL;
 
@@ -51,7 +52,7 @@ public class MotionController {
     }
 
     /**
-     * Drive to pose with a  P-based XY and heading lock.
+     * Drive to pose with a P-based XY and heading lock.
      * Returns true if finished by distance or timeout.
      */
     public boolean driveToPose(Pose target, double stopDistIn,
@@ -82,10 +83,6 @@ public class MotionController {
 
         addTelemetry("DRIVE_TO", vx, vy, rot, desiredDeg, currentDeg, heading.debugName());
         return completed;
-    }
-
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 
     private void addTelemetry(String mode, double vxField, double vyField, double rotCmd,
