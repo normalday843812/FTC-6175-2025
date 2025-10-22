@@ -6,8 +6,8 @@ import com.bylazar.configurables.annotations.Configurable;
 public class AutoMotionConfig {
     // TODO: tune all of this
     // Heading PD
-    public static double HEADING_KP = 2.0;
-    public static double HEADING_KD = 0.08;
+    public static double HEADING_KP = 1.0;
+    public static double HEADING_KD = 0.02;
     public static double HEADING_MAX_ROT = 0.7;
     public static double HEADING_DEADBAND_DEG = 0.5;
 
