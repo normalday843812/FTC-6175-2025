@@ -1,12 +1,19 @@
 package org.firstinspires.ftc.teamcode;
 
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_M;
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_M;
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ENCODER_RESOLUTION;
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
-import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_ENCODER_DIRECTION;
-
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_RIGHT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_RIGHT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_LEFT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_LEFT_NAME;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_RIGHT_DIR;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.FRONT_RIGHT_NAME;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.isFailFastOnMissingHardware;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.ENCODER_RESOLUTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_IN;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
+import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
 
 import android.util.Size;
 
@@ -16,8 +23,8 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
@@ -52,6 +59,9 @@ public class RobotHardware {
     // Limelight
     private Limelight3A limelight;
 
+    // Color sensor
+    private NormalizedColorSensor intakeColorSensor;
+
     // IMU
     IMU imu;
     IMU.Parameters imuParams;
@@ -67,16 +77,22 @@ public class RobotHardware {
 
     // Servos
     private Servo hoodServo;
+    private Servo spindexerServo;
+    private Servo transferServo;
 
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
-        pinpoint.setOffsets(PINPOINT_X_OFFSET_M, PINPOINT_Y_OFFSET_M, DistanceUnit.METER);
+        pinpoint.setOffsets(PINPOINT_X_OFFSET_IN, PINPOINT_Y_OFFSET_IN, DistanceUnit.INCH);
         pinpoint.setEncoderResolution(ENCODER_RESOLUTION);
 
         pinpoint.setEncoderDirections(FORWARD_ENCODER_DIRECTION,
                 STRAFE_ENCODER_DIRECTION);
         pinpoint.resetPosAndIMU();
+    }
+
+    public void initIntakeColorSensor() {
+        intakeColorSensor = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor");
     }
 
     public void initIMU() {
@@ -90,6 +106,10 @@ public class RobotHardware {
         );
 
         imu.initialize(imuParams);
+    }
+
+    public void initTransfer() {
+        transferServo = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo");
     }
 
     public void initWebcam() {
@@ -131,33 +151,22 @@ public class RobotHardware {
             limelight.pipelineSwitch(pipelineNum);
         }
     }
-
+    
     public void initDriveMotors() {
-        frontRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "front_right_drive");
-        frontLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "front_left_drive");
-        backRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "back_right_drive");
-        backLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "back_left_drive");
+        frontRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, FRONT_RIGHT_NAME);
+        frontLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, FRONT_LEFT_NAME);
+        backRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, BACK_RIGHT_NAME);
+        backLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, BACK_LEFT_NAME);
 
         frontRightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         frontLeftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backLeftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        frontRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-        backRightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-
-        // If using two wheel: odom encoders given frontRightMotor is port 0 and backLeftMotor is port 3
-        frontRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        frontLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-//        frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // Odom pod
-        frontRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        frontLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        backRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        backLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-//        backLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // Odom pod
+        frontLeftMotor.setDirection(FRONT_LEFT_DIR);
+        frontRightMotor.setDirection(FRONT_RIGHT_DIR);
+        backRightMotor.setDirection(BACK_RIGHT_DIR);
+        backLeftMotor.setDirection(BACK_LEFT_DIR);
     }
 
     public void initIntake() {
@@ -177,6 +186,10 @@ public class RobotHardware {
 
     public void initHood() {
         hoodServo = inputOpMode.hardwareMap.get(Servo.class, "hood_servo");
+    }
+
+    public void initSpindexer() {
+        spindexerServo = inputOpMode.hardwareMap.get(Servo.class, "spindexer_servo");
     }
 
     // Webcam
@@ -313,6 +326,45 @@ public class RobotHardware {
             }
         } else {
             return hoodServo;
+        }
+    }
+
+    public Servo getTransferServo() {
+        if (transferServo == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("transferServo not init");
+            } else {
+                initTransfer();
+                return transferServo;
+            }
+        } else {
+            return transferServo;
+        }
+    }
+
+    public Servo getSpindexerServo() {
+        if (spindexerServo == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("spindexerServo not init");
+            } else {
+                initSpindexer();
+                return spindexerServo;
+            }
+        } else {
+            return spindexerServo;
+        }
+    }
+
+    public NormalizedColorSensor getIntakeColorSensor() {
+        if (intakeColorSensor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("intakeColorSensor not init");
+            } else {
+                initIntakeColorSensor();
+                return intakeColorSensor;
+            }
+        } else {
+            return intakeColorSensor;
         }
     }
 

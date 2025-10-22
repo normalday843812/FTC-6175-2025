@@ -15,13 +15,15 @@ public class GamepadMap {
 
     public double forward, strafe, rotate;
     public boolean angleLockToggle, slowModeToggle, fieldCentricToggle,
-            stateEstimatorFallbackToggle, intakeToggle, intakeReverseToggle;
-    public double shooterTrigger;
+            spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle;
+    public double shooterUp, shooterDown;
     public boolean resetPinpointButton;
+    public boolean transferButton;
     public double hoodAxis;
 
     private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
-            dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
+            y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
+            dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
             left_bumper_t = new EdgeTrigger();
 
     public GamepadMap(OpMode opmode) {
@@ -30,21 +32,26 @@ public class GamepadMap {
 
     // TODO: Make final mapping
     public void update() {
-        forward = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
-        strafe = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
+        forward = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
+        strafe = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
         rotate = deadband(opmode.gamepad1.right_stick_x, ROT_DB);
+
+        spindexerForward = x.rose(opmode.gamepad1.x);
+        spindexerBackward = y.rose(opmode.gamepad1.y);
 
         angleLockToggle = a.rose(opmode.gamepad1.a);
         slowModeToggle = b.rose(opmode.gamepad1.b);
-        stateEstimatorFallbackToggle = x.rose(opmode.gamepad1.x);
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad1.dpad_down);
 
         intakeToggle = right_bumper_t.rose(opmode.gamepad1.right_bumper);
         intakeReverseToggle = left_bumper_t.rose(opmode.gamepad1.left_bumper);
 
-        shooterTrigger = opmode.gamepad1.left_trigger;
+        shooterUp = opmode.gamepad1.right_trigger;
+        shooterDown = opmode.gamepad1.left_trigger;
         resetPinpointButton = opmode.gamepad1.start;
 
-        hoodAxis = opmode.gamepad2.right_trigger - opmode.gamepad2.left_trigger;
+        transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
+
+        hoodAxis = opmode.gamepad1.right_trigger - opmode.gamepad1.left_trigger;
     }
 }

@@ -1,252 +1,161 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.KD_YAW;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.KP_YAW;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.OMEGA_MAX;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.SLOW_MODE_FACTOR;
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
-import static org.firstinspires.ftc.teamcode.config.GlobalConfig.IN_TO_M;
-import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
-import static org.firstinspires.ftc.teamcode.util.MathUtil.wrapRad;
+import static org.firstinspires.ftc.teamcode.config.GlobalConfig.SLOW_MODE_MULTIPLIER;
 
-import com.pedropathing.Drivetrain;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.localisation.StateEstimator;
+import org.firstinspires.ftc.teamcode.auto.motion.HeadingController;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-import java.util.function.DoubleSupplier;
-
 public class Mecanum {
-    // State estimation
-    private final Follower follower;
-    private final StateEstimator state;
-
-    // Controls
-    private final GamepadMap map;
-
-    // Telemetry
-    private final TelemetryHelper tele;
-
-    // Angle and slow mode modifiers
-    private boolean angleLock = false, slowMode = false, fieldCentricEnabled = false;
-    private double targetHeading = 0.0;
-    private boolean teleopStarted = false;
-
-    // Drivetrain bridge
-    public static class PedroMecanumDrivetrain extends Drivetrain {
-        private final DcMotorEx fl, fr, bl, br;
-        private double maxPower = 1.0;
-        // Store calibrated max speeds (in/s). Set via setXVelocity/YVelocity.
-        private double xVel, yVel;
-
-        // Supplier for live battery voltage
-        private final DoubleSupplier voltageSupplier;
-
-        public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br) {
-            this(fl, fr, bl, br, () -> 12.0);
-        }
-
-        public PedroMecanumDrivetrain(DcMotorEx fl, DcMotorEx fr, DcMotorEx bl, DcMotorEx br,
-                                      DoubleSupplier voltageSupplier) {
-            this.fl = fl;
-            this.fr = fr;
-            this.bl = bl;
-            this.br = br;
-            this.voltageSupplier = voltageSupplier;
-        }
-
-        @Override
-        public double[] calculateDrive(Vector correctivePower, Vector headingPower, Vector pathingPower, double robotHeading) {
-            double xF = correctivePower.getXComponent() + pathingPower.getXComponent();
-            double yF = correctivePower.getYComponent() + pathingPower.getYComponent();
-
-            double cos = Math.cos(robotHeading), sin = Math.sin(robotHeading);
-            double xR = xF * cos + yF * sin;
-            double yR = -xF * sin + yF * cos;
-
-            double sign = Math.cos(headingPower.getTheta() - robotHeading) >= 0 ? 1 : -1;
-            double turn = headingPower.getMagnitude() * sign;
-
-            double flP = yR + xR + turn;
-            double blP = yR - xR + turn;
-            double frP = yR - xR - turn;
-            double brP = yR + xR - turn;
-
-            double maxMag = Math.max(1.0, Math.max(Math.abs(flP),
-                    Math.max(Math.abs(frP), Math.max(Math.abs(blP), Math.abs(brP)))));
-            return new double[]{
-                    (flP / maxMag) * maxPower, (frP / maxMag) * maxPower,
-                    (blP / maxMag) * maxPower, (brP / maxMag) * maxPower
-            };
-        }
-
-        @Override
-        public void runDrive(double[] p) {
-            double scale = 1.0;
-            if (isVoltageCompensation()) {
-                double v = getVoltage();
-                double vNom = getNominalVoltage() > 0 ? getNominalVoltage() : 12.0;
-                if (v > 0) scale = vNom / v;
-            }
-            fl.setPower(p[0] * scale);
-            fr.setPower(p[1] * scale);
-            bl.setPower(p[2] * scale);
-            br.setPower(p[3] * scale);
-        }
-
-        @Override
-        public void updateConstants() {
-        }
-
-        @Override
-        public void breakFollowing() {
-        }
-
-        @Override
-        public void startTeleopDrive() {
-        }
-
-        @Override
-        public void startTeleopDrive(boolean brakeMode) {
-        }
-
-        // Return calibrated max speeds (in/s)
-        @Override
-        public double xVelocity() {
-            return xVel;
-        }
-
-        @Override
-        public double yVelocity() {
-            return yVel;
-        }
-
-        @Override
-        public void setXVelocity(double v) {
-            xVel = v;
-        }
-
-        @Override
-        public void setYVelocity(double v) {
-            yVel = v;
-        }
-
-        @Override
-        public void setMaxPowerScaling(double s) {
-            maxPower = Math.max(0, Math.min(1, s));
-        }
-
-        @Override
-        public double getMaxPowerScaling() {
-            return maxPower;
-        }
-
-        @Override
-        public double getVoltage() {
-            double v = voltageSupplier != null ? voltageSupplier.getAsDouble() : 12.0;
-            return v > 0 ? v : 12.0;
-        }
-
-        @Override
-        public String debugString() {
-            return "mecanum";
-        }
+    public static class AutoDriveCommand {
+        public double forward = 0;
+        public double strafe = 0;
+        public double turn = 0;
+        public boolean fieldCentric = true;
+        public double offsetHeading = 0;
     }
 
-    public Mecanum(StateEstimator state,
-                   GamepadMap map,
-                   OpMode opmode,
-                   Follower follower) {
-        this.follower = follower;
-        this.state = state;
+    private boolean headingLockEnabled = false;
+    private boolean headingLockActive = false;
+    private double lockHeadingDeg = 0.0;
+    private final HeadingController teleopHeadingCtrl = new HeadingController();
+
+    private final OpMode opmode;
+    private final TelemetryHelper tele;
+
+    private Follower follower;
+    private final GamepadMap map;
+
+    private SubsystemMode mode = SubsystemMode.MANUAL;
+    private boolean slowMode = false;
+    private boolean fieldCentricEnabled = true;
+
+    private final AutoDriveCommand autoCmd = new AutoDriveCommand();
+
+    public Mecanum(OpMode opmode, GamepadMap map) {
+        this.opmode = opmode;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
-    public void operate() {
-        handleToggles();
-
-        if (!teleopStarted) {
-            follower.update();
-            follower.startTeleopDrive();
-            teleopStarted = true;
-        }
-
-        double vx = deadband(map.forward, STICK_DB);
-        double vy = deadband(map.strafe, STICK_DB);
-        double rotateStick = map.rotate;
-
-        boolean driverRotating = Math.abs(rotateStick) > ROT_DB;
-        double omegaCmd;
-
-        if (driverRotating) {
-            omegaCmd = rotateStick;
-            targetHeading = state.getPose().getHeading();
-        } else if (angleLock) {
-            double heading = state.getPose().getHeading();
-            double error = wrapRad(targetHeading - heading);
-            double omega = follower.getAngularVelocity();
-            omegaCmd = KP_YAW * error - KD_YAW * omega;
-            omegaCmd = Math.max(-OMEGA_MAX, Math.min(OMEGA_MAX, omegaCmd));
-        } else {
-            omegaCmd = 0.0;
-        }
-
-        if (slowMode) {
-            vx *= SLOW_MODE_FACTOR;
-            vy *= SLOW_MODE_FACTOR;
-            omegaCmd *= SLOW_MODE_FACTOR;
-            follower.setMaxPowerScaling(SLOW_MODE_FACTOR);
-        } else {
-            follower.setMaxPowerScaling(1.0);
-        }
-
-        boolean isRobotCentric = !fieldCentricEnabled;
+    public void init() {
+        follower = Constants.createFollower(opmode.hardwareMap);
+        follower.setStartingPose(new Pose());
         follower.update();
-        follower.setTeleOpDrive(vx, vy, omegaCmd, isRobotCentric);
-        addTelemetry(vx, vy, omegaCmd, isRobotCentric);
+    }
+
+    public void startTeleop() {
+        mode = SubsystemMode.MANUAL;
+        follower.startTeleopDrive();
+    }
+
+    public void startAuto() {
+        mode = SubsystemMode.AUTO;
+        follower.startTeleopDrive();
+        clearAutoCommand();
+    }
+
+    public void setAutoDrive(double forward, double strafe, double turn, boolean fieldCentric, double offsetHeading) {
+        autoCmd.forward = forward;
+        autoCmd.strafe = strafe;
+        autoCmd.turn = turn;
+        autoCmd.fieldCentric = fieldCentric;
+        autoCmd.offsetHeading = offsetHeading;
+    }
+
+    public void clearAutoCommand() {
+        setAutoDrive(0, 0, 0, true, 0);
+    }
+
+    public void operate() {
+        follower.update();
+
+        if (mode == SubsystemMode.MANUAL) {
+            handleTeleopInputs();
+        } else {
+            applyAutoCommand();
+        }
+
+        addTelemetry();
+    }
+
+    public void enableTeleopHeadingLock(boolean enable) {
+        headingLockEnabled = enable;
+        if (!enable) headingLockActive = false;
+    }
+
+    private void handleTeleopInputs() {
+        if (map == null) return;
+
+        if (map.slowModeToggle) slowMode = !slowMode;
+        if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
+
+        double rawTurn = slowMode ? -map.rotate * SLOW_MODE_MULTIPLIER : -map.rotate;
+        double currentHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
+        double turnCmd;
+
+        if (headingLockEnabled) {
+            if (Math.abs(rawTurn) > ROT_DB) {
+                headingLockActive = false;
+                turnCmd = rawTurn;
+            } else {
+                if (!headingLockActive) {
+                    lockHeadingDeg = currentHeadingDeg;
+                    teleopHeadingCtrl.reset();
+                    headingLockActive = true;
+                }
+                turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
+            }
+        } else {
+            headingLockActive = false;
+            turnCmd = rawTurn;
+        }
+
+        double forward = slowMode ? -map.forward * SLOW_MODE_MULTIPLIER : -map.forward;
+        double strafe = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
+
+        follower.setTeleOpDrive(forward, strafe, turnCmd, fieldCentricEnabled);
+    }
+
+    private void applyAutoCommand() {
+        follower.setTeleOpDrive(
+                -autoCmd.forward,
+                -autoCmd.strafe,
+                autoCmd.turn,
+                autoCmd.fieldCentric,
+                autoCmd.offsetHeading
+        );
     }
 
     private void handleToggles() {
-        if (map.angleLockToggle) {
-            angleLock = !angleLock;
-            if (angleLock) targetHeading = follower.getPose().getHeading();
-        }
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
-        if (map.stateEstimatorFallbackToggle) state.setVisionEnabled(!state.isVisionEnabled());
-        if (map.resetPinpointButton) resetFieldCentric();
     }
 
-    private void resetFieldCentric() {
-        state.resetIMU();
-        state.setStartPose(new Pose(0, 0, 0));
-        targetHeading = 0.0;
+    private void addTelemetry() {
+        Pose p = follower.getPose();
+        Vector v = follower.getVelocity();
+        tele.addLine("--- Mecanum ---")
+                .addData("Mode", mode::name)
+                .addData("Pose", "(%.1f, %.1f, %.1f°)", p.getX(), p.getY(), Math.toDegrees(p.getHeading()))
+                .addData("Velocity", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent());
     }
 
-    private void addTelemetry(double vx, double vy, double omegaCmd, boolean isRobotCentric) {
-        Pose pIn = follower.getPose();
-        Vector vIn = follower.getVelocity();
-        double headingDeg = Math.toDegrees(pIn.getHeading());
+    public Follower getFollower() {
+        return follower;
+    }
 
-        tele.addLine("--- Mecanum [Pedro TeleOp] ---")
-                .addData("Mode", "%s", isRobotCentric ? "Robot" : "Field")
-                .addData("Toggles", "slow=%b angleLock=%b", slowMode, angleLock)
-                .addData("Cmd", "vx=%.2f vy=%.2f ω=%.2f", vx, vy, omegaCmd)
-                .addData("Pose_in", "(%.1f, %.1f) | %.1f°", pIn.getX(), pIn.getY(), headingDeg)
-                .addData("Pose_m", "(%.3f, %.3f) | %.1f°", pIn.getX() * IN_TO_M, pIn.getY() * IN_TO_M, headingDeg)
-                .addData("Vel_in/s", "vx=%.2f vy=%.2f", vIn.getXComponent(), vIn.getYComponent())
-                .addData("HeadingErr_deg", "%.2f", Math.toDegrees(wrapRad(targetHeading - pIn.getHeading())))
-                .addData("Follower", "busy=%b teleop=%b stuck=%b",
-                        follower.isBusy(), follower.isTeleopDrive(), follower.isRobotStuck())
-                .addData("MaxPower", "%.2f", follower.getMaxPowerScaling());
+    public void setStartingPose(Pose p) {
+        follower.setStartingPose(p);
+        follower.update();
     }
 }
