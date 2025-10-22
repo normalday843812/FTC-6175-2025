@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.teamcode.auto.state;
 
 public enum AutoState {
-    MOVE, DEPOSIT, DONE
+    MOVE,
+    DEPOSIT,
+    SEARCH,
+    INTAKE,
+    DONE
 }
