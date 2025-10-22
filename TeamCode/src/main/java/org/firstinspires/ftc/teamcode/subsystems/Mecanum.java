@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.SLOW_MODE_MULTIPLIER;
 
@@ -9,6 +10,7 @@ import com.pedropathing.math.Vector;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.auto.motion.HeadingController;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -21,6 +23,11 @@ public class Mecanum {
         public boolean fieldCentric = true;
         public double offsetHeading = 0;
     }
+
+    private boolean headingLockEnabled = false;
+    private boolean headingLockActive = false;
+    private double lockHeadingDeg = 0.0;
+    private final HeadingController teleopHeadingCtrl = new HeadingController();
 
     private final OpMode opmode;
     private final TelemetryHelper tele;
@@ -81,17 +88,42 @@ public class Mecanum {
         addTelemetry();
     }
 
+    public void enableTeleopHeadingLock(boolean enable) {
+        headingLockEnabled = enable;
+        if (!enable) headingLockActive = false;
+    }
+
     private void handleTeleopInputs() {
         if (map == null) return;
 
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
 
-        double f = slowMode ? -map.forward * SLOW_MODE_MULTIPLIER : -map.forward;
-        double s = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
-        double t = slowMode ? -map.rotate * SLOW_MODE_MULTIPLIER : -map.rotate;
+        double rawTurn = slowMode ? -map.rotate * SLOW_MODE_MULTIPLIER : -map.rotate;
+        double currentHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
+        double turnCmd;
 
-        follower.setTeleOpDrive(f, s, t, fieldCentricEnabled);
+        if (headingLockEnabled) {
+            if (Math.abs(rawTurn) > ROT_DB) {
+                headingLockActive = false;
+                turnCmd = rawTurn;
+            } else {
+                if (!headingLockActive) {
+                    lockHeadingDeg = currentHeadingDeg;
+                    teleopHeadingCtrl.reset();
+                    headingLockActive = true;
+                }
+                turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
+            }
+        } else {
+            headingLockActive = false;
+            turnCmd = rawTurn;
+        }
+
+        double forward = slowMode ? -map.forward * SLOW_MODE_MULTIPLIER : -map.forward;
+        double strafe = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
+
+        follower.setTeleOpDrive(forward, strafe, turnCmd, fieldCentricEnabled);
     }
 
     private void applyAutoCommand() {
