@@ -4,7 +4,7 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_OUTPUT;
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_DB;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -49,9 +49,12 @@ public class Shooter {
 
     private void operateManual() {
         if (map == null) return;
-        targetRpm = (map.shooterTrigger > TRIGGER_DB)
-                ? map.shooterTrigger * MAX_RPM
-                : 0.0;
+
+        if (targetRpm < MAX_RPM) {
+            targetRpm += map.shooterUp * TRIGGER_SCALE;
+        }
+        targetRpm -= map.shooterDown * TRIGGER_SCALE;
+
         motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
     }
 
@@ -77,8 +80,8 @@ public class Shooter {
         double tps = motor.getVelocity();
         tele.addLine("=== SHOOTER ===")
                 .addData("Mode", mode::name)
-                .addData("Target RPM:", "%.0f", targetRpm)
-                .addData("Output RPM:", "%.0f", tps * 60.0 / TPR_OUTPUT)
-                .addData("Motor RPM:", "%.0f", tps * 60.0 / TPR_MOTOR);
+                .addData("Target RPM", "%.0f", targetRpm)
+                .addData("Output RPM", "%.0f", tps * 60.0 / TPR_OUTPUT)
+                .addData("Motor RPM", "%.0f", tps * 60.0 / TPR_MOTOR);
     }
 }
