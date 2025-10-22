@@ -15,6 +15,9 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
 
+import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.ftc.FollowerBuilder;
@@ -25,12 +28,23 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-
+@Configurable
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(ROBOT_MASS);
+            .mass(ROBOT_MASS)
+            .forwardZeroPowerAcceleration(-66.141)
+            .lateralZeroPowerAcceleration(-99.791)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.12, 0, 0.01, 0.05))
+            .headingPIDFCoefficients(new PIDFCoefficients(0.8, 0, 0.02, 0.03))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(4, 0, 0.08, 0.03))
+            .useSecondaryTranslationalPIDF(true)
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(0.3, 0, 0.02, 0.04))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.01, 0, 0.001, 0.6, 0.01))
+            .useSecondaryHeadingPIDF(true);
 
     public static MecanumConstants driveConstants = new MecanumConstants()
+            .xVelocity(72.557)
+            .yVelocity(37.244)
             .maxPower(1)
             .rightFrontMotorName(FRONT_RIGHT_NAME)
             .rightRearMotorName(BACK_RIGHT_NAME)
