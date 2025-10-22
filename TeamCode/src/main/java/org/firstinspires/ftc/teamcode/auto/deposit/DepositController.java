@@ -4,10 +4,6 @@ import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_Y;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.DRIVE_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.FEED_ONE_TIME_S;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.HOOD_BASE_POS;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.HOOD_MAX;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.HOOD_MIN;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.HOOD_PER_100RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.MAX_FEEDS;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_X;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_Y;
@@ -19,15 +15,15 @@ import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.TOTAL_TIME
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_STOP_DIST_IN;
 
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.util.Timer;
 
 import org.firstinspires.ftc.teamcode.auto.geom.FieldBounds;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
-import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
+import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.util.Timer;
 
 /**
  * Spins up -> Drives -> Waits for shooting <-> Feeds -> done
@@ -36,8 +32,8 @@ public class DepositController {
     private enum State {SPINUP, DRIVE, SHOOT_WAIT, FEEDING, DONE}
 
     private final Shooter shooter;
-    private final Hood hood;
     private final Spindexer spindexer;
+    private final Transfer transfer;
     private final MotionController motion;
     private final HeadingTarget headingTarget;
     private final boolean isRed;
@@ -53,15 +49,15 @@ public class DepositController {
 
     public DepositController(
             Shooter shooter,
-            Hood hood,
             Spindexer spindexer,
+            Transfer transfer,
             MotionController motion,
             HeadingTarget headingTarget,
             boolean isRed,
             TelemetryHelper tele) {
         this.shooter = shooter;
-        this.hood = hood;
         this.spindexer = spindexer;
+        this.transfer = transfer;
         this.motion = motion;
         this.headingTarget = headingTarget;
         this.isRed = isRed;
@@ -75,11 +71,10 @@ public class DepositController {
      * @return true when deposit sequence finished
      */
     public boolean update() {
-        // Keep shooter/hood targets alive every loop
+        // Keep shooter and transfer targets alive every loop
         shooter.setAutoRpm(SHOOT_TARGET_RPM);
-        hood.setAutoTarget(mapHoodForRpm(SHOOT_TARGET_RPM));
         shooter.operate();
-        hood.operate();
+        transfer.operate();
 
         switch (state) {
             case SPINUP:
@@ -113,6 +108,8 @@ public class DepositController {
 
     private void stepDrive() {
         Pose target = targetShotPose();
+        target = FieldBounds.clampToAllianceRect(target, isRed);
+
         boolean arrived = motion.driveToPose(target, DRIVE_STOP_DIST_IN, DRIVE_TIMEOUT_S, headingTarget);
         if (arrived || stateTimer.getElapsedTimeSeconds() > DRIVE_TIMEOUT_S) {
             transition(State.SHOOT_WAIT);
@@ -144,10 +141,10 @@ public class DepositController {
     }
 
     private void stepFeeding() {
-        // Maintain heading and shooter/hood during indexing
+        // Maintain heading and shooter/transfer during indexing
         motion.holdHeading(headingTarget);
         shooter.operate();
-        hood.operate();
+        transfer.operate();
 
         if (feedTimer.getElapsedTimeSeconds() >= FEED_ONE_TIME_S) {
             feedsDone++;
@@ -162,10 +159,10 @@ public class DepositController {
     }
 
     private void triggerFeed() {
-        // TODO: implement subsystem for the motor that pushes the ball into the shooter
         if (!feedTriggeredThisCycle) {
             spindexer.stepForward();
             spindexer.operate();
+            transfer.flick();
             feedTimer.resetTimer();
             feedTriggeredThisCycle = true;
         }
@@ -183,14 +180,11 @@ public class DepositController {
         Pose want = isRed
                 ? new Pose(RED_SHOT_X, RED_SHOT_Y, 0)
                 : new Pose(BLUE_SHOT_X, BLUE_SHOT_Y, 0);
-        return FieldBounds.clampToShootingRegion(want);
+        // Clamp shooting pose to alliance rect
+        return FieldBounds.clampToAllianceRect(want, isRed);
     }
 
-    private double mapHoodForRpm(double rpm) {
-        double delta100 = (rpm - SHOOT_TARGET_RPM) / 100.0;
-        double pos = HOOD_BASE_POS + delta100 * HOOD_PER_100RPM;
-        return Math.max(HOOD_MIN, Math.min(HOOD_MAX, pos));
-    }
+    // removed mapHoodForRpm
 
     private void addTelemetry(Pose target) {
         tele.addLine("--- DEPOSIT ---")

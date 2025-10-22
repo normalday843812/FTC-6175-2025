@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.auto.motion;
 import static com.pedropathing.math.MathFunctions.clamp;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_APPROACH_GAIN;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_MAX_VEL;
+import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.HEADING_MAX_ROT;
 
 import com.pedropathing.geometry.Pose;
 
@@ -49,6 +50,14 @@ public class MotionController {
 
         addTelemetry("TRANSLATE", vxField, vyField, rot,
                 desiredDeg, currentDeg, target.debugName());
+    }
+
+    public void spinInPlace(double turnCmd) {
+        double turn = clamp(turnCmd, -HEADING_MAX_ROT, HEADING_MAX_ROT);
+        drive.setAutoDrive(0, 0, turn, true, 0);
+
+        tele.addLine("--- Motion (SPIN) ---")
+                .addData("TurnCmd", "%.3f", turn);
     }
 
     /**
