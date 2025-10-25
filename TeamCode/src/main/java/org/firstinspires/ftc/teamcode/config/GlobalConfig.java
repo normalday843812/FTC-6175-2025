@@ -9,7 +9,7 @@ public class GlobalConfig {
 
     public static boolean FAIL_FAST_ON_MISSING_HARDWARE = false;
 
-    public static double SLOW_MODE_MULTIPLIER = 0.5;
+    public static double SLOW_MODE_MULTIPLIER = 0.2;
 
     public static boolean isFailFastOnMissingHardware() {
         return FAIL_FAST_ON_MISSING_HARDWARE;

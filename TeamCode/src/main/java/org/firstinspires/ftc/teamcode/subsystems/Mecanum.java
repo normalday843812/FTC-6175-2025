@@ -93,11 +93,15 @@ public class Mecanum {
         if (!enable) headingLockActive = false;
     }
 
+    private void toggleHeadingLock() {
+        headingLockEnabled = !headingLockEnabled;
+        if (!headingLockEnabled) headingLockActive = false;
+    }
+
     private void handleTeleopInputs() {
         if (map == null) return;
 
-        if (map.slowModeToggle) slowMode = !slowMode;
-        if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
+        handleToggles();
 
         double rawTurn = slowMode ? -map.rotate * SLOW_MODE_MULTIPLIER : -map.rotate;
         double currentHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
@@ -123,7 +127,7 @@ public class Mecanum {
         double forward = slowMode ? -map.forward * SLOW_MODE_MULTIPLIER : -map.forward;
         double strafe = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
 
-        follower.setTeleOpDrive(forward, strafe, turnCmd, fieldCentricEnabled);
+        follower.setTeleOpDrive(forward, strafe, turnCmd, !fieldCentricEnabled);
     }
 
     private void applyAutoCommand() {
@@ -139,6 +143,7 @@ public class Mecanum {
     private void handleToggles() {
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
+        if (map.angleLockToggle) toggleHeadingLock();
     }
 
     private void addTelemetry() {
@@ -147,7 +152,11 @@ public class Mecanum {
         tele.addLine("--- Mecanum ---")
                 .addData("Mode", mode::name)
                 .addData("Pose", "(%.1f, %.1f, %.1f°)", p.getX(), p.getY(), Math.toDegrees(p.getHeading()))
-                .addData("Velocity", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent());
+                .addData("Velocity", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())
+                .addData("Slow Mode Enabled", "%b", slowMode)
+                .addData("Field Centric Enabled", "%b", fieldCentricEnabled)
+                .addData("Slow Mode Enabled", "%b", headingLockEnabled)
+                .addData("Heading Lock", "%.1f", lockHeadingDeg);
     }
 
     public Follower getFollower() {

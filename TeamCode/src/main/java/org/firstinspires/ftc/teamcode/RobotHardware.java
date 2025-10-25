@@ -23,6 +23,7 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -69,8 +70,9 @@ public class RobotHardware {
     // Motors
     // Drive
     private DcMotorEx frontRightMotor, frontLeftMotor, backRightMotor, backLeftMotor;
+
     // Intake
-    private DcMotor intakeMotor;
+    private DcMotorEx intakeMotor;
 
     // Shooter
     private DcMotorEx shooterMotor;
@@ -170,9 +172,10 @@ public class RobotHardware {
     }
 
     public void initIntake() {
-        intakeMotor = inputOpMode.hardwareMap.get(DcMotor.class, "intake");
+        intakeMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "intake");
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        intakeMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
     public void initShooter() {
@@ -262,7 +265,7 @@ public class RobotHardware {
         }
     }
 
-    public DcMotor getIntakeMotor() {
+    public DcMotorEx getIntakeMotor() {
         if (intakeMotor == null) {
             if (isFailFastOnMissingHardware()) {
                 throw new IllegalStateException("intakeMotor not init");

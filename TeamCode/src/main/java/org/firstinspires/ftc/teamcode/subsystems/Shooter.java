@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.RPM_AT_SHOT;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_OUTPUT;
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE_DOWN;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE_UP;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -21,7 +23,9 @@ public class Shooter {
     private final TelemetryHelper tele;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
-    private static double targetRpm = 0.0;
+    private double targetRpm = 0.0;
+    private double shotCount = 0;
+    private boolean shot = false;
 
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
         this.motor = motor;
@@ -38,6 +42,10 @@ public class Shooter {
     }
 
     public void operate() {
+        if (getMotorRPM() < RPM_AT_SHOT && !shot) {
+            shotCount++;
+            shot = true;
+        }
         if (mode == SubsystemMode.MANUAL) {
             operateManual();
         } else {
@@ -45,17 +53,25 @@ public class Shooter {
             motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
         }
         addTelemetry();
+        if (getMotorRPM() > RPM_AT_SHOT) {
+            shot = false;
+        }
     }
 
     private void operateManual() {
         if (map == null) return;
 
         if (targetRpm < MAX_RPM) {
-            targetRpm += map.shooterUp * TRIGGER_SCALE;
+            targetRpm += map.shooterUp * TRIGGER_SCALE_UP;
         }
-        targetRpm -= map.shooterDown * TRIGGER_SCALE;
+        if (targetRpm > 0) {
+            targetRpm -= map.shooterDown * TRIGGER_SCALE_DOWN * 3;
+        }
+        if (targetRpm < 0) {
+            targetRpm = 0;
+        }
 
-        motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
+        motor.setVelocity(targetRpm * TPR_MOTOR / 60.0);
     }
 
     public void setAutoRpm(double rpm) {
@@ -82,6 +98,7 @@ public class Shooter {
                 .addData("Mode", mode::name)
                 .addData("Target RPM", "%.0f", targetRpm)
                 .addData("Output RPM", "%.0f", tps * 60.0 / TPR_OUTPUT)
-                .addData("Motor RPM", "%.0f", tps * 60.0 / TPR_MOTOR);
+                .addData("Motor RPM", "%.0f", tps * 60.0 / TPR_MOTOR)
+                .addData("Shot Count", "%.0f", shotCount);
     }
 }

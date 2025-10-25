@@ -12,8 +12,8 @@ public class AutoConfig {
     private static final double MAX_SIZE = Math.min(ROBOT_LENGTH, ROBOT_WIDTH);
 
     // Start poses
-    public static Pose START_RED_AUDIENCE = new Pose(144-56,9, Math.toRadians(90));
-    public static Pose START_BLUE_AUDIENCE = new Pose(56,9, Math.toRadians(90));
+    public static Pose START_RED_AUDIENCE = new Pose(144-56,8, Math.toRadians(90));
+    public static Pose START_BLUE_AUDIENCE = new Pose(56,8, Math.toRadians(90));
     public static Pose START_RED_DEPOT = new Pose(117.5,131.2,Math.toRadians(-142));
     public static Pose START_BLUE_DEPOT = new Pose(27.29,131.2, Math.toRadians(-36));
 
