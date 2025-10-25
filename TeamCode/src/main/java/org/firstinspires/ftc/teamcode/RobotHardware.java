@@ -14,6 +14,7 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_E
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDirection;
 
 import android.util.Size;
 
@@ -183,6 +184,7 @@ public class RobotHardware {
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterMotor.setDirection(shooterMotorDirection);
         shooterMotor.setVelocityPIDFCoefficients(
                 ShooterConfig.P, ShooterConfig.I, ShooterConfig.D, ShooterConfig.F);
     }

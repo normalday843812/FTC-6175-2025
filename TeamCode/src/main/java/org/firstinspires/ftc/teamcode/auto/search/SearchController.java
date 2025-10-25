@@ -166,6 +166,12 @@ public class SearchController {
         return chosenIsPurple;
     }
 
+    public void resetBudget() {
+        budgetTimer.resetTimer();
+        stateTimer.resetTimer();
+        scan = ScanState.ROTATE_SCAN;
+    }
+
     private void addTelemetry(AutoInventory.PickupPreference pref) {
         tele.addLine("--- SEARCH ---")
                 .addData("State", scan::name)

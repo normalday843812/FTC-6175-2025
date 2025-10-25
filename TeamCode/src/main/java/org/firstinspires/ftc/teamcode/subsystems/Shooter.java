@@ -50,7 +50,7 @@ public class Shooter {
             operateManual();
         } else {
             // AUTO: hold target RPM set via setAutoRpm
-            motor.setVelocity(targetRpm * TPR_OUTPUT / 60.0);
+            setShooterOutputRpm(targetRpm);
         }
         addTelemetry();
         if (getMotorRPM() > RPM_AT_SHOT) {
@@ -58,7 +58,7 @@ public class Shooter {
         }
     }
 
-    private void operateManual() {
+    private void operateManual() { // Manual uses motor RPM
         if (map == null) return;
 
         if (targetRpm < MAX_RPM) {
@@ -71,7 +71,7 @@ public class Shooter {
             targetRpm = 0;
         }
 
-        motor.setVelocity(targetRpm * TPR_MOTOR / 60.0);
+        setShooterMotorRpm(targetRpm);
     }
 
     public void setAutoRpm(double rpm) {
@@ -90,6 +90,16 @@ public class Shooter {
 
     public boolean isAtTarget(double band) {
         return Math.abs(getOutputRPM() - targetRpm) <= band;
+    }
+
+    private void setShooterOutputRpm(double outputRpm) {
+        double tps = outputRpm * TPR_OUTPUT / 60.0;
+        motor.setVelocity(tps);
+    }
+
+    private void setShooterMotorRpm(double outputRpm) {
+        double tps = outputRpm * TPR_MOTOR / 60.0;
+        motor.setVelocity(tps);
     }
 
     private void addTelemetry() {

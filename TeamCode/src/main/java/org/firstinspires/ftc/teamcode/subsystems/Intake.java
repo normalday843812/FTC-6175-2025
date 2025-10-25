@@ -6,7 +6,7 @@ import static org.firstinspires.ftc.teamcode.config.IntakeConfig.INTAKE_TPR;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.JAM_FWD_MIN_RPM;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.JAM_IN_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.JAM_OUT_TIME_S;
-import static org.firstinspires.ftc.teamcode.config.IntakeConfig.JAM_REV_MAX_RPM;
+import static org.firstinspires.ftc.teamcode.config.IntakeConfig.JAM_REV_MIN_ABS_RPM;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.REVERSE_PWR;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.REV_ARM_FACTOR;
 import static org.firstinspires.ftc.teamcode.config.IntakeConfig.TELEMETRY_ENABLED;
@@ -44,6 +44,7 @@ public class Intake {
     private boolean fwdArmed = false;
     private boolean revArmed = false;
     private int lastDir = 0;
+    private long lastDirChangeMs = 0;
 
     public Intake(DcMotorEx motor, GamepadMap map, OpMode opmode) {
         this.motor = motor;
@@ -152,6 +153,7 @@ public class Intake {
             fwdArmed = false;
             revArmed = false;
             lastDir = dir;
+            lastDirChangeMs = System.currentTimeMillis(); // debounce window
         }
 
         if (dir == 1) {
@@ -160,7 +162,7 @@ public class Intake {
             }
             revArmed = false;
         } else if (dir == -1) {
-            if (!revArmed && Math.abs(rpm) >= JAM_REV_MAX_RPM * REV_ARM_FACTOR) {
+            if (!revArmed && Math.abs(rpm) >= JAM_REV_MIN_ABS_RPM * REV_ARM_FACTOR) {
                 revArmed = true;
             }
             fwdArmed = false;
@@ -173,16 +175,13 @@ public class Intake {
     private void detectAndClearJamIfNeeded() {
         if (jamState != JamState.IDLE) return;
 
-        double rpm = getMotorRPM();
-        updateArming(rpm);
+        if (System.currentTimeMillis() - lastDirChangeMs < 150) return;
 
+        double rpm = getMotorRPM();
         int dir = desiredDir();
+
         if (dir == 1) {
             if (fwdArmed && rpm < JAM_FWD_MIN_RPM) {
-                clearJam();
-            }
-        } else if (dir == -1) {
-            if (revArmed && Math.abs(rpm) > JAM_REV_MAX_RPM) {
                 clearJam();
             }
         }

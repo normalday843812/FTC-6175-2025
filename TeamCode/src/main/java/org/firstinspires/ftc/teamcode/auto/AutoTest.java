@@ -207,8 +207,10 @@ public class AutoTest extends LinearOpMode {
                         Result res = movePhase.update(current);
                         if (res == Result.TO_DEPOSIT) {
                             state = AutoState.DEPOSIT;
+                            deposit.startCycle();
                         } else if (res == Result.TO_DONE) {
                             state = activelyIntake ? AutoState.SEARCH : AutoState.DONE;
+                            deposit.startCycle();
                         }
                         break;
                     }
@@ -236,6 +238,7 @@ public class AutoTest extends LinearOpMode {
                         IntakeController.Result r = intakeCtrl.update(current);
                         if (r == IntakeController.Result.TO_SEARCH) {
                             state = AutoState.SEARCH;
+                            search.resetBudget();
                         } else if (r == IntakeController.Result.TO_DEPOSIT) {
                             state = AutoState.DEPOSIT;
                         }
