@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.BIAS;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.STEP;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.TELEMETRY_ENABLED;
 
@@ -25,20 +26,30 @@ public class Spindexer {
 
     public void startTeleop() {
         mode = SubsystemMode.MANUAL;
+        spindexerServo.setPosition(BIAS);
     }
 
     public void startAuto() {
         mode = SubsystemMode.AUTO;
+        spindexerServo.setPosition(BIAS);
     }
 
     public void operate() {
         if (mode == SubsystemMode.MANUAL) {
             if (map != null) {
-                if (map.spindexerForward && spindexerServo.getPosition() < ((int)(1/STEP))*STEP) {
-                    spindexerServo.setPosition(spindexerServo.getPosition() + STEP);
+                if (map.spindexerForward) {
+                    if (spindexerServo.getPosition() < ((int)(1/STEP))*STEP) {
+                        spindexerServo.setPosition(spindexerServo.getPosition() + STEP);
+                    } else {
+                        spindexerServo.setPosition(BIAS);
+                    }
                 }
                 if (map.spindexerBackward) {
-                    spindexerServo.setPosition(spindexerServo.getPosition() - STEP);
+                    if (spindexerServo.getPosition() > 0) {
+                        spindexerServo.setPosition(spindexerServo.getPosition() - STEP);
+                    } else {
+                        spindexerServo.setPosition(((int)(1/STEP))*STEP);
+                    }
                 }
             }
         }

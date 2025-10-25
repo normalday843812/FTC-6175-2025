@@ -17,20 +17,18 @@ public class GamepadMap {
     public boolean angleLockToggle, slowModeToggle, fieldCentricToggle,
             spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle;
     public double shooterUp, shooterDown;
-    public boolean resetPinpointButton;
-    public boolean transferButton;
+    public boolean transferButton, intakeClearJam;
     public double hoodAxis;
 
     private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
             y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
-            left_bumper_t = new EdgeTrigger();
+            left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger();
 
     public GamepadMap(OpMode opmode) {
         this.opmode = opmode;
     }
 
-    // TODO: Make final mapping
     public void update() {
         forward = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
         strafe = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
@@ -45,10 +43,10 @@ public class GamepadMap {
 
         intakeToggle = right_bumper_t.rose(opmode.gamepad1.right_bumper);
         intakeReverseToggle = left_bumper_t.rose(opmode.gamepad1.left_bumper);
+        intakeClearJam = start_button_t.rose(opmode.gamepad1.start);
 
         shooterUp = opmode.gamepad1.right_trigger;
         shooterDown = opmode.gamepad1.left_trigger;
-        resetPinpointButton = opmode.gamepad1.start;
 
         transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
 

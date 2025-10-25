@@ -11,6 +11,7 @@ import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
+import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
@@ -44,6 +45,9 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexer();
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
+        hw.initTransfer();
+        Transfer transfer = new Transfer(hw.getTransferServo(), map, this);
+
         hw.initIntakeColorSensor();
         IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
 
@@ -55,6 +59,7 @@ public class InitialTeleop extends LinearOpMode {
         shooter.startTeleop();
         hood.startTeleop();
         spindexer.startTeleop();
+        transfer.startTeleop();
 
         while (opModeIsActive()) {
             map.update();
