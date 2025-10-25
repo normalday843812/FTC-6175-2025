@@ -11,6 +11,9 @@ public class AutoDepositConfig {
     public static double HOOD_PER_100RPM = 0.00;
     public static double HOOD_MIN = 0.00;
     public static double HOOD_MAX = 1.00;
+    // Spindexer
+    public static double SPINDEXER_INDEX_TIME_S = 0.50;
+    public static boolean REQUIRE_RPM_AT_FLICK = false;
 
     // Feeding
     public static double FEED_ONE_TIME_S = 0.45;

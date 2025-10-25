@@ -3,13 +3,13 @@ package org.firstinspires.ftc.teamcode.auto.deposit;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_X;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_Y;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.DRIVE_TIMEOUT_S;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.FEED_ONE_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.MAX_FEEDS;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_X;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_Y;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RPM_RECOVER_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_RPM_BAND;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_TARGET_RPM;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SPINDEXER_INDEX_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SPINUP_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.TOTAL_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_STOP_DIST_IN;
@@ -19,6 +19,7 @@ import com.pedropathing.geometry.Pose;
 import org.firstinspires.ftc.teamcode.auto.geom.FieldBounds;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
+import org.firstinspires.ftc.teamcode.config.AutoDepositConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
@@ -31,6 +32,10 @@ import org.firstinspires.ftc.teamcode.util.Timer;
 public class DepositController {
     private enum State {SPINUP, DRIVE, SHOOT_WAIT, FEEDING, DONE}
 
+    private enum FeedPhase {INDEX, WAIT_INDEX, FLICK, WAIT_FLICK, COMPLETE}
+
+    private FeedPhase feedPhase = FeedPhase.COMPLETE;
+    private final Timer indexTimer = new Timer();
     private final Shooter shooter;
     private final Spindexer spindexer;
     private final Transfer transfer;
@@ -141,28 +146,44 @@ public class DepositController {
     }
 
     private void stepFeeding() {
-        // Maintain heading and shooter/transfer during indexing
         motion.holdHeading(headingTarget);
         shooter.operate();
         transfer.operate();
 
-        if (feedTimer.getElapsedTimeSeconds() >= FEED_ONE_TIME_S) {
-            feedsDone++;
-            feedTriggeredThisCycle = false; // reset for future cycles
+        switch (feedPhase) {
+            case WAIT_INDEX:
+                if (indexTimer.getElapsedTimeSeconds() >= SPINDEXER_INDEX_TIME_S) {
+                    if (!AutoDepositConfig.REQUIRE_RPM_AT_FLICK || shooter.isAtTarget(SHOOT_RPM_BAND)) {
+                        transfer.flick();
+                        feedPhase = FeedPhase.WAIT_FLICK;
+                    }
+                }
+                break;
 
-            if (feedsDone >= MAX_FEEDS || totalTimer.getElapsedTimeSeconds() > TOTAL_TIMEOUT_S) {
-                transition(State.DONE);
-            } else {
-                transition(State.SHOOT_WAIT);
-            }
+            case WAIT_FLICK:
+                if (transfer.isIdle()) {
+                    feedPhase = FeedPhase.COMPLETE;
+                    feedsDone++;
+                    feedTriggeredThisCycle = false;
+
+                    if (feedsDone >= MAX_FEEDS || totalTimer.getElapsedTimeSeconds() > TOTAL_TIMEOUT_S) {
+                        transition(State.DONE);
+                    } else {
+                        transition(State.SHOOT_WAIT);
+                    }
+                }
+                break;
+
+            default:
+                break;
         }
     }
 
     private void triggerFeed() {
         if (!feedTriggeredThisCycle) {
             spindexer.stepForward();
-            spindexer.operate();
-            transfer.flick();
+            indexTimer.resetTimer();
+            feedPhase = FeedPhase.WAIT_INDEX;
             feedTimer.resetTimer();
             feedTriggeredThisCycle = true;
         }
@@ -182,6 +203,15 @@ public class DepositController {
                 : new Pose(BLUE_SHOT_X, BLUE_SHOT_Y, 0);
         // Clamp shooting pose to alliance rect
         return FieldBounds.clampToAllianceRect(want, isRed);
+    }
+
+    public void startCycle() {
+        feedsDone = 0;
+        feedTriggeredThisCycle = false;
+        feedPhase = FeedPhase.COMPLETE;
+        state = State.SPINUP;
+        stateTimer.resetTimer();
+        totalTimer.resetTimer();
     }
 
     // removed mapHoodForRpm

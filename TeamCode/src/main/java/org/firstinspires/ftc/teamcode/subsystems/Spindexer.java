@@ -38,7 +38,7 @@ public class Spindexer {
         if (mode == SubsystemMode.MANUAL) {
             if (map != null) {
                 if (map.spindexerForward) {
-                    if (spindexerServo.getPosition() < ((int)(1/STEP))*STEP) {
+                    if (spindexerServo.getPosition() < ((int) (1 / STEP)) * STEP) {
                         spindexerServo.setPosition(spindexerServo.getPosition() + STEP);
                     } else {
                         spindexerServo.setPosition(BIAS);
@@ -48,7 +48,7 @@ public class Spindexer {
                     if (spindexerServo.getPosition() > 0) {
                         spindexerServo.setPosition(spindexerServo.getPosition() - STEP);
                     } else {
-                        spindexerServo.setPosition(((int)(1/STEP))*STEP);
+                        spindexerServo.setPosition(((int) (1 / STEP)) * STEP);
                     }
                 }
             }
@@ -57,13 +57,17 @@ public class Spindexer {
     }
 
     public void stepForward() {
-        double pos = spindexerServo.getPosition();
-        spindexerServo.setPosition(Math.max(0.0, Math.min(1.0, pos + STEP)));
+        double top = ((int) (1 / STEP)) * STEP;
+        double next = spindexerServo.getPosition() + STEP;
+        if (next > top + 1e-6) next = BIAS;
+        spindexerServo.setPosition(next);
     }
 
     public void stepBackward() {
-        double pos = spindexerServo.getPosition();
-        spindexerServo.setPosition(Math.max(0.0, Math.min(1.0, pos - STEP)));
+        double top = ((int) (1 / STEP)) * STEP;
+        double prev = spindexerServo.getPosition() - STEP;
+        if (prev < BIAS - 1e-6) prev = top;
+        spindexerServo.setPosition(prev);
     }
 
     public void setAbsolute(double pos) {

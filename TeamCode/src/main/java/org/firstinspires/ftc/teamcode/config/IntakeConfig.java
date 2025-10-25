@@ -13,7 +13,7 @@ public class IntakeConfig {
 
     public static double INTAKE_TPR = 28.0;
     public static double JAM_FWD_MIN_RPM = 50.0;
-    public static double JAM_REV_MAX_RPM = -50.0;
+    public static double JAM_REV_MIN_ABS_RPM = 50.0;
     public static final double FWD_ARM_FACTOR = 3.0;
     public static final double REV_ARM_FACTOR = 3.0;
 }

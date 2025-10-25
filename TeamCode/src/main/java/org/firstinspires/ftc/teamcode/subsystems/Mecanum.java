@@ -77,13 +77,12 @@ public class Mecanum {
     }
 
     public void operate() {
-        follower.update();
-
         if (mode == SubsystemMode.MANUAL) {
             handleTeleopInputs();
         } else {
             applyAutoCommand();
         }
+        follower.update();
 
         addTelemetry();
     }
@@ -135,7 +134,7 @@ public class Mecanum {
                 -autoCmd.forward,
                 -autoCmd.strafe,
                 autoCmd.turn,
-                autoCmd.fieldCentric,
+                !autoCmd.fieldCentric,
                 autoCmd.offsetHeading
         );
     }
@@ -155,8 +154,8 @@ public class Mecanum {
                 .addData("Velocity", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())
                 .addData("Slow Mode Enabled", "%b", slowMode)
                 .addData("Field Centric Enabled", "%b", fieldCentricEnabled)
-                .addData("Slow Mode Enabled", "%b", headingLockEnabled)
-                .addData("Heading Lock", "%.1f", lockHeadingDeg);
+                .addData("Heading Lock Enabled", "%b", headingLockEnabled)
+                .addData("Heading Lock Deg", "%.1f", lockHeadingDeg);
     }
 
     public Follower getFollower() {

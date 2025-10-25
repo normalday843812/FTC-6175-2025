@@ -38,7 +38,7 @@ public class Constants {
             .headingPIDFCoefficients(new PIDFCoefficients(0.8, 0, 0.02, 0.03))
             .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(4, 0, 0.08, 0.03))
             .useSecondaryTranslationalPIDF(true)
-            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(0.3, 0, 0.02, 0.04))
+            .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.3, 0, 0.02, 0.04))
             .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.01, 0, 0.001, 0.6, 0.01))
             .useSecondaryHeadingPIDF(true);
 
@@ -64,7 +64,7 @@ public class Constants {
             .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION)
             .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
+    public static PathConstraints pathConstraints = new PathConstraints(0.99, 300, 1, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)
