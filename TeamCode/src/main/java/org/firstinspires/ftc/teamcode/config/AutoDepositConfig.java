@@ -15,6 +15,15 @@ public class AutoDepositConfig {
     public static double SPINDEXER_INDEX_TIME_S = 0.50;
     public static boolean REQUIRE_RPM_AT_FLICK = false;
 
+    // Verification
+    public static double SHOT_VERIFY_WINDOW_S = 0.80;
+    public static int REFIRE_MAX_ATTEMPTS = 4;
+    public static int JIGGLE_MAX_CYCLES = 2;
+    public static double JIGGLE_DELTA_UP = 0.10;
+    public static double JIGGLE_DELTA_DOWN = 0.20;
+    public static double JIGGLE_DWELL_S = 0.12;
+    public static boolean RPM_DROP_USES_MOTOR_RPM = true;
+
     // Feeding
     public static double FEED_ONE_TIME_S = 0.45;
     public static double RPM_RECOVER_TIMEOUT_S = 1.2;

@@ -3,23 +3,31 @@ package org.firstinspires.ftc.teamcode.auto.deposit;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_X;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.BLUE_SHOT_Y;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.DRIVE_TIMEOUT_S;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_DELTA_DOWN;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_DELTA_UP;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_DWELL_S;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_MAX_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.MAX_FEEDS;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_X;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RED_SHOT_Y;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.REFIRE_MAX_ATTEMPTS;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.REQUIRE_RPM_AT_FLICK;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RPM_DROP_USES_MOTOR_RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.RPM_RECOVER_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_RPM_BAND;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_TARGET_RPM;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOT_VERIFY_WINDOW_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SPINDEXER_INDEX_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SPINUP_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.TOTAL_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_STOP_DIST_IN;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.RPM_AT_SHOT;
 
 import com.pedropathing.geometry.Pose;
 
 import org.firstinspires.ftc.teamcode.auto.geom.FieldBounds;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
-import org.firstinspires.ftc.teamcode.config.AutoDepositConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
@@ -32,7 +40,16 @@ import org.firstinspires.ftc.teamcode.util.Timer;
 public class DepositController {
     private enum State {SPINUP, DRIVE, SHOOT_WAIT, FEEDING, DONE}
 
-    private enum FeedPhase {INDEX, WAIT_INDEX, FLICK, WAIT_FLICK, COMPLETE}
+    private enum FeedPhase {
+        INDEX,
+        WAIT_INDEX,
+        FLICK,
+        WAIT_FLICK,
+        VERIFY,
+        REFIRE,
+        JIGGLE_UP, JIGGLE_DOWN, JIGGLE_BACK,
+        COMPLETE
+    }
 
     private FeedPhase feedPhase = FeedPhase.COMPLETE;
     private final Timer indexTimer = new Timer();
@@ -43,11 +60,14 @@ public class DepositController {
     private final HeadingTarget headingTarget;
     private final boolean isRed;
     private final TelemetryHelper tele;
-
+    private int refireAttempts = 0;
+    private int jiggleCycles = 0;
+    private final Timer verifyTimer = new Timer();
+    private final Timer jiggleTimer = new Timer();
+    private Spindexer.JigglePlan jigglePlan;
     private final Timer stateTimer = new Timer();
     private final Timer totalTimer = new Timer();
     private final Timer feedTimer = new Timer();
-
     private int feedsDone = 0;
     private State state = State.SPINUP;
     private boolean feedTriggeredThisCycle = false;
@@ -153,7 +173,7 @@ public class DepositController {
         switch (feedPhase) {
             case WAIT_INDEX:
                 if (indexTimer.getElapsedTimeSeconds() >= SPINDEXER_INDEX_TIME_S) {
-                    if (!AutoDepositConfig.REQUIRE_RPM_AT_FLICK || shooter.isAtTarget(SHOOT_RPM_BAND)) {
+                    if (!REQUIRE_RPM_AT_FLICK || shooter.isAtTarget(SHOOT_RPM_BAND)) {
                         transfer.flick();
                         feedPhase = FeedPhase.WAIT_FLICK;
                     }
@@ -162,15 +182,67 @@ public class DepositController {
 
             case WAIT_FLICK:
                 if (transfer.isIdle()) {
-                    feedPhase = FeedPhase.COMPLETE;
-                    feedsDone++;
-                    feedTriggeredThisCycle = false;
+                    verifyTimer.resetTimer();
+                    feedPhase = FeedPhase.VERIFY;
+                }
+                break;
 
-                    if (feedsDone >= MAX_FEEDS || totalTimer.getElapsedTimeSeconds() > TOTAL_TIMEOUT_S) {
-                        transition(State.DONE);
+            case VERIFY:
+                if (wasShotDetected()) {
+                    feedPhase = FeedPhase.COMPLETE;
+                } else if (verifyTimer.getElapsedTimeSeconds() >= SHOT_VERIFY_WINDOW_S) {
+                    if (refireAttempts < REFIRE_MAX_ATTEMPTS) {
+                        refireAttempts++;
+                        transfer.flick();
+                        feedPhase = FeedPhase.WAIT_FLICK;
+                    } else if (jiggleCycles < JIGGLE_MAX_CYCLES) {
+                        jigglePlan = spindexer.makeJigglePlan(
+                                JIGGLE_DELTA_UP,
+                                JIGGLE_DELTA_DOWN
+                        );
+                        spindexer.setAbsolute(jigglePlan.up);
+                        jiggleTimer.resetTimer();
+                        feedPhase = FeedPhase.JIGGLE_UP;
                     } else {
-                        transition(State.SHOOT_WAIT);
+                        transfer.flick();
+                        transition(State.DONE);
                     }
+                }
+                break;
+
+            case JIGGLE_UP:
+                if (jiggleTimer.getElapsedTimeSeconds() >= JIGGLE_DWELL_S) {
+                    spindexer.setAbsolute(jigglePlan.down);
+                    jiggleTimer.resetTimer();
+                    feedPhase = FeedPhase.JIGGLE_DOWN;
+                }
+                break;
+
+            case JIGGLE_DOWN:
+                if (jiggleTimer.getElapsedTimeSeconds() >= JIGGLE_DWELL_S) {
+                    spindexer.setAbsolute(jigglePlan.base);
+                    jiggleTimer.resetTimer();
+                    feedPhase = FeedPhase.JIGGLE_BACK;
+                }
+                break;
+
+            case JIGGLE_BACK:
+                if (jiggleTimer.getElapsedTimeSeconds() >= JIGGLE_DWELL_S) {
+                    jiggleCycles++;
+                    transfer.flick();
+                    feedPhase = FeedPhase.WAIT_FLICK;
+                }
+                break;
+
+            case COMPLETE:
+                feedsDone++;
+                feedTriggeredThisCycle = false;
+                refireAttempts = 0;
+                jiggleCycles = 0;
+                if (feedsDone >= MAX_FEEDS || totalTimer.getElapsedTimeSeconds() > TOTAL_TIMEOUT_S) {
+                    transition(State.DONE);
+                } else {
+                    transition(State.SHOOT_WAIT);
                 }
                 break;
 
@@ -212,6 +284,14 @@ public class DepositController {
         state = State.SPINUP;
         stateTimer.resetTimer();
         totalTimer.resetTimer();
+    }
+
+    private boolean wasShotDetected() {
+        if (RPM_DROP_USES_MOTOR_RPM) {
+            return shooter.getMotorRPM() < RPM_AT_SHOT;
+        } else {
+            return shooter.getOutputRPM() < RPM_AT_SHOT;
+        }
     }
 
     // removed mapHoodForRpm

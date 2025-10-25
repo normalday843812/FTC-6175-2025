@@ -74,6 +74,29 @@ public class Spindexer {
         spindexerServo.setPosition(Math.max(0.0, Math.min(1.0, pos)));
     }
 
+    public double getPosition() {
+        return spindexerServo.getPosition();
+    }
+
+    public static class JigglePlan {
+        public final double base;
+        public final double up;
+        public final double down;
+
+        public JigglePlan(double base, double up, double down) {
+            this.base = base;
+            this.up = up;
+            this.down = down;
+        }
+    }
+
+    public JigglePlan makeJigglePlan(double deltaUp, double deltaDown) {
+        double base = getPosition();
+        double up = Math.min(1.0, base + deltaUp);
+        double down = Math.max(0.0, base - deltaDown);
+        return new JigglePlan(base, up, down);
+    }
+
     private void addTelemetry() {
         tele.addLine("=== SPINDEXER ===")
                 .addData("Mode", mode::name)
