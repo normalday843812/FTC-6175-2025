@@ -22,4 +22,6 @@ public class DriveConfig {
     public static final DcMotorSimple.Direction BACK_RIGHT_DIR = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction FRONT_LEFT_DIR = DcMotorSimple.Direction.REVERSE;
     public static final DcMotorSimple.Direction BACK_LEFT_DIR = DcMotorSimple.Direction.REVERSE;
+
+    public static int REQUIRED_STABLE_FRAMES = 3;
 }

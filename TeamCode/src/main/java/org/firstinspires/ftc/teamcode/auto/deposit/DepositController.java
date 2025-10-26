@@ -28,11 +28,15 @@ import com.pedropathing.geometry.Pose;
 import org.firstinspires.ftc.teamcode.auto.geom.FieldBounds;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
+import org.firstinspires.ftc.teamcode.shooting.RpmModel;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
+
+import java.util.List;
 
 /**
  * Spins up -> Drives -> Waits for shooting <-> Feeds -> done
@@ -60,6 +64,11 @@ public class DepositController {
     private final HeadingTarget headingTarget;
     private final boolean isRed;
     private final TelemetryHelper tele;
+
+    private RpmModel rpmModel = null;
+    private IntakeColorSensor colorSensor = null;
+    private List<Boolean> depositOrder = null; // true=purple, false=green
+
     private int refireAttempts = 0;
     private int jiggleCycles = 0;
     private final Timer verifyTimer = new Timer();
@@ -92,12 +101,30 @@ public class DepositController {
         totalTimer.resetTimer();
     }
 
+    public void setRpmModel(RpmModel model) {
+        this.rpmModel = model;
+    }
+
+    public void setColorSensor(IntakeColorSensor cs) {
+        this.colorSensor = cs;
+    }
+
+    public void setDepositOrder(List<Boolean> purpleOrder) {
+        this.depositOrder = purpleOrder;
+    }
+
     /**
      * @return true when deposit sequence finished
      */
     public boolean update() {
-        // Keep shooter and transfer targets alive every loop
-        shooter.setAutoRpm(SHOOT_TARGET_RPM);
+        // target shooter rpm from model if present
+        Pose robotPose = motion.getDrivetrainPose();
+        Pose goalPose = targetShotPose();
+        if (rpmModel != null && rpmModel.isValid()) {
+            shooter.setAutoRpm(rpmModel.computeTargetRpm(robotPose, goalPose));
+        } else {
+            shooter.setAutoRpm(SHOOT_TARGET_RPM);
+        }
         shooter.operate();
         transfer.operate();
 
@@ -119,7 +146,7 @@ public class DepositController {
                 break;
         }
 
-        addTelemetry(targetShotPose());
+        addTelemetry(goalPose);
         return state == State.DONE;
     }
 
@@ -148,7 +175,12 @@ public class DepositController {
             return;
         }
 
-        // If at RPM, feed; else wait until recovery timeout then force a feed
+        // If a color order and sensor are present, try to index to target color
+        if (depositOrder != null && colorSensor != null && feedsDone < depositOrder.size()) {
+            boolean wantPurple = depositOrder.get(feedsDone);
+            spindexer.indexToColor(colorSensor, wantPurple, spindexer.getSlots(), 800);
+        }
+
         if (shooter.isAtTarget(SHOOT_RPM_BAND)) {
             triggerFeed();
             transition(State.FEEDING);
@@ -299,13 +331,12 @@ public class DepositController {
     private void addTelemetry(Pose target) {
         tele.addLine("--- DEPOSIT ---")
                 .addData("State", state::name)
-                .addData("Feed Phase", feedPhase::name)
-                .addData("Feeds", "%.0f", (double) feedsDone)
-                .addData("Refire Attempts", "%.0f", (double) refireAttempts)
-                .addData("Jiggle Cycles", "%.0f", (double) jiggleCycles)
-                .addData("Motor RPM","%.0f", shooter.getMotorRPM())
-                .addData("Feeds", "%d/%d", feedsDone, MAX_FEEDS)
-                .addData("TotalT", "%.2f", totalTimer.getElapsedTimeSeconds())
-                .addData("ShotPose", "(%.1f, %.1f)", target.getX(), target.getY());
+                .addData("Phase", feedPhase::name)
+                .addData("FeedsDone", "%d/%d", feedsDone, MAX_FEEDS)
+                .addData("RefireAttempts", "%d", refireAttempts)
+                .addData("JiggleCycles", "%d", jiggleCycles)
+                .addData("MotorRPM", "%.0f", shooter.getMotorRPM())
+                .addData("TargetPose", "(%.1f, %.1f)", target.getX(), target.getY())
+                .addData("TotalT", "%.2f", totalTimer.getElapsedTimeSeconds());
     }
 }

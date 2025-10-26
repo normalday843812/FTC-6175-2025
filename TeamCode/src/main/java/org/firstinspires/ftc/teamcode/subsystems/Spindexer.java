@@ -1,27 +1,29 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.BIAS;
+import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.SLOTS;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.STEP;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.TELEMETRY_ENABLED;
 
+import com.arcrobotics.ftclib.hardware.ServoEx;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Spindexer {
-    private final Servo spindexerServo;
+    private final ServoEx spindexerServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
-    public Spindexer(Servo spindexerServo, GamepadMap map, OpMode opmode) {
+    public Spindexer(ServoEx spindexerServo, GamepadMap map, OpMode opmode) {
         this.spindexerServo = spindexerServo;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+        spindexerServo.setPosition(BIAS);
     }
 
     public void startTeleop() {
@@ -38,22 +40,63 @@ public class Spindexer {
         if (mode == SubsystemMode.MANUAL) {
             if (map != null) {
                 if (map.spindexerForward) {
-                    if (spindexerServo.getPosition() < ((int) (1 / STEP)) * STEP) {
-                        spindexerServo.setPosition(spindexerServo.getPosition() + STEP);
-                    } else {
-
-                    }
+                    stepForward();
                 }
                 if (map.spindexerBackward) {
-                    if (spindexerServo.getPosition() > 0) {
-                        spindexerServo.setPosition(spindexerServo.getPosition() - STEP);
-                    } else {
-
-                    }
+                    stepBackward();
                 }
             }
         }
         addTelemetry();
+    }
+
+    public int getSlots() {
+        return SLOTS > 0 ? SLOTS : (int) Math.max(1, Math.round(1.0 / STEP));
+    }
+
+    public int getCurrentSlot() {
+        double pos = getPosition() - BIAS;
+        if (pos < 0) pos += 1.0;
+        int slot = (int) Math.round(pos / STEP);
+        return ((slot % getSlots()) + getSlots()) % getSlots();
+    }
+
+    public void setSlot(int idx) {
+        int slots = getSlots();
+        int k = ((idx % slots) + slots) % slots;
+        double target = BIAS + k * STEP;
+        while (target > 1.0) target -= 1.0;
+        while (target < 0.0) target += 1.0;
+        setAbsolute(target);
+    }
+
+    public void stepSlots(int delta) {
+        setSlot(getCurrentSlot() + delta);
+    }
+
+    public boolean indexToColor(IntakeColorSensor cs, boolean targetPurple, int maxStepsToScan, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + Math.max(0, timeoutMs);
+        int steps = 0;
+        while (steps < Math.max(1, maxStepsToScan) && System.currentTimeMillis() < deadline) {
+            if (targetPurple ? cs.isConsistentlyPurple() : cs.isConsistentlyGreen()) {
+                return true;
+            }
+            stepSlots(1);
+            long dwell = System.currentTimeMillis() + jiggleDwellMs();
+            while (System.currentTimeMillis() < dwell) {
+                // let sensor update
+            }
+            steps++;
+        }
+        return false;
+    }
+
+    private long jiggleDwellMs() {
+        try {
+            return (long) (org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_DWELL_S * 1000);
+        } catch (Throwable t) {
+            return 120;
+        }
     }
 
     public void stepForward() {
@@ -78,6 +121,13 @@ public class Spindexer {
         return spindexerServo.getPosition();
     }
 
+    public Spindexer.JigglePlan makeJigglePlan(double deltaUp, double deltaDown) {
+        double base = getPosition();
+        double up = Math.min(1.0, base + deltaUp);
+        double down = Math.max(0.0, base - deltaDown);
+        return new Spindexer.JigglePlan(base, up, down);
+    }
+
     public static class JigglePlan {
         public final double base;
         public final double up;
@@ -90,16 +140,10 @@ public class Spindexer {
         }
     }
 
-    public JigglePlan makeJigglePlan(double deltaUp, double deltaDown) {
-        double base = getPosition();
-        double up = Math.min(1.0, base + deltaUp);
-        double down = Math.max(0.0, base - deltaDown);
-        return new JigglePlan(base, up, down);
-    }
-
     private void addTelemetry() {
         tele.addLine("=== SPINDEXER ===")
                 .addData("Mode", mode::name)
-                .addData("Position", "%.2f", spindexerServo.getPosition());
+                .addData("Pos", "%.2f", spindexerServo.getPosition())
+                .addData("Slot", "%d/%d", getCurrentSlot(), getSlots());
     }
 }

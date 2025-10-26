@@ -6,6 +6,8 @@ import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MAX_PURPLE;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MIN_GREEN;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MIN_PURPLE;
+import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.WINDOW_SIZE;
+import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.N;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.SATURATION_MIN_GREEN;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.SATURATION_MIN_PURPLE;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.TELEMETRY_ENABLED;
@@ -21,13 +23,20 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import java.util.Arrays;
 
 public class IntakeColorSensor {
+    public enum BallColor { NONE, PURPLE, GREEN }
+
     private final NormalizedColorSensor intakeColorSensor;
     private final TelemetryHelper tele;
     private boolean isPurple;
     private boolean isGreen;
     private final float[] hsv = new float[3];
-    int r, g, b;
-    public IntakeColorSensor (NormalizedColorSensor intakeColorSensor, OpMode opmode) {
+    private int r, g, b;
+
+    private final boolean[] purpleBuf = new boolean[WINDOW_SIZE];
+    private final boolean[] greenBuf  = new boolean[WINDOW_SIZE];
+    private int idx = 0;
+
+    public IntakeColorSensor(NormalizedColorSensor intakeColorSensor, OpMode opmode) {
         this.intakeColorSensor = intakeColorSensor;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
@@ -39,24 +48,49 @@ public class IntakeColorSensor {
         g = Math.round(colors.green * 255f);
         b = Math.round(colors.blue * 255f);
         RGBToHSV(r, g, b, hsv);
-        isPurple =
+
+        boolean purpleNow =
                 hsv[0] >= HUE_MIN_PURPLE && hsv[0] <= HUE_MAX_PURPLE &&
-                hsv[1] >= SATURATION_MIN_PURPLE &&
-                hsv[2] >= VALUE_MIN_PURPLE;
-        isGreen =
+                        hsv[1] >= SATURATION_MIN_PURPLE &&
+                        hsv[2] >= VALUE_MIN_PURPLE;
+
+        boolean greenNow =
                 hsv[0] >= HUE_MIN_GREEN && hsv[0] <= HUE_MAX_GREEN &&
-                hsv[1] >= SATURATION_MIN_GREEN &&
-                hsv[2] >= VALUE_MIN_GREEN;
+                        hsv[1] >= SATURATION_MIN_GREEN &&
+                        hsv[2] >= VALUE_MIN_GREEN;
+
+        purpleBuf[idx] = purpleNow && !greenNow;
+        greenBuf[idx]  = greenNow && !purpleNow;
+        idx = (idx + 1) % WINDOW_SIZE;
+
+        isPurple = consistent(purpleBuf, N);
+        isGreen  = consistent(greenBuf, N);
 
         addTelemetry();
     }
 
-    public boolean isPurple() {
-        return isPurple;
+    public boolean isPurple() { return isPurple; }
+    public boolean isGreen() { return isGreen; }
+
+    public boolean isConsistentlyPurple() {
+        return isPurple && !isGreen;
     }
 
-    public boolean isGreen() {
-        return isGreen;
+    public boolean isConsistentlyGreen() {
+        return isGreen && !isPurple;
+    }
+
+    public BallColor getBallColor() {
+        if (isConsistentlyPurple()) return BallColor.PURPLE;
+        if (isConsistentlyGreen()) return BallColor.GREEN;
+        return BallColor.NONE;
+    }
+
+    /** @noinspection SameParameterValue*/
+    private boolean consistent(boolean[] buf, int threshold) {
+        int count = 0;
+        for (boolean b : buf) if (b) count++;
+        return count >= threshold;
     }
 
     private void addTelemetry() {
@@ -66,6 +100,7 @@ public class IntakeColorSensor {
                 .addData("Blue", "%d", b)
                 .addData("HSV", Arrays.toString(hsv))
                 .addData("Is Purple?", "%b", isPurple)
-                .addData("Is Green?", "%b", isGreen);
+                .addData("Is Green?", "%b", isGreen)
+                .addData("Stable", getBallColor()::name);
     }
 }

@@ -1,30 +1,26 @@
 package org.firstinspires.ftc.teamcode.shooting;
 
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.math.MathFunctions;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 
+import org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class ShooterManager {
     private final Shooter shooter;
+    private final RpmModel rpmModel;
     private boolean enabled = false;
-
-    // TODO
-    private double A0 = 1200.0;
-    private double A1 = 25.0;
-    private double A2 = 0.2;
-    private double B1 = 30.0;
-    private double B2 = 10.0;
 
     private double idleRpm = 600.0;
     private double maxRpm = 4500.0;
 
-    TelemetryHelper tele;
+    private final TelemetryHelper tele;
 
-    public ShooterManager(Shooter shooter, OpMode opmode) {
+    public ShooterManager(Shooter shooter, RpmModel model, com.qualcomm.robotcore.eventloop.opmode.OpMode opmode) {
         this.shooter = shooter;
+        this.rpmModel = model;
         this.tele = new TelemetryHelper(opmode, true);
     }
 
@@ -35,6 +31,7 @@ public class ShooterManager {
             shooter.startAuto();
         } else {
             shooter.startTeleop();
+            shooter.setAutoRpm(idleRpm);
         }
     }
 
@@ -42,44 +39,67 @@ public class ShooterManager {
         return enabled;
     }
 
-    public void update(Pose robot, Pose goal) {
-        if (!enabled) return;
-        double rpm = computeOutputRpm(robot, goal);
-        shooter.setAutoRpm(rpm);
-
-    }
-
-    public double computeOutputRpm(Pose robot, Pose goal) {
-        double dx = goal.getX() - robot.getX();
-        double dy = goal.getY() - robot.getY();
-        double dist = Math.hypot(dx, dy);
-
-        double desired = Math.atan2(dy, dx);
-        double theta = Math.abs(MathFunctions.getSmallestAngleDifference(robot.getHeading(), desired));
-
-        double rpm = A0 + A1 * dist + A2 * dist * dist + B1 * theta + B2 * theta * theta;
-        return clamp(rpm, idleRpm, maxRpm);
-    }
-
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
-    }
-
-    public void setCoefficients(double a0, double a1, double a2, double b1, double b2) {
-        A0 = a0;
-        A1 = a1;
-        A2 = a2;
-        B1 = b1;
-        B2 = b2;
-    }
-
     public void setLimits(double idle, double max) {
-        idleRpm = idle;
-        maxRpm = max;
+        this.idleRpm = idle;
+        this.maxRpm = max;
+        shooter.setIdleRpm(idle);
     }
 
-    private void addTelemetry() {
-        tele.addLine("--- Shooter Manager ---")
-                .addData("Enabled", "%b", isEnabled());
+    public void update(Pose robot, Pose goal, Limelight3A limelight) {
+        if (!enabled) {
+            shooter.setAutoRpm(idleRpm);
+            addTelemetry(robot, goal, true, false, false, idleRpm);
+            return;
+        }
+
+        boolean abortToIdle = shouldIdleNow(robot, limelight);
+        if (abortToIdle) {
+            shooter.setAutoRpm(idleRpm);
+            addTelemetry(robot, goal, true, true, false, idleRpm);
+            return;
+        }
+
+        double rpm;
+        if (rpmModel != null && rpmModel.isValid()) {
+            rpm = rpmModel.computeTargetRpm(robot, goal);
+        } else {
+            rpm = idleRpm; // fallback if model not set
+        }
+
+        double clamped = Math.max(idleRpm, Math.min(maxRpm, rpm));
+        shooter.setAutoRpm(clamped);
+        addTelemetry(robot, goal, false, false, rpmModel != null && rpmModel.isValid(), clamped);
+    }
+
+    private boolean shouldIdleNow(Pose robotPose, Limelight3A ll) {
+        double headingDeg = Math.toDegrees(robotPose.getHeading());
+        double delta = normalizeAngleDeg(headingDeg - TeleOpShooterConfig.IDLE_HEADING_DEG);
+        boolean inNoGoWindow = Math.abs(delta) <= TeleOpShooterConfig.IDLE_HEADING_TOLERANCE_DEG;
+
+        boolean noTag = true;
+        try {
+            LLResult r = ll.getLatestResult();
+            noTag = (r == null || !r.isValid() || r.getFiducialResults() == null || r.getFiducialResults().isEmpty());
+        } catch (Throwable ignored) {
+        }
+        return inNoGoWindow && noTag;
+    }
+
+    private static double normalizeAngleDeg(double a) {
+        while (a > 180) a -= 360;
+        while (a < -180) a += 360;
+        return a;
+    }
+
+    private void addTelemetry(Pose robot, Pose goal, boolean idling, boolean policyIdle, boolean modelValid, double targetRpm) {
+        tele.addLine("--- ShooterManager ---")
+                .addData("Enabled", "%b", enabled)
+                .addData("PolicyIdle", "%b", policyIdle)
+                .addData("ModelValid", "%b", modelValid)
+                .addData("TargetRPM", "%.0f", targetRpm)
+                .addData("RobotPose", "(%.1f, %.1f, %.1f°)",
+                        robot.getX(), robot.getY(), Math.toDegrees(robot.getHeading()))
+                .addData("GoalPose", "(%.1f, %.1f, %.1f°)",
+                        goal.getX(), goal.getY(), Math.toDegrees(goal.getHeading()));
     }
 }

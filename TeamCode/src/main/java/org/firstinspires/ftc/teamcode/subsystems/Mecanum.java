@@ -1,8 +1,10 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.REQUIRED_STABLE_FRAMES;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.SLOW_MODE_MULTIPLIER;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.createFollower;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
@@ -11,7 +13,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingController;
-import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
@@ -27,6 +28,8 @@ public class Mecanum {
     private boolean headingLockEnabled = false;
     private boolean headingLockActive = false;
     private double lockHeadingDeg = 0.0;
+    private int stableFrames = 0;
+
     private final HeadingController teleopHeadingCtrl = new HeadingController();
 
     private final OpMode opmode;
@@ -48,7 +51,7 @@ public class Mecanum {
     }
 
     public void init() {
-        follower = Constants.createFollower(opmode.hardwareMap);
+        follower = createFollower(opmode.hardwareMap);
         follower.setStartingPose(new Pose());
         follower.update();
     }
@@ -107,19 +110,32 @@ public class Mecanum {
         double turnCmd;
 
         if (headingLockEnabled) {
-            if (Math.abs(rawTurn) > ROT_DB) {
+            boolean stickIdle = Math.abs(rawTurn) <= ROT_DB;
+            double omega = follower.getPoseTracker().getAngularVelocity(); // rad/s
+            double omegaDeg = Math.toDegrees(omega);
+            boolean spinIdle = Math.abs(omegaDeg) <= 5.0;
+
+            if (!stickIdle) {
                 headingLockActive = false;
+                stableFrames = 0;
                 turnCmd = rawTurn;
             } else {
                 if (!headingLockActive) {
-                    lockHeadingDeg = currentHeadingDeg;
-                    teleopHeadingCtrl.reset();
-                    headingLockActive = true;
+                    if (spinIdle) stableFrames++;
+                    else stableFrames = 0;
+                    if (stableFrames >= REQUIRED_STABLE_FRAMES) {
+                        lockHeadingDeg = currentHeadingDeg;
+                        teleopHeadingCtrl.reset();
+                        headingLockActive = true;
+                    }
+                    turnCmd = 0.0;
+                } else {
+                    turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
                 }
-                turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
             }
         } else {
             headingLockActive = false;
+            stableFrames = 0;
             turnCmd = rawTurn;
         }
 
@@ -143,6 +159,7 @@ public class Mecanum {
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
         if (map.angleLockToggle) toggleHeadingLock();
+        follower.setMaxPowerScaling(slowMode ? SLOW_MODE_MULTIPLIER : 1.0);
     }
 
     private void addTelemetry() {
@@ -151,11 +168,12 @@ public class Mecanum {
         tele.addLine("--- Mecanum ---")
                 .addData("Mode", mode::name)
                 .addData("Pose", "(%.1f, %.1f, %.1f°)", p.getX(), p.getY(), Math.toDegrees(p.getHeading()))
-                .addData("Velocity", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())
-                .addData("Slow Mode Enabled", "%b", slowMode)
-                .addData("Field Centric Enabled", "%b", fieldCentricEnabled)
-                .addData("Heading Lock Enabled", "%b", headingLockEnabled)
-                .addData("Heading Lock Deg", "%.1f", lockHeadingDeg);
+                .addData("Vel", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())
+                .addData("SlowMode", "%b", slowMode)
+                .addData("FieldCentric", "%b", fieldCentricEnabled)
+                .addData("HeadingLockEnabled", "%b", headingLockEnabled)
+                .addData("HeadingLockActive", "%b", headingLockActive)
+                .addData("LockHeadingDeg", "%.1f", lockHeadingDeg);
     }
 
     public Follower getFollower() {

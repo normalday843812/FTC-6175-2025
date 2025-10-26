@@ -8,4 +8,5 @@ public class SpindexerConfig {
 
     public static double STEP = 0.34;
     public static double BIAS = 0.0;
+    public static int SLOTS = 3;
 }

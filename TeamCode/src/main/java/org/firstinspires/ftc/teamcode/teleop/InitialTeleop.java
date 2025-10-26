@@ -2,13 +2,18 @@ package org.firstinspires.ftc.teamcode.teleop;
 
 import static org.firstinspires.ftc.teamcode.auto.AutoTest.isRed;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 
 import com.pedropathing.geometry.Pose;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.shooting.PolynomialRpmModel;
+import org.firstinspires.ftc.teamcode.shooting.RpmModel;
 import org.firstinspires.ftc.teamcode.shooting.ShooterManager;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -69,17 +74,22 @@ public class InitialTeleop extends LinearOpMode {
         spindexer.startTeleop();
         transfer.startTeleop();
 
-        ShooterManager shooterManager = new ShooterManager(shooter, this);
+        RpmModel model = new PolynomialRpmModel();
+        ShooterManager shooterManager = new ShooterManager(shooter, model, this);
+        shooterManager.setLimits(IDLE_RPM,
+                MAX_RPM);
 
         Pose goal = pickShootPose(teleAllianceRed, true);
+        Limelight3A limelight = hw.getLimelight();
 
         while (opModeIsActive()) {
             map.update();
 
             if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
             shooterManager.setEnabled(managerEnabled);
+
             Pose current = drive.getFollower().getPose();
-            shooterManager.update(current, goal);
+            shooterManager.update(current, goal, limelight);
 
             transfer.operate();
             intakeColorSensor.update();
