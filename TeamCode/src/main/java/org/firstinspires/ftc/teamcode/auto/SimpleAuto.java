@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_AUDIEN
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_DEPOT;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_AUDIENCE;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_DEPOT;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
 
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.Pose;
@@ -18,6 +19,7 @@ import org.firstinspires.ftc.teamcode.auto.motion.AllianceGoalHeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingController;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
+import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
@@ -58,6 +60,7 @@ public class SimpleAuto extends LinearOpMode {
         // Determine positions based on selection
         Pose startPose = pickStartPose(isRed, isAudienceSide);
         Pose shootPose = pickShootPose(isRed, isAudienceSide);
+        Pose endPose = pickEndPose(isRed, isAudienceSide);
         Pose controlPoint = pickControlPoint(isRed, isAudienceSide);
 
         // Hardware and subsystems
@@ -77,6 +80,9 @@ public class SimpleAuto extends LinearOpMode {
 
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), null, this);
         spindexer.startAuto();
+
+        Intake intake = new Intake(hw.getIntakeMotor(), null, this);
+        intake.startAuto();
 
         Transfer transfer = new Transfer(hw.getTransferServo(), null, this);
         transfer.startAuto();
@@ -99,8 +105,8 @@ public class SimpleAuto extends LinearOpMode {
         Path toShootPath = new Path(new BezierCurve(startPose, controlPoint, shootPose));
         toShootPath.setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading());
 
-        Path returnPath = new Path(new BezierCurve(shootPose, controlPoint, startPose));
-        returnPath.setLinearHeadingInterpolation(shootPose.getHeading(), startPose.getHeading());
+        Path returnPath = new Path(new BezierCurve(shootPose, controlPoint, endPose));
+        returnPath.setLinearHeadingInterpolation(shootPose.getHeading(), endPose.getHeading());
 
         if (isStopRequested()) return;
 
@@ -112,6 +118,8 @@ public class SimpleAuto extends LinearOpMode {
         while (opModeIsActive()) {
             drive.operate();
             transfer.operate();
+            intake.operate();
+            intake.setAutoMode(Intake.AutoMode.FORWARD);
 
             switch (state) {
                 case DRIVE_TO_SHOOT:
@@ -158,27 +166,27 @@ public class SimpleAuto extends LinearOpMode {
         return isAudienceSide ? START_BLUE_AUDIENCE : START_BLUE_DEPOT;
     }
 
-    private Pose pickShootPose(boolean isRed, boolean isAudienceSide) {
-        if (isRed && isAudienceSide) {
-            return new Pose(96, 96, Math.toRadians(45));
-        } else if (!isRed && isAudienceSide) {
-            return new Pose(48, 96, Math.toRadians(135));
-        } else if (isRed && !isAudienceSide) {
-            return new Pose(96, 96, Math.toRadians(45));
-        } else {
-            return new Pose(48, 96, Math.toRadians(135));
-        }
-    }
-
     private Pose pickControlPoint(boolean isRed, boolean isAudienceSide) {
         if (isRed && isAudienceSide) {
             return new Pose(80, 86, 0);
         } else if (!isRed && isAudienceSide) {
             return new Pose(66, 85, 0);
-        } else if (isRed && !isAudienceSide) {
+        } else if (isRed) {
             return new Pose(73, 138, 0);
         } else {
             return new Pose(71, 132, 0);
+        }
+    }
+
+    private Pose pickEndPose(boolean isRed, boolean isAudienceSide) {
+        if (isRed && isAudienceSide) {
+            return new Pose(87, 35, 0);
+        } else if (!isRed && isAudienceSide) {
+            return new Pose(54, 40, 180);
+        } else if (isRed) {
+            return new Pose(87, 35, 0);
+        } else {
+            return new Pose(54, 40, 180);
         }
     }
 }

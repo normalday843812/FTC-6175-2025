@@ -299,6 +299,11 @@ public class DepositController {
     private void addTelemetry(Pose target) {
         tele.addLine("--- DEPOSIT ---")
                 .addData("State", state::name)
+                .addData("Feed Phase", feedPhase::name)
+                .addData("Feeds", "%.0f", (double) feedsDone)
+                .addData("Refire Attempts", "%.0f", (double) refireAttempts)
+                .addData("Jiggle Cycles", "%.0f", (double) jiggleCycles)
+                .addData("Motor RPM","%.0f", shooter.getMotorRPM())
                 .addData("Feeds", "%d/%d", feedsDone, MAX_FEEDS)
                 .addData("TotalT", "%.2f", totalTimer.getElapsedTimeSeconds())
                 .addData("ShotPose", "(%.1f, %.1f)", target.getX(), target.getY());

@@ -42,6 +42,8 @@ import org.firstinspires.ftc.vision.opencv.ImageRegion;
 
 @Autonomous(name = "Auto test", group = "Pedro")
 public class AutoTest extends LinearOpMode {
+    public static boolean isRed = false;
+
     @Override
     public void runOpMode() throws InterruptedException {
         Menu menu = new Menu(this)
@@ -76,7 +78,7 @@ public class AutoTest extends LinearOpMode {
 
         menu.showUntilStart();
 
-        boolean isRed = menu.get("Alliance");
+        isRed = menu.get("Alliance");
         boolean isAudienceSide = menu.get("Side");
         boolean activelyIntake = menu.get("Actively intake?");
         boolean shootPreloaded = menu.get("Shoot Preloaded?");

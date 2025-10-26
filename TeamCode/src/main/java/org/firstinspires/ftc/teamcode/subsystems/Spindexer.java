@@ -41,14 +41,14 @@ public class Spindexer {
                     if (spindexerServo.getPosition() < ((int) (1 / STEP)) * STEP) {
                         spindexerServo.setPosition(spindexerServo.getPosition() + STEP);
                     } else {
-                        spindexerServo.setPosition(BIAS);
+
                     }
                 }
                 if (map.spindexerBackward) {
                     if (spindexerServo.getPosition() > 0) {
                         spindexerServo.setPosition(spindexerServo.getPosition() - STEP);
                     } else {
-                        spindexerServo.setPosition(((int) (1 / STEP)) * STEP);
+
                     }
                 }
             }
