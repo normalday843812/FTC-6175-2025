@@ -15,4 +15,7 @@ public class IntakeColorSensorConfig {
     public static float SATURATION_MIN_GREEN = 0.30f;
     public static float VALUE_MIN_GREEN = 0.15f;
     public static float GAIN = 100f;
+
+    public static final int WINDOW_SIZE = 7; // Window Size
+    public static final int N = 4; // Required matches
 }

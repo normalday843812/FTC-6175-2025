@@ -26,11 +26,16 @@ public class Shooter {
     private double targetRpm = 0.0;
     private double shotCount = 0;
     private boolean shot = false;
+    private double idleRpmMin = ShooterConfig.IDLE_RPM;
 
     public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
         this.motor = motor;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+    }
+
+    public void setIdleRpm(double idle) {
+        this.idleRpmMin = idle;
     }
 
     public void startTeleop() {
@@ -67,8 +72,8 @@ public class Shooter {
         if (targetRpm > 0) {
             targetRpm -= map.shooterDown * TRIGGER_SCALE_DOWN * 3;
         }
-        if (targetRpm < 0) {
-            targetRpm = 0;
+        if (targetRpm < idleRpmMin) {
+            targetRpm = idleRpmMin;
         }
 
         setShooterMotorRpm(targetRpm);

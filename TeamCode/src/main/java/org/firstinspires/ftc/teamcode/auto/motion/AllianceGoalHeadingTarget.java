@@ -16,6 +16,10 @@ public class AllianceGoalHeadingTarget implements HeadingTarget {
     private final Limelight3A limelight;
     private final boolean isRed;
 
+    private volatile double lastSeenYawDeg = Double.NaN;
+    private volatile long lastSeenTimeMs = 0L;
+    private static final long LL_TTL_MS = 200;
+
     public AllianceGoalHeadingTarget(Limelight3A limelight, boolean isRed) {
         this.limelight = limelight;
         this.isRed = isRed;
@@ -28,12 +32,17 @@ public class AllianceGoalHeadingTarget implements HeadingTarget {
             int goalId = isRed ? APRIL_TAG_RED : APRIL_TAG_BLUE;
             double yawDeg = findYawDegToTag(r, goalId);
             if (!Double.isNaN(yawDeg)) {
-                double currentDeg = Math.toDegrees(currentPose.getHeading());
-                return normalizeDeg(currentDeg + yawDeg);
+                lastSeenYawDeg = yawDeg;
+                lastSeenTimeMs = System.currentTimeMillis();
             }
         }
-        // Fallback
-        return isRed ? FALLBACK_HEADING_RED_DEG : FALLBACK_HEADING_BLUE_DEG;
+        boolean fresh = (System.currentTimeMillis() - lastSeenTimeMs) <= LL_TTL_MS;
+        if (fresh && !Double.isNaN(lastSeenYawDeg)) {
+            double currentDeg = Math.toDegrees(currentPose.getHeading());
+            return normalizeDeg(currentDeg + lastSeenYawDeg);
+        } else {
+            return isRed ? FALLBACK_HEADING_RED_DEG : FALLBACK_HEADING_BLUE_DEG;
+        }
     }
 
     @Override

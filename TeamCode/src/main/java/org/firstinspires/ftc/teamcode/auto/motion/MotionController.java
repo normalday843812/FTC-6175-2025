@@ -24,6 +24,10 @@ public class MotionController {
         this.tele = tele;
     }
 
+    public Pose getDrivetrainPose() {
+        return drive.getFollower().getPose();
+    }
+
     public void holdHeading(HeadingTarget target) {
         Pose p = drive.getFollower().getPose();
         double desiredDeg = target.getTargetHeadingDeg(p);

@@ -18,6 +18,7 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDi
 
 import android.util.Size;
 
+import com.arcrobotics.ftclib.hardware.ServoEx;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
@@ -80,7 +81,7 @@ public class RobotHardware {
 
     // Servos
     private Servo hoodServo;
-    private Servo spindexerServo;
+    private ServoEx spindexerServo;
     private Servo transferServo;
 
     public void initPinpoint() {
@@ -194,7 +195,7 @@ public class RobotHardware {
     }
 
     public void initSpindexer() {
-        spindexerServo = inputOpMode.hardwareMap.get(Servo.class, "spindexer_servo");
+        spindexerServo = inputOpMode.hardwareMap.get(ServoEx.class, "spindexer_servo");
     }
 
     // Webcam
@@ -347,7 +348,7 @@ public class RobotHardware {
         }
     }
 
-    public Servo getSpindexerServo() {
+    public ServoEx getSpindexerServo() {
         if (spindexerServo == null) {
             if (isFailFastOnMissingHardware()) {
                 throw new IllegalStateException("spindexerServo not init");
