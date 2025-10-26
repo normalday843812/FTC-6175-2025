@@ -1,10 +1,15 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import static org.firstinspires.ftc.teamcode.auto.AutoTest.isRed;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
+
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.shooting.ShooterManager;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
@@ -17,6 +22,9 @@ import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
+    boolean teleAllianceRed = isRed;
+    boolean managerEnabled = false;
+
     @Override
     public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
@@ -61,8 +69,19 @@ public class InitialTeleop extends LinearOpMode {
         spindexer.startTeleop();
         transfer.startTeleop();
 
+        ShooterManager shooterManager = new ShooterManager(shooter, this);
+
+        Pose goal = pickShootPose(teleAllianceRed, true);
+
         while (opModeIsActive()) {
             map.update();
+
+            if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
+            shooterManager.setEnabled(managerEnabled);
+            Pose current = drive.getFollower().getPose();
+            shooterManager.update(current, goal);
+
+            transfer.operate();
             intakeColorSensor.update();
             aprilTag.update();
             drive.operate();
@@ -70,6 +89,7 @@ public class InitialTeleop extends LinearOpMode {
             shooter.operate();
             hood.operate();
             spindexer.operate();
+
             TelemetryHelper.update();
         }
     }

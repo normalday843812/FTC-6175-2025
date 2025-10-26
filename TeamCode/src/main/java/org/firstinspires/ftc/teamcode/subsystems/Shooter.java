@@ -62,7 +62,7 @@ public class Shooter {
         if (map == null) return;
 
         if (targetRpm < MAX_RPM) {
-            targetRpm += map.shooterUp * TRIGGER_SCALE_UP;
+            targetRpm += map.shooterUp * TRIGGER_SCALE_UP * 3;
         }
         if (targetRpm > 0) {
             targetRpm -= map.shooterDown * TRIGGER_SCALE_DOWN * 3;
