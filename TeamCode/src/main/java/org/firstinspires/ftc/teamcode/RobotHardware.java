@@ -79,6 +79,9 @@ public class RobotHardware {
     // Shooter
     private DcMotorEx shooterMotor;
 
+    // Shooter Yaw
+    private DcMotorEx shooterYawMotor;
+
     // Servos
     private Servo hoodServo;
     private ServoEx spindexerServo;
@@ -190,6 +193,13 @@ public class RobotHardware {
                 ShooterConfig.P, ShooterConfig.I, ShooterConfig.D, ShooterConfig.F);
     }
 
+    public void initShooterYaw() {
+        shooterYawMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "shooter_yaw");
+        shooterYawMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        shooterYawMotor.setTargetPosition(0);
+        shooterYawMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+    }
+
     public void initHood() {
         hoodServo = inputOpMode.hardwareMap.get(Servo.class, "hood_servo");
     }
@@ -291,6 +301,19 @@ public class RobotHardware {
             }
         } else {
             return shooterMotor;
+        }
+    }
+
+    public DcMotorEx getShooterYawMotor() {
+        if (shooterYawMotor == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("shooterYawMotor not init");
+            } else {
+                initShooterYaw();
+                return shooterYawMotor;
+            }
+        } else {
+            return shooterYawMotor;
         }
     }
 
