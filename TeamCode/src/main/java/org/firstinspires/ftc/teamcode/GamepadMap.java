@@ -17,6 +17,7 @@ public class GamepadMap {
     public boolean angleLockToggle, slowModeToggle, fieldCentricToggle, shooterManagerToggle,
             spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle;
     public double shooterUp, shooterDown;
+    public double shooterYaw;
     public boolean transferButton, intakeClearJam;
     public double hoodAxis;
 
@@ -49,6 +50,8 @@ public class GamepadMap {
 
         shooterUp = opmode.gamepad1.right_trigger;
         shooterDown = opmode.gamepad1.left_trigger;
+
+        shooterYaw = deadband(opmode.gamepad1.right_stick_y, ROT_DB);
 
         transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
 
