@@ -165,7 +165,7 @@ public class Mecanum {
     private void addTelemetry() {
         Pose p = follower.getPose();
         Vector v = follower.getVelocity();
-        tele.addLine("--- Mecanum ---")
+        tele.addLine("=== Mecanum ===")
                 .addData("Mode", mode::name)
                 .addData("Pose", "(%.1f, %.1f, %.1f°)", p.getX(), p.getY(), Math.toDegrees(p.getHeading()))
                 .addData("Vel", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())

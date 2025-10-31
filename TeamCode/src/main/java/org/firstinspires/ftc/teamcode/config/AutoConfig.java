@@ -7,19 +7,22 @@ import com.pedropathing.geometry.Pose;
 public class AutoConfig {
     // All in pedropathing coordinates
     // Field/robot constants
-    private static final double ROBOT_LENGTH = 18;
-    private static final double ROBOT_WIDTH = 18;
+    private static final double ROBOT_LENGTH = 15.25;
+    private static final double ROBOT_WIDTH = 16;
     private static final double MAX_SIZE = Math.min(ROBOT_LENGTH, ROBOT_WIDTH);
 
+    public static boolean isRed = true;
+    public static boolean isAudienceSide = true;
+
     // Start poses
-    public static Pose START_RED_AUDIENCE = new Pose(144-56,8, Math.toRadians(90));
-    public static Pose START_BLUE_AUDIENCE = new Pose(56,8, Math.toRadians(90));
+    public static Pose START_RED_AUDIENCE = new Pose(88,7.5, Math.toRadians(90));
+    public static Pose START_BLUE_AUDIENCE = new Pose(56,7.5, Math.toRadians(90));
     public static Pose START_RED_DEPOT = new Pose(117.5,131.2,Math.toRadians(-142));
     public static Pose START_BLUE_DEPOT = new Pose(27.29,131.2, Math.toRadians(-36));
 
     // Poses
-    public static Pose LEAVE_LAUNCH_LINE_BLUE = new Pose(56,58, Math.toRadians(180));
     public static Pose LEAVE_LAUNCH_LINE_RED = new Pose(88,58, Math.toRadians(0));
+    public static Pose LEAVE_LAUNCH_LINE_BLUE = new Pose(56,58, Math.toRadians(180));
 
 
     // Vision

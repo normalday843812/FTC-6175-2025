@@ -8,10 +8,6 @@ public class AutoDepositConfig {
     // Shooter and hood
     public static double SHOOT_TARGET_RPM = 250;
     public static double SHOOT_RPM_BAND = 100;
-    public static double HOOD_BASE_POS = 0.52;
-    public static double HOOD_PER_100RPM = 0.00;
-    public static double HOOD_MIN = 0.00;
-    public static double HOOD_MAX = 1.00;
     // Spindexer
     public static double SPINDEXER_INDEX_TIME_S = 1.30;
     public static boolean REQUIRE_RPM_AT_FLICK = true;
@@ -26,7 +22,6 @@ public class AutoDepositConfig {
     public static boolean RPM_DROP_USES_MOTOR_RPM = true;
 
     // Feeding
-    public static double FEED_ONE_TIME_S = 0.45;
     public static double RPM_RECOVER_TIMEOUT_S = 1.2;
     public static int MAX_FEEDS = 4;
 

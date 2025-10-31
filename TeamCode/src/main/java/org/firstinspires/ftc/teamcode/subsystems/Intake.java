@@ -193,7 +193,7 @@ public class Intake {
     }
 
     private void addTelemetry() {
-        tele.addLine("--- INTAKE ---")
+        tele.addLine("=== INTAKE ===")
                 .addData("Mode", mode::name)
                 .addData("AutoMode", autoMode::name)
                 .addData("CmdPower", "%.2f", commandedPower)

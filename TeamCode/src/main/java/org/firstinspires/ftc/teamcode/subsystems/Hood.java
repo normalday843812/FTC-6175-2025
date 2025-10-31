@@ -92,7 +92,7 @@ public class Hood {
     }
 
     private void addTelemetry() {
-        tele.addLine("--- HOOD ---")
+        tele.addLine("=== HOOD ===")
                 .addData("Mode", mode::name)
                 .addData("Cmd", "%.3f", commanded)
                 .addData("AutoTgt", "%.3f", autoTarget)

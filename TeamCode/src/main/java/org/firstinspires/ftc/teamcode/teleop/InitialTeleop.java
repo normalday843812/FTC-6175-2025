@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import static org.firstinspires.ftc.teamcode.auto.AutoTest.isRed;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.isAudienceSide;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
@@ -20,6 +21,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -27,7 +29,6 @@ import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
-    boolean teleAllianceRed = isRed;
     boolean managerEnabled = false;
 
     @Override
@@ -52,6 +53,10 @@ public class InitialTeleop extends LinearOpMode {
         hw.initShooter();
         Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
 
+        hw.initShooterYaw();
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), aprilTag, isRed,
+                map, this);
+
         hw.initHood();
         Hood hood = new Hood(hw.getHoodServo(), map, this);
 
@@ -59,7 +64,8 @@ public class InitialTeleop extends LinearOpMode {
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo(), map, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(),
+                hw.getTransferServo2(), map, this);
 
         hw.initIntakeColorSensor();
         IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
@@ -73,13 +79,14 @@ public class InitialTeleop extends LinearOpMode {
         hood.startTeleop();
         spindexer.startTeleop();
         transfer.startTeleop();
+        shooterYaw.startTeleop();
 
         RpmModel model = new PolynomialRpmModel();
         ShooterManager shooterManager = new ShooterManager(shooter, model, this);
         shooterManager.setLimits(IDLE_RPM,
                 MAX_RPM);
 
-        Pose goal = pickShootPose(teleAllianceRed, true);
+        Pose goal = pickShootPose(isRed, isAudienceSide);
         Limelight3A limelight = hw.getLimelight();
 
         while (opModeIsActive()) {
@@ -99,6 +106,7 @@ public class InitialTeleop extends LinearOpMode {
             shooter.operate();
             hood.operate();
             spindexer.operate();
+            shooterYaw.operate();
 
             TelemetryHelper.update();
         }

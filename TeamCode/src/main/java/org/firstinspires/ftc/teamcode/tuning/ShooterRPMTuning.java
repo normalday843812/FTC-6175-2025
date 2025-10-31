@@ -160,7 +160,7 @@ public class ShooterRPMTuning extends LinearOpMode {
 
         // Transfer: we will control flick explicitly from this OpMode, so pass null for the map
         hw.initTransfer();
-        transfer = new Transfer(hw.getTransferServo(), null, this);
+        transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);
         transfer.startTeleop();
 
         if (isStopRequested()) return;
