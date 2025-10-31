@@ -20,13 +20,12 @@ public class GamepadMap {
     public double shooterYaw;
     public boolean transferButton, intakeClearJam, resetShooterYaw;
     public double hoodAxis;
-
+    public boolean shooterYawAutoLockToggle;
     private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
             y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
             left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t = new EdgeTrigger(),
-            left_stick_button_t = new EdgeTrigger();
-
+            left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger();
     public GamepadMap(OpMode opmode) {
         this.opmode = opmode;
     }
@@ -50,6 +49,7 @@ public class GamepadMap {
         intakeClearJam = start_button_t.rose(opmode.gamepad1.start);
         resetShooterYaw = left_stick_button_t.rose(opmode.gamepad1.left_stick_button);
 
+        shooterYawAutoLockToggle = right_stick_button_t.rose(opmode.gamepad1.right_stick_button);
         shooterUp = opmode.gamepad1.right_trigger;
         shooterDown = opmode.gamepad1.left_trigger;
 

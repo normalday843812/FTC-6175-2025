@@ -5,21 +5,21 @@ import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.SLOTS;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.STEP;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.TELEMETRY_ENABLED;
 
-import com.arcrobotics.ftclib.hardware.ServoEx;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Spindexer {
-    private final ServoEx spindexerServo;
+    private final Servo spindexerServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
-    public Spindexer(ServoEx spindexerServo, GamepadMap map, OpMode opmode) {
+    public Spindexer(Servo spindexerServo, GamepadMap map, OpMode opmode) {
         this.spindexerServo = spindexerServo;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
@@ -74,12 +74,12 @@ public class Spindexer {
         setSlot(getCurrentSlot() + delta);
     }
 
-    public boolean indexToColor(IntakeColorSensor cs, boolean targetPurple, int maxStepsToScan, long timeoutMs) {
+    public void indexToColor(IntakeColorSensor cs, boolean targetPurple, int maxStepsToScan, long timeoutMs) {
         long deadline = System.currentTimeMillis() + Math.max(0, timeoutMs);
         int steps = 0;
         while (steps < Math.max(1, maxStepsToScan) && System.currentTimeMillis() < deadline) {
             if (targetPurple ? cs.isConsistentlyPurple() : cs.isConsistentlyGreen()) {
-                return true;
+                return;
             }
             stepSlots(1);
             long dwell = System.currentTimeMillis() + jiggleDwellMs();
@@ -88,7 +88,6 @@ public class Spindexer {
             }
             steps++;
         }
-        return false;
     }
 
     private long jiggleDwellMs() {
@@ -100,17 +99,11 @@ public class Spindexer {
     }
 
     public void stepForward() {
-        double top = ((int) (1 / STEP)) * STEP;
-        double next = spindexerServo.getPosition() + STEP;
-        if (next > top + 1e-6) next = BIAS;
-        spindexerServo.setPosition(next);
+        stepSlots(1);
     }
 
     public void stepBackward() {
-        double top = ((int) (1 / STEP)) * STEP;
-        double prev = spindexerServo.getPosition() - STEP;
-        if (prev < BIAS - 1e-6) prev = top;
-        spindexerServo.setPosition(prev);
+        stepSlots(-1);
     }
 
     public void setAbsolute(double pos) {

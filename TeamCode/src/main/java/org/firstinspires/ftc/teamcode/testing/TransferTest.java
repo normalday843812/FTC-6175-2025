@@ -18,7 +18,7 @@ public class TransferTest extends LinearOpMode {
         GamepadMap map = new GamepadMap(this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo(), map, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), map, this);
 
         if (isStopRequested()) return;
 

@@ -15,10 +15,11 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDirection;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_1_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_2_DIRECTION;
 
 import android.util.Size;
 
-import com.arcrobotics.ftclib.hardware.ServoEx;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
@@ -84,8 +85,8 @@ public class RobotHardware {
 
     // Servos
     private Servo hoodServo;
-    private ServoEx spindexerServo;
-    private Servo transferServo;
+    private Servo spindexerServo;
+    private Servo transferServo1, transferServo2;
 
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -116,7 +117,10 @@ public class RobotHardware {
     }
 
     public void initTransfer() {
-        transferServo = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo");
+        transferServo1 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_1");
+        transferServo2 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_2");
+        transferServo1.setDirection(SERVO_1_DIRECTION);
+        transferServo2.setDirection(SERVO_2_DIRECTION);
     }
 
     public void initWebcam() {
@@ -205,7 +209,7 @@ public class RobotHardware {
     }
 
     public void initSpindexer() {
-        spindexerServo = inputOpMode.hardwareMap.get(ServoEx.class, "spindexer_servo");
+        spindexerServo = inputOpMode.hardwareMap.get(Servo.class, "spindexer_servo");
     }
 
     // Webcam
@@ -358,20 +362,33 @@ public class RobotHardware {
         }
     }
 
-    public Servo getTransferServo() {
-        if (transferServo == null) {
+    public Servo getTransferServo1() {
+        if (transferServo1 == null) {
             if (isFailFastOnMissingHardware()) {
                 throw new IllegalStateException("transferServo not init");
             } else {
                 initTransfer();
-                return transferServo;
+                return transferServo1;
             }
         } else {
-            return transferServo;
+            return transferServo1;
         }
     }
 
-    public ServoEx getSpindexerServo() {
+    public Servo getTransferServo2() {
+        if (transferServo2 == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("transferServo not init");
+            } else {
+                initTransfer();
+                return transferServo2;
+            }
+        } else {
+            return transferServo2;
+        }
+    }
+
+    public Servo getSpindexerServo() {
         if (spindexerServo == null) {
             if (isFailFastOnMissingHardware()) {
                 throw new IllegalStateException("spindexerServo not init");

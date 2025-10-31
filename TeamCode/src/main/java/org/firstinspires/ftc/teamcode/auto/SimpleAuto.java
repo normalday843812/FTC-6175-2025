@@ -1,15 +1,10 @@
 package org.firstinspires.ftc.teamcode.auto;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_AUDIENCE;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_BLUE_DEPOT;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_AUDIENCE;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.START_RED_DEPOT;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.isAudienceSide;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
+import static org.firstinspires.ftc.teamcode.config.SimpleAutoConfig.buildPlan;
 
-import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.paths.Path;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
@@ -19,13 +14,16 @@ import org.firstinspires.ftc.teamcode.auto.motion.AllianceGoalHeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingController;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
+import org.firstinspires.ftc.teamcode.config.SimpleAutoConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.Menu;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @Autonomous(name = "Simple Auto", group = "Pedro")
 public class SimpleAuto extends LinearOpMode {
@@ -54,19 +52,18 @@ public class SimpleAuto extends LinearOpMode {
                 ));
 
         menu.showUntilStart();
-        boolean isRed = menu.get("Alliance");
-        boolean isAudienceSide = menu.get("Side");
+        isRed = menu.get("Alliance");
+        isAudienceSide = menu.get("Side");
 
         // Determine positions based on selection
-        Pose startPose = pickStartPose(isRed, isAudienceSide);
-        Pose shootPose = pickShootPose(isRed, isAudienceSide);
-        Pose endPose = pickEndPose(isRed, isAudienceSide);
-        Pose controlPoint = pickControlPoint(isRed, isAudienceSide);
+        SimpleAutoConfig.PathPlan plan = buildPlan(isRed, isAudienceSide);
+        Pose startPose = plan.startPose;
 
         // Hardware and subsystems
         RobotHardware hw = new RobotHardware(this);
         hw.initLimeLight(100);
         hw.initShooter();
+        hw.initShooterYaw();
         hw.initSpindexer();
         hw.initTransfer();
 
@@ -75,8 +72,16 @@ public class SimpleAuto extends LinearOpMode {
         drive.setStartingPose(startPose);
         drive.startAuto();
 
+        LLAprilTag ll = new LLAprilTag(hw.getLimelight(), this);
+        HeadingTarget goalTarget = new AllianceGoalHeadingTarget(ll, isRed);
+
         Shooter shooter = new Shooter(hw.getShooterMotor(), null, this);
         shooter.startAuto();
+
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), ll, isRed,
+                null, this);
+        shooterYaw.startAuto();
+        shooterYaw.setAutoLock(true);
 
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), null, this);
         spindexer.startAuto();
@@ -84,7 +89,8 @@ public class SimpleAuto extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), null, this);
         intake.startAuto();
 
-        Transfer transfer = new Transfer(hw.getTransferServo(), null, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(),
+                null, this);
         transfer.startAuto();
 
         // Motion setup
@@ -92,31 +98,26 @@ public class SimpleAuto extends LinearOpMode {
         TelemetryHelper motionTele = new TelemetryHelper(this, true);
         MotionController motion = new MotionController(drive, headingCtrl, motionTele);
 
-        Limelight3A limelight = hw.getLimelight();
-        HeadingTarget goalTarget = new AllianceGoalHeadingTarget(limelight, isRed);
-
         // Deposit controller
         TelemetryHelper depositTele = new TelemetryHelper(this, true);
         DepositController deposit = new DepositController(
                 shooter, spindexer, transfer, motion, goalTarget, isRed, depositTele
         );
 
-        // Create paths
-        Path toShootPath = new Path(new BezierCurve(startPose, controlPoint, shootPose));
-        toShootPath.setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading());
-
-        Path returnPath = new Path(new BezierCurve(shootPose, controlPoint, endPose));
-        returnPath.setLinearHeadingInterpolation(shootPose.getHeading(), endPose.getHeading());
+        drive.getFollower().followPath(plan.toShootPath);
+        drive.getFollower().followPath(plan.returnPath);
 
         if (isStopRequested()) return;
 
         waitForStart();
 
         State state = State.DRIVE_TO_SHOOT;
-        drive.getFollower().followPath(toShootPath);
+        drive.getFollower().followPath(plan.toShootPath);
 
         while (opModeIsActive()) {
+            ll.update();
             drive.operate();
+            shooterYaw.operate();
             transfer.operate();
             intake.operate();
             intake.setAutoMode(Intake.AutoMode.FORWARD);
@@ -132,7 +133,7 @@ public class SimpleAuto extends LinearOpMode {
                     boolean depositDone = deposit.update();
                     if (depositDone) {
                         state = State.RETURN_HOME;
-                        drive.getFollower().followPath(returnPath);
+                        drive.getFollower().followPath(plan.returnPath);
                     }
                     break;
 
@@ -158,35 +159,6 @@ public class SimpleAuto extends LinearOpMode {
             TelemetryHelper.update();
 
             sleep(20);
-        }
-    }
-
-    private Pose pickStartPose(boolean isRed, boolean isAudienceSide) {
-        if (isRed) return isAudienceSide ? START_RED_AUDIENCE : START_RED_DEPOT;
-        return isAudienceSide ? START_BLUE_AUDIENCE : START_BLUE_DEPOT;
-    }
-
-    private Pose pickControlPoint(boolean isRed, boolean isAudienceSide) {
-        if (isRed && isAudienceSide) {
-            return new Pose(80, 86, 0);
-        } else if (!isRed && isAudienceSide) {
-            return new Pose(66, 85, 0);
-        } else if (isRed) {
-            return new Pose(73, 138, 0);
-        } else {
-            return new Pose(71, 132, 0);
-        }
-    }
-
-    private Pose pickEndPose(boolean isRed, boolean isAudienceSide) {
-        if (isRed && isAudienceSide) {
-            return new Pose(87, 35, 0);
-        } else if (!isRed && isAudienceSide) {
-            return new Pose(54, 40, 180);
-        } else if (isRed) {
-            return new Pose(87, 35, 0);
-        } else {
-            return new Pose(54, 40, 180);
         }
     }
 }
