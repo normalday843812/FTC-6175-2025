@@ -5,12 +5,12 @@ import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_GPP;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PGP;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PPG;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
-import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MIN_TAG_AREA;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MAX_TAG_DIST_M;
-import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.SMOOTH_WINDOW;
+import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MIN_TAG_AREA;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TTL_MS;
 
+import com.pedropathing.control.LowPassFilter;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
@@ -51,21 +51,14 @@ public class LLAprilTag {
         double lastArea = 0.0;
         double lastDist = Double.POSITIVE_INFINITY;
         long lastSeenMs = 0L;
-
-        final double[] buf = new double[Math.max(1, SMOOTH_WINDOW)];
-        int idx = 0;
-        int count = 0;
+        private final LowPassFilter yawFilter = new LowPassFilter(YAW_FILTER_ALPHA);
 
         void push(double yaw, double area, double dist, long now) {
             rawDeg = yaw;
             lastArea = area;
             lastDist = dist;
-            buf[idx] = yaw;
-            idx = (idx + 1) % buf.length;
-            if (count < buf.length) count++;
-            double s = 0.0;
-            for (int i = 0; i < count; i++) s += buf[i];
-            avgDeg = s / count;
+            yawFilter.update(yaw, 0.0);
+            avgDeg = yawFilter.getState();
             lastSeenMs = now;
         }
 
@@ -75,6 +68,8 @@ public class LLAprilTag {
             return new YawInfo(rawDeg, avgDeg, fresh, lastDist, lastArea, age);
         }
     }
+
+    private static final double YAW_FILTER_ALPHA = 0.2; // tune
 
     private final Limelight3A limelight;
     private final TelemetryHelper tele;

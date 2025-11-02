@@ -83,6 +83,22 @@ public final class TelemetryHelper {
         return this;
     }
 
+//    /**
+//     * Adds a formatted datum with verbosity control.
+//     *
+//     * @param caption           label
+//     * @param format            printf-style format string
+//     * @param highVerbosityOnly if true, only shows when HIGH_VERBOSITY_ENABLED is true
+//     * @param args              format arguments
+//     * @return this helper for chaining
+//     */
+//    public TelemetryHelper addData(String caption, String format, boolean highVerbosityOnly, Object... args) {
+//        if (GLOBAL_ENABLED && isEnabled && (!highVerbosityOnly || HIGH_VERBOSITY_ENABLED)) {
+//            t().addData(caption, format, args);
+//        }
+//        return this;
+//    }
+
     /**
      * Adds a lazily evaluated datum. {@code value} is invoked at {@link #update()} time.
      * Reduces per-loop formatting cost.

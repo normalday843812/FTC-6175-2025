@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@TeleOp(name = "Shooter Test", group = "Testing")
+@TeleOp(name = "Shooter Yaw Test", group = "Testing")
 public class ShooterYawTest extends LinearOpMode {
 
     @Override

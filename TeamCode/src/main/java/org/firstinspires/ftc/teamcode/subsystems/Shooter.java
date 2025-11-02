@@ -80,7 +80,7 @@ public class Shooter {
     }
 
     public void setAutoRpm(double rpm) {
-        targetRpm = Math.max(0.0, Math.min(ShooterConfig.MAX_RPM, rpm));
+        targetRpm = Math.max(0.0, Math.min(MAX_RPM, rpm));
     }
 
     public double getMotorRPM() {
@@ -94,6 +94,9 @@ public class Shooter {
     }
 
     public boolean isAtTarget(double band) {
+        if (mode == SubsystemMode.MANUAL) {
+            return Math.abs(getMotorRPM() - targetRpm) <= band;
+        }
         return Math.abs(getOutputRPM() - targetRpm) <= band;
     }
 

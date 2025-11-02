@@ -19,7 +19,7 @@ public class TestDriveToPose extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         Mecanum drive = new Mecanum(this, null);
         drive.init();
-        drive.setStartingPose(new Pose(72, 72, Math.toRadians(90)));
+        drive.setStartingPose(new Pose(56, 7.5, Math.toRadians(90)));
         drive.startAuto();
 
         HeadingController hc = new HeadingController();

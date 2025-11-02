@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import static com.pedropathing.math.MathFunctions.clamp;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_DB;
 import static org.firstinspires.ftc.teamcode.util.MathUtil.deadband;
@@ -31,16 +32,21 @@ public class GamepadMap {
     }
 
     public void update() {
-        forward = deadband(opmode.gamepad1.left_stick_y, STICK_DB);
-        strafe = deadband(opmode.gamepad1.left_stick_x, STICK_DB);
-        rotate = deadband(opmode.gamepad1.right_stick_x, ROT_DB);
+        forward = deadband(
+                clamp(opmode.gamepad2.left_stick_y + opmode.gamepad1.left_stick_y,
+                        -1.0, 1.0)
+                , STICK_DB);
+        strafe = deadband(clamp(opmode.gamepad2.left_stick_x + opmode.gamepad1.left_stick_x,
+                -1.0, 1.0), STICK_DB);
+        rotate = deadband(clamp(opmode.gamepad2.right_stick_x + opmode.gamepad1.right_stick_x,
+                -1.0, 1.0), ROT_DB);
 
         spindexerForward = x.rose(opmode.gamepad1.x);
         spindexerBackward = y.rose(opmode.gamepad1.y);
 
-        angleLockToggle = a.rose(opmode.gamepad1.a);
-        slowModeToggle = b.rose(opmode.gamepad1.b);
-        fieldCentricToggle = dpad_down_t.rose(opmode.gamepad1.dpad_down);
+        angleLockToggle = a.rose(opmode.gamepad2.a);
+        slowModeToggle = b.rose(opmode.gamepad2.b);
+        fieldCentricToggle = dpad_down_t.rose(opmode.gamepad2.dpad_down);
 
         shooterManagerToggle = back_button_t.rose(opmode.gamepad1.back);
 

@@ -9,6 +9,7 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_K
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_KI;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_KP;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_MAX_POWER;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_T;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.CENTER_POS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.CONTROL_LEVEL;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POSITION;
@@ -20,6 +21,9 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.YAW_POWER;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+
+import com.pedropathing.control.FilteredPIDFController;
+import com.pedropathing.control.FilteredPIDFCoefficients;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
@@ -47,10 +51,14 @@ public class ShooterYaw {
     private double yawAvgDeg = Double.NaN;
     private boolean tagFresh = false;
 
-    // PID state
-    private double integralSum = 0.0;
-    private double lastError = 0.0;
-    private long lastUpdateTimeMs = 0L;
+    private final FilteredPIDFController yawPid =
+            new FilteredPIDFController(
+                    new FilteredPIDFCoefficients(
+                            AUTO_LOCK_KP, AUTO_LOCK_KI, AUTO_LOCK_KD,
+                            AUTO_LOCK_T,
+                            0.0
+                    )
+            );
 
     // Diagnostics
     private boolean wasLocked = false;
@@ -77,20 +85,20 @@ public class ShooterYaw {
         mode = SubsystemMode.MANUAL;
         control = ControlMode.MANUAL;
         autoLockEnabled = false;
-        resetPid();
+        resetState();
     }
 
     public void startAuto() {
         mode = SubsystemMode.AUTO;
         control = ControlMode.MANUAL;
         autoLockEnabled = false;
-        resetPid();
+        resetState();
     }
 
     public void setAutoLock(boolean enabled) {
         autoLockEnabled = enabled;
         control = enabled ? ControlMode.AUTO_LOCK : ControlMode.MANUAL;
-        if (enabled) resetPid();
+        resetState();
     }
 
     public boolean isLockedOnTarget() {
@@ -152,6 +160,7 @@ public class ShooterYaw {
     private void operateAutoLock() {
         if (!tagFresh || Double.isNaN(yawAvgDeg)) {
             holdHere();
+            yawPid.reset();
             stableFrames = 0;
             wasLocked = false;
             return;
@@ -165,32 +174,27 @@ public class ShooterYaw {
                 wasLocked = true;
                 lockStartMs = System.currentTimeMillis();
             }
-            integralSum = 0.0;
-            holdHere();
+            yawPid.reset();
+            shooterYawMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            shooterYawMotor.setPower(0.0);
             return;
         } else {
             wasLocked = false;
             stableFrames = 0;
         }
 
-        double power = pidPower(errorDeg);
+        yawPid.updateError(errorDeg);
+        double power = clamp(yawPid.run(), -AUTO_LOCK_MAX_POWER, AUTO_LOCK_MAX_POWER);
 
-        int step = (int) Math.round(power * 10.0);
-        int newTarget = clampPositionSoft(position + step);
-
-        if ((newTarget >= MAX_POSITION - SOFT_LIMIT_MARGIN && power > 0) ||
-                (newTarget <= MIN_POSITION + SOFT_LIMIT_MARGIN && power < 0)) {
-            holdHere();
+        if ((position >= MAX_POSITION - SOFT_LIMIT_MARGIN && power > 0) ||
+                (position <= MIN_POSITION + SOFT_LIMIT_MARGIN && power < 0)) {
+            shooterYawMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            shooterYawMotor.setPower(0.0);
             return;
         }
 
-        if (shooterYawMotor.getMode() != DcMotor.RunMode.RUN_TO_POSITION) {
-            shooterYawMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
-
-        targetPosition = newTarget;
-        shooterYawMotor.setTargetPosition(targetPosition);
-        shooterYawMotor.setPower(Math.min(Math.abs(power), AUTO_LOCK_MAX_POWER));
+        shooterYawMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterYawMotor.setPower(power);
     }
 
     private void holdHere() {
@@ -202,30 +206,8 @@ public class ShooterYaw {
         shooterYawMotor.setPower(YAW_POWER);
     }
 
-    private double pidPower(double errorDeg) {
-        long now = System.currentTimeMillis();
-        double dt = lastUpdateTimeMs == 0L ? 0.02 : (now - lastUpdateTimeMs) / 1000.0;
-        dt = Math.max(0.001, Math.min(dt, 0.1));
-
-        double p = AUTO_LOCK_KP * errorDeg;
-        integralSum += errorDeg * dt;
-        integralSum = clamp(integralSum, -50.0, 50.0);
-        double i = AUTO_LOCK_KI * integralSum;
-        double derivative = (errorDeg - lastError) / dt;
-        double d = AUTO_LOCK_KD * derivative;
-
-        double power = p + i + d;
-        power = clamp(power, -AUTO_LOCK_MAX_POWER, AUTO_LOCK_MAX_POWER);
-
-        lastError = errorDeg;
-        lastUpdateTimeMs = now;
-        return power;
-    }
-
-    private void resetPid() {
-        integralSum = 0.0;
-        lastError = 0.0;
-        lastUpdateTimeMs = 0L;
+    private void resetState() {
+        yawPid.reset();
         stableFrames = 0;
         wasLocked = false;
         yawRawDeg = Double.NaN;
@@ -250,21 +232,11 @@ public class ShooterYaw {
         return (int) clamp(pos, MIN_POSITION, MAX_POSITION);
     }
 
-    private int clampPositionSoft(int pos) {
-        int lo = MIN_POSITION + SOFT_LIMIT_MARGIN;
-        int hi = MAX_POSITION - SOFT_LIMIT_MARGIN;
-        if (hi < lo) {
-            lo = MIN_POSITION;
-            hi = MAX_POSITION;
-        }
-        return (int) clamp(pos, lo, hi);
-    }
-
     public void resetShooterYaw() {
         shooterYawMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         targetPosition = 0;
         position = 0;
-        resetPid();
+        resetState();
         shooterYawMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         shooterYawMotor.setTargetPosition(targetPosition);
         shooterYawMotor.setPower(YAW_POWER);

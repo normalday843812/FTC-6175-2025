@@ -11,7 +11,8 @@ public class HeadingController {
         double err = wrapDeg(desiredDeg - currentDeg);
 
         long now = System.currentTimeMillis();
-        double dt = prevMs == 0 ? 0.02 : Math.max(0.001, (now - prevMs) / 1000.0);
+        double dt = prevMs == 0 ? 0.02 : (now - prevMs) / 1000.0;
+        dt = Math.max(0.005, Math.min(0.05, dt));
         double d = (err - prevErrDeg) / dt;
 
         prevErrDeg = err;

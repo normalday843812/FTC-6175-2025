@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.teleop;
 
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isAudienceSide;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
+import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_RPM_BAND;
 import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
@@ -13,6 +14,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.config.RgbIndicatorConfig;
 import org.firstinspires.ftc.teamcode.shooting.PolynomialRpmModel;
 import org.firstinspires.ftc.teamcode.shooting.RpmModel;
 import org.firstinspires.ftc.teamcode.shooting.ShooterManager;
@@ -20,6 +22,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
+import org.firstinspires.ftc.teamcode.subsystems.RgbIndicator;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
@@ -67,6 +70,9 @@ public class InitialTeleop extends LinearOpMode {
         Transfer transfer = new Transfer(hw.getTransferServo1(),
                 hw.getTransferServo2(), map, this);
 
+        hw.initRgbIndicator();
+        RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
+
         hw.initIntakeColorSensor();
         IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
 
@@ -94,6 +100,16 @@ public class InitialTeleop extends LinearOpMode {
 
             if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
             shooterManager.setEnabled(managerEnabled);
+
+            if (RgbIndicatorConfig.IS_ENABLED) {
+                if (shooter.isAtTarget(SHOOT_RPM_BAND) && shooterYaw.isLockedOnTarget()) {
+                    rgbIndicator.setGreen();
+                } else {
+                    rgbIndicator.setRed();
+                }
+            } else {
+                rgbIndicator.setOff();
+            }
 
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);

@@ -24,4 +24,8 @@ public class DriveConfig {
     public static final DcMotorSimple.Direction BACK_LEFT_DIR = DcMotorSimple.Direction.REVERSE;
 
     public static int REQUIRED_STABLE_FRAMES = 3;
+    public static final double OMEGA_LOCK_DEG_S = 5.0;
+    public static final double OMEGA_UNLOCK_DEG_S = 8.0;
+    public static final double STICK_UNLOCK_DB = ROT_DB + 0.03;
+    public static final long ARM_DWELL_MS = 90;
 }
