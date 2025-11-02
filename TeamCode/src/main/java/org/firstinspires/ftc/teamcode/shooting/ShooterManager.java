@@ -47,8 +47,7 @@ public class ShooterManager {
 
     public void update(Pose robot, Pose goal, Limelight3A limelight) {
         if (!enabled) {
-            shooter.setAutoRpm(idleRpm);
-            addTelemetry(robot, goal, true, false, false, idleRpm);
+            addTelemetry(robot, goal, false, false, false, idleRpm);
             return;
         }
 

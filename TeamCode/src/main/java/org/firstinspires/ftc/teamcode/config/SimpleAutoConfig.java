@@ -64,6 +64,8 @@ public final class SimpleAutoConfig {
         }
     }
 
+    //Get some paper and file away the metal that's blocking the ball
+
     public static PathPlan buildPlan(boolean isRed, boolean isAudienceSide) {
         Pose startPose = pickStartPose(isRed, isAudienceSide);
         Pose controlPoint = pickControlPoint(isRed, isAudienceSide);

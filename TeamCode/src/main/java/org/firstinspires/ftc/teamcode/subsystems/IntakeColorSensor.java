@@ -6,13 +6,13 @@ import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MAX_PURPLE;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MIN_GREEN;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.HUE_MIN_PURPLE;
-import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.WINDOW_SIZE;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.N;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.SATURATION_MIN_GREEN;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.SATURATION_MIN_PURPLE;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.VALUE_MIN_GREEN;
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.VALUE_MIN_PURPLE;
+import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.WINDOW_SIZE;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
@@ -20,10 +20,8 @@ import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-import java.util.Arrays;
-
 public class IntakeColorSensor {
-    public enum BallColor { NONE, PURPLE, GREEN }
+    public enum BallColor {NONE, PURPLE, GREEN}
 
     private final NormalizedColorSensor intakeColorSensor;
     private final TelemetryHelper tele;
@@ -33,7 +31,7 @@ public class IntakeColorSensor {
     private int r, g, b;
 
     private final boolean[] purpleBuf = new boolean[WINDOW_SIZE];
-    private final boolean[] greenBuf  = new boolean[WINDOW_SIZE];
+    private final boolean[] greenBuf = new boolean[WINDOW_SIZE];
     private int idx = 0;
 
     public IntakeColorSensor(NormalizedColorSensor intakeColorSensor, OpMode opmode) {
@@ -60,17 +58,22 @@ public class IntakeColorSensor {
                         hsv[2] >= VALUE_MIN_GREEN;
 
         purpleBuf[idx] = purpleNow && !greenNow;
-        greenBuf[idx]  = greenNow && !purpleNow;
+        greenBuf[idx] = greenNow && !purpleNow;
         idx = (idx + 1) % WINDOW_SIZE;
 
         isPurple = consistent(purpleBuf, N);
-        isGreen  = consistent(greenBuf, N);
+        isGreen = consistent(greenBuf, N);
 
         addTelemetry();
     }
 
-    public boolean isPurple() { return isPurple; }
-    public boolean isGreen() { return isGreen; }
+    public boolean isPurple() {
+        return isPurple;
+    }
+
+    public boolean isGreen() {
+        return isGreen;
+    }
 
     public boolean isConsistentlyPurple() {
         return isPurple && !isGreen;
@@ -98,7 +101,6 @@ public class IntakeColorSensor {
                 .addData("Red", "%d", r)
                 .addData("Green", "%d", g)
                 .addData("Blue", "%d", b)
-                .addData("HSV", Arrays.toString(hsv))
                 .addData("Is Purple?", "%b", isPurple)
                 .addData("Is Green?", "%b", isGreen)
                 .addData("Stable", getBallColor()::name);

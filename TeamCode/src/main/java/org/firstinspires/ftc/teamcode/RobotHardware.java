@@ -14,6 +14,7 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.FORWARD_E
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_X_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.RgbIndicatorConfig.GREEN_POS;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDirection;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_1_DIRECTION;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_2_DIRECTION;
@@ -65,6 +66,8 @@ public class RobotHardware {
 
     // Color sensor
     private NormalizedColorSensor intakeColorSensor;
+
+    private Servo rgbIndicator;
 
     // IMU
     IMU imu;
@@ -126,6 +129,11 @@ public class RobotHardware {
     public void initWebcam() {
         webcam1 = inputOpMode.hardwareMap.get(WebcamName.class, "Webcam 1");
 
+    }
+
+    public void initRgbIndicator() {
+        rgbIndicator = inputOpMode.hardwareMap.get(Servo.class, "rgb_indicator");
+        rgbIndicator.setPosition(GREEN_POS);
     }
 
     public void initVision(CameraName webcam, VisionProcessor... processors) {
@@ -345,6 +353,20 @@ public class RobotHardware {
             }
         } else {
             return backLeftMotor;
+        }
+    }
+
+    // Misc
+    public Servo getRgbIndicator() {
+        if (rgbIndicator == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("rgbIndicator not init");
+            } else {
+                initRgbIndicator();
+                return rgbIndicator;
+            }
+        } else {
+            return rgbIndicator;
         }
     }
 

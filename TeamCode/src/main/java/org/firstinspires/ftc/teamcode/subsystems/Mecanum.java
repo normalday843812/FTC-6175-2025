@@ -1,7 +1,10 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.DriveConfig.REQUIRED_STABLE_FRAMES;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.ARM_DWELL_MS;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.OMEGA_LOCK_DEG_S;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.OMEGA_UNLOCK_DEG_S;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
+import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_UNLOCK_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.SLOW_MODE_MULTIPLIER;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.createFollower;
@@ -28,7 +31,7 @@ public class Mecanum {
     private boolean headingLockEnabled = false;
     private boolean headingLockActive = false;
     private double lockHeadingDeg = 0.0;
-    private int stableFrames = 0;
+    private long quietStartMs = 0;
 
     private final HeadingController teleopHeadingCtrl = new HeadingController();
 
@@ -107,35 +110,39 @@ public class Mecanum {
 
         double rawTurn = slowMode ? -map.rotate * SLOW_MODE_MULTIPLIER : -map.rotate;
         double currentHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
+        double omegaDeg = Math.toDegrees(follower.getPoseTracker().getAngularVelocity());
+
+        boolean stickQuiet = Math.abs(rawTurn) <= ROT_DB;
+        boolean stickActive = Math.abs(rawTurn) >= STICK_UNLOCK_DB;
+        boolean rateQuiet = Math.abs(omegaDeg) <= OMEGA_LOCK_DEG_S;
+        boolean rateActive = Math.abs(omegaDeg) >= OMEGA_UNLOCK_DEG_S;
+
         double turnCmd;
 
         if (headingLockEnabled) {
-            boolean stickIdle = Math.abs(rawTurn) <= ROT_DB;
-            double omega = follower.getPoseTracker().getAngularVelocity(); // rad/s
-            double omegaDeg = Math.toDegrees(omega);
-            boolean spinIdle = Math.abs(omegaDeg) <= 5.0;
-
-            if (!stickIdle) {
-                headingLockActive = false;
-                stableFrames = 0;
-                turnCmd = rawTurn;
-            } else {
-                if (!headingLockActive) {
-                    if (spinIdle) stableFrames++;
-                    else stableFrames = 0;
-                    if (stableFrames >= REQUIRED_STABLE_FRAMES) {
+            if (!headingLockActive) {
+                if (stickQuiet && rateQuiet) {
+                    if (quietStartMs == 0) quietStartMs = System.currentTimeMillis();
+                    if (System.currentTimeMillis() - quietStartMs >= ARM_DWELL_MS) {
                         lockHeadingDeg = currentHeadingDeg;
-                        teleopHeadingCtrl.reset();
                         headingLockActive = true;
                     }
-                    turnCmd = 0.0;
+                } else {
+                    quietStartMs = 0;
+                }
+                turnCmd = rawTurn;
+            } else {
+                if (stickActive || rateActive) {
+                    headingLockActive = false;
+                    quietStartMs = 0;
+                    turnCmd = rawTurn;
                 } else {
                     turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
                 }
             }
         } else {
             headingLockActive = false;
-            stableFrames = 0;
+            quietStartMs = 0;
             turnCmd = rawTurn;
         }
 
@@ -159,7 +166,6 @@ public class Mecanum {
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
         if (map.angleLockToggle) toggleHeadingLock();
-        follower.setMaxPowerScaling(slowMode ? SLOW_MODE_MULTIPLIER : 1.0);
     }
 
     private void addTelemetry() {

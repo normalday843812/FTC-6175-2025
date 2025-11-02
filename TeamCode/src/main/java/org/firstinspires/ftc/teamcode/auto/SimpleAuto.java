@@ -110,6 +110,9 @@ public class SimpleAuto extends LinearOpMode {
         if (isStopRequested()) return;
 
         waitForStart();
+        deposit.update();
+
+        sleep(10000);
 
         State state = State.DRIVE_TO_SHOOT;
         drive.getFollower().followPath(plan.toShootPath);
@@ -151,14 +154,33 @@ public class SimpleAuto extends LinearOpMode {
             }
 
             // Telemetry
-            telemetry.addData("State", state.name());
-            telemetry.addData("Pose", "(%.1f, %.1f, %.1f°)",
-                    drive.getFollower().getPose().getX(),
-                    drive.getFollower().getPose().getY(),
-                    Math.toDegrees(drive.getFollower().getPose().getHeading()));
+            addTelemetry(state, plan, drive, isRed, isAudienceSide);
             TelemetryHelper.update();
 
             sleep(20);
         }
+    }
+
+    private void addTelemetry(State state, SimpleAutoConfig.PathPlan plan,
+                              Mecanum drive, boolean isRed, boolean isAudienceSide) {
+        TelemetryHelper tele = new TelemetryHelper(this, true);
+
+        Pose currentPose = drive.getFollower().getPose();
+
+        tele.addLine("=== SIMPLE AUTO ===")
+                .addData("State", "%s", state.name())
+                .addData("Alliance", "%s %s", isRed ? "RED" : "BLUE",
+                        isAudienceSide ? "AUD" : "DEPOT");
+
+        if (state == State.DRIVE_TO_SHOOT || state == State.RETURN_HOME) {
+            Pose target = (state == State.DRIVE_TO_SHOOT) ? plan.shootPose : plan.startPose;
+            double dist = Math.hypot(
+                    target.getX() - currentPose.getX(),
+                    target.getY() - currentPose.getY()
+            );
+            tele.addData("Distance", "%.1f\"", dist);
+        }
+
+        tele.addData("PathBusy", "%b", true, drive.getFollower().isBusy());
     }
 }
