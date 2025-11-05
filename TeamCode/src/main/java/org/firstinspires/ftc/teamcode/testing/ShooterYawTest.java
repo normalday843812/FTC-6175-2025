@@ -5,8 +5,10 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @TeleOp(name = "Shooter Yaw Test", group = "Testing")
 public class ShooterYawTest extends LinearOpMode {
@@ -17,8 +19,16 @@ public class ShooterYawTest extends LinearOpMode {
 
         GamepadMap map = new GamepadMap(this);
 
+        Mecanum drive = new Mecanum(this, map);
+        drive.init();
+
+        hw.initLimeLight(100);
+        hw.setLimelightPipeline(0);
+        LLAprilTag aprilTag = new LLAprilTag(hw.getLimelight(), this);
+
         hw.initShooterYaw();
-        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), map, this);
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), aprilTag, map,
+                drive.getFollower(), this);
 
         if (isStopRequested()) return;
 

@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
+package org.firstinspires.ftc.teamcode.pedropathing;
 
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_DIR;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.BACK_LEFT_NAME;
@@ -64,7 +64,8 @@ public class Constants {
             .forwardEncoderDirection(FORWARD_ENCODER_DIRECTION)
             .strafeEncoderDirection(STRAFE_ENCODER_DIRECTION);
 
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 300, 1, 1);
+    public static PathConstraints pathConstraints = new PathConstraints(
+            0.99, 300, 1, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)

@@ -6,11 +6,7 @@ import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TTL_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_DEADBAND_DEG;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_KD;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_KI;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_KP;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_MAX_POWER;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AUTO_LOCK_T;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.CENTER_POS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.CONTROL_LEVEL;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KF_Q_IMU;
@@ -21,6 +17,7 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.LL_WEIGHT_D
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POSITION;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.METERS_PER_POSE_UNIT;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MIN_POSITION;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.PIDF_COEFFICIENTS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SCAN_BAND_DEG;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SCAN_PERIOD_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SEEK_WINDOW_MS;
@@ -29,7 +26,6 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.STABLE_HOLD
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.YAW_POWER;
 
-import com.pedropathing.control.FilteredPIDFCoefficients;
 import com.pedropathing.control.FilteredPIDFController;
 import com.pedropathing.control.KalmanFilter;
 import com.pedropathing.control.KalmanFilterParameters;
@@ -56,31 +52,23 @@ public class ShooterYaw {
     private final TelemetryHelper tele;
     private final LLAprilTag ll;
     private final Follower follower;
-
     private SubsystemMode mode = SubsystemMode.MANUAL;
     private ControlState control = ControlState.MANUAL_HOLD;
-
     private int targetPosition = CENTER_POS;
     private int position = 0;
-
     private final FilteredPIDFController pid =
-            new FilteredPIDFController(new FilteredPIDFCoefficients(
-                    AUTO_LOCK_KP, AUTO_LOCK_KI, AUTO_LOCK_KD, AUTO_LOCK_T, 0.0));
-
+            new FilteredPIDFController(PIDF_COEFFICIENTS);
     private final KalmanFilter kfIMU =
             new KalmanFilter(new KalmanFilterParameters(KF_Q_IMU, KF_R_IMU));
     private final KalmanFilter kfLL =
             new KalmanFilter(new KalmanFilterParameters(KF_Q_LL, KF_R_LL_BASE));
-
     private int targetId = -1;
     private double lastFusedErrDeg = 0.0;
-
     private int[] patternIds = null;
     private int patternIdx = 0;
     private int chosenPatternId = -1;
     private long stableHoldMsGoal = STABLE_HOLD_MS_DEFAULT;
     private final Timer stableTimer = new Timer();
-
     private long sweepStartMs = System.currentTimeMillis();
 
     public ShooterYaw(DcMotorEx shooterYawMotor,
@@ -93,7 +81,6 @@ public class ShooterYaw {
         this.map = map;
         this.follower = follower;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-
         motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         motor.setTargetPosition(targetPosition);
         motor.setPower(YAW_POWER);
@@ -146,14 +133,11 @@ public class ShooterYaw {
         } else if (map != null && mode == SubsystemMode.AUTO && map.shooterYawAutoLockToggle) {
             disableAutoToManual();
         }
-
         if (map != null && map.resetShooterYaw) {
             resetShooterYaw();
             return;
         }
-
         position = motor.getCurrentPosition();
-
         if (mode == SubsystemMode.MANUAL) {
             operateManual();
         } else {
@@ -176,7 +160,6 @@ public class ShooterYaw {
                     break;
             }
         }
-
         addTelemetry();
     }
 
@@ -188,7 +171,6 @@ public class ShooterYaw {
             }
         }
         targetPosition = clampPosition(targetPosition);
-
         if (motor.getMode() != DcMotor.RunMode.RUN_TO_POSITION) {
             motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         }
@@ -220,12 +202,9 @@ public class ShooterYaw {
         Pose pose = follower.getPose();
         double headingDeg = Math.toDegrees(pose.getHeading());
         double bearingDeg = getBearingDeg(id, pose);
-
         double sweepOffset = SCAN_BAND_DEG * Math.sin(twoPi(System.currentTimeMillis() - sweepStartMs) / SCAN_PERIOD_MS);
         double errGeom = normalizeDeg(bearingDeg + sweepOffset - headingDeg);
-
         kfIMU.update(0.0, errGeom);
-
         LLAprilTag.YawInfo info = ll.getYawInfoForTag(id);
         if (info.fresh && info.ageMs <= TTL_MS && Double.isFinite(info.avgDeg)) {
             double errLL = -info.avgDeg;
@@ -235,7 +214,6 @@ public class ShooterYaw {
             driveYawByError(fused);
             return;
         }
-
         driveYawByError(kfIMU.getState());
     }
 
@@ -244,21 +222,17 @@ public class ShooterYaw {
             control = ControlState.SEEK_GOAL;
             return;
         }
-
         int id = patternIds[patternIdx];
         Pose pose = follower.getPose();
         double headingDeg = Math.toDegrees(pose.getHeading());
         double bearingDeg = getBearingDeg(id, pose);
-
         double sweepOffset = SCAN_BAND_DEG * Math.sin(twoPi(System.currentTimeMillis() - sweepStartMs) / SCAN_PERIOD_MS);
         double errGeom = normalizeDeg(bearingDeg + sweepOffset - headingDeg);
         kfIMU.update(0.0, errGeom);
-
         LLAprilTag.YawInfo info = ll.getYawInfoForTag(id);
         if (info.fresh && info.ageMs <= TTL_MS && Double.isFinite(info.avgDeg)) {
             double errLL = -info.avgDeg;
             kfLL.update(0.0, errLL);
-
             if (stableTimer.getElapsedTime() >= stableHoldMsGoal) {
                 chosenPatternId = id;
                 targetId = id;
@@ -267,12 +241,10 @@ public class ShooterYaw {
         } else {
             stableTimer.resetTimer();
         }
-
         if (System.currentTimeMillis() - sweepStartMs > SEEK_WINDOW_MS) {
             patternIdx = (patternIdx + 1) % patternIds.length;
             sweepStartMs = System.currentTimeMillis();
         }
-
         driveYawByError(kfIMU.getState());
     }
 
@@ -281,18 +253,14 @@ public class ShooterYaw {
         double headingDeg = Math.toDegrees(pose.getHeading());
         double bearingDeg = getBearingDeg(id, pose);
         double errGeom = normalizeDeg(bearingDeg - headingDeg);
-
         kfIMU.update(0.0, errGeom);
-
         LLAprilTag.YawInfo info = ll.getYawInfoForTag(id);
         double fused = kfIMU.getState();
-
         if (info.fresh && info.ageMs <= TTL_MS && Double.isFinite(info.avgDeg)) {
             double errLL = -info.avgDeg;
             kfLL.update(0.0, errLL);
             fused = fuse(info.distanceM, kfIMU.getState(), kfLL.getState());
         }
-
         lastFusedErrDeg = fused;
         driveYawByError(fused);
     }
@@ -302,17 +270,14 @@ public class ShooterYaw {
             stopPower();
             return;
         }
-
         pid.updateError(errDeg);
         double power = clamp(pid.run(), -AUTO_LOCK_MAX_POWER, AUTO_LOCK_MAX_POWER);
-
         position = motor.getCurrentPosition();
         if ((position >= MAX_POSITION - SOFT_LIMIT_MARGIN && power > 0) ||
                 (position <= MIN_POSITION + SOFT_LIMIT_MARGIN && power < 0)) {
             stopPower();
             return;
         }
-
         motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motor.setPower(power);
     }
@@ -374,10 +339,8 @@ public class ShooterYaw {
         VectorF p = md.fieldPosition;
         double tagXm = p.get(0);
         double tagYm = p.get(1);
-
         double rxm = robotPose.getX() * METERS_PER_POSE_UNIT;
         double rym = robotPose.getY() * METERS_PER_POSE_UNIT;
-
         double dx = tagXm - rxm;
         double dy = tagYm - rym;
         return Math.toDegrees(Math.atan2(dy, dx));

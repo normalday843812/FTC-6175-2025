@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class Spindexer {
     private final Servo spindexerServo;
@@ -18,6 +19,13 @@ public class Spindexer {
     private final TelemetryHelper tele;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
+
+    // Jiggle runner
+    private boolean jiggleActive = false;
+    private double jUp, jDown, jDwellS;
+    private int jPhase = 0; // 0: up, 1: down, 2: back
+    private final Timer jTimer = new Timer();
+    private double lastJiggleBase = 0.0;
 
     public Spindexer(Servo spindexerServo, GamepadMap map, OpMode opmode) {
         this.spindexerServo = spindexerServo;
@@ -37,16 +45,36 @@ public class Spindexer {
     }
 
     public void operate() {
-        if (mode == SubsystemMode.MANUAL) {
-            if (map != null) {
-                if (map.spindexerForward) {
-                    stepForward();
-                }
-                if (map.spindexerBackward) {
-                    stepBackward();
-                }
+        if (mode == SubsystemMode.MANUAL && map != null) {
+            if (map.spindexerForward) stepForward();
+            if (map.spindexerBackward) stepBackward();
+        }
+
+        if (jiggleActive) {
+            switch (jPhase) {
+                case 0:
+                    spindexerServo.setPosition(jUp);
+                    if (jTimer.getElapsedTimeSeconds() >= jDwellS) {
+                        jPhase = 1;
+                        jTimer.resetTimer();
+                    }
+                    break;
+                case 1:
+                    spindexerServo.setPosition(jDown);
+                    if (jTimer.getElapsedTimeSeconds() >= jDwellS) {
+                        jPhase = 2;
+                        jTimer.resetTimer();
+                    }
+                    break;
+                case 2:
+                    spindexerServo.setPosition(lastJiggleBase);
+                    if (jTimer.getElapsedTimeSeconds() >= jDwellS) {
+                        jiggleActive = false;
+                    }
+                    break;
             }
         }
+
         addTelemetry();
     }
 
@@ -74,30 +102,6 @@ public class Spindexer {
         setSlot(getCurrentSlot() + delta);
     }
 
-    public void indexToColor(IntakeColorSensor cs, boolean targetPurple, int maxStepsToScan, long timeoutMs) {
-        long deadline = System.currentTimeMillis() + Math.max(0, timeoutMs);
-        int steps = 0;
-        while (steps < Math.max(1, maxStepsToScan) && System.currentTimeMillis() < deadline) {
-            if (targetPurple ? cs.isConsistentlyPurple() : cs.isConsistentlyGreen()) {
-                return;
-            }
-            stepSlots(1);
-            long dwell = System.currentTimeMillis() + jiggleDwellMs();
-            while (System.currentTimeMillis() < dwell) {
-                // let sensor update
-            }
-            steps++;
-        }
-    }
-
-    private long jiggleDwellMs() {
-        try {
-            return (long) (org.firstinspires.ftc.teamcode.config.AutoDepositConfig.JIGGLE_DWELL_S * 1000);
-        } catch (Throwable t) {
-            return 120;
-        }
-    }
-
     public void stepForward() {
         stepSlots(1);
     }
@@ -114,29 +118,35 @@ public class Spindexer {
         return spindexerServo.getPosition();
     }
 
-    public Spindexer.JigglePlan makeJigglePlan(double deltaUp, double deltaDown) {
+    public void startJiggle(double deltaUp, double deltaDown, double dwellS) {
         double base = getPosition();
         double up = Math.min(1.0, base + deltaUp);
         double down = Math.max(0.0, base - deltaDown);
-        return new Spindexer.JigglePlan(base, up, down);
+        lastJiggleBase = base;
+        jUp = up;
+        jDown = down;
+        jDwellS = dwellS;
+        jPhase = 0;
+        jiggleActive = true;
+        jTimer.resetTimer();
     }
 
-    public static class JigglePlan {
-        public final double base;
-        public final double up;
-        public final double down;
+    public boolean updateJiggle() {
+        // Return true when jiggle is finished
+        return !jiggleActive;
+    }
 
-        public JigglePlan(double base, double up, double down) {
-            this.base = base;
-            this.up = up;
-            this.down = down;
-        }
+    public void stopJiggle() {
+        jiggleActive = false;
     }
 
     private void addTelemetry() {
         tele.addLine("=== SPINDEXER ===")
                 .addData("Mode", mode::name)
                 .addData("Pos", "%.2f", spindexerServo.getPosition())
-                .addData("Slot", "%d/%d", getCurrentSlot(), getSlots());
+                .addData("Slot", "%d", getCurrentSlot())
+                .addData("JiggleActive", "%b", jiggleActive)
+                .addData("JigglePhase", "%d", jPhase)
+                .addData("LastJiggleBase", "%.2f", lastJiggleBase);
     }
 }

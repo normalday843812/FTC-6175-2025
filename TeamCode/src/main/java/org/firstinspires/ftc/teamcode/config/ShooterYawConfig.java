@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.config;
 
 import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.control.FilteredPIDFCoefficients;
 
 @Configurable
 public class ShooterYawConfig {
@@ -17,9 +18,15 @@ public class ShooterYawConfig {
     public static boolean AUTO_LOCK_ENABLED = true;
 
     // Pedro FilteredPIDF gains for yaw
-    public static double AUTO_LOCK_KP = 0.035;
-    public static double AUTO_LOCK_KI = 0.000;
-    public static double AUTO_LOCK_KD = 0.005;
+
+    public static FilteredPIDFCoefficients PIDF_COEFFICIENTS = new FilteredPIDFCoefficients(
+            0.035, 0.000, 0.005, 0.6, 0
+    );
+
+
+
+
+
     /**
      * Derivative low-pass time constant for FilteredPIDFController (0..1 typical).
      */

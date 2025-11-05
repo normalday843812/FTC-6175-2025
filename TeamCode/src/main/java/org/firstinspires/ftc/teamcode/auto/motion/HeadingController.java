@@ -1,7 +1,10 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
 import static com.pedropathing.math.MathFunctions.clamp;
-import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.*;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.HEADING_DEADBAND_DEG;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.HEADING_KD;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.HEADING_KP;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.HEADING_MAX_ROT;
 
 public class HeadingController {
     private double prevErrDeg = 0.0;

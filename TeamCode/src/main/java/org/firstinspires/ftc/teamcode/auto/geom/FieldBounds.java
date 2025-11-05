@@ -1,12 +1,12 @@
 package org.firstinspires.ftc.teamcode.auto.geom;
 
 import static com.pedropathing.math.MathFunctions.clamp;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MAXIMUM_BLUE_X;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MINIMUM_BLUE_X;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MINIMUM_RED_X;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MAXIMUM_RED_X;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MINIMUM_Y;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.MAXIMUM_Y;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MAXIMUM_BLUE_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MINIMUM_BLUE_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MINIMUM_RED_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MAXIMUM_RED_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MINIMUM_Y;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.MAXIMUM_Y;
 
 import com.pedropathing.geometry.Pose;
 

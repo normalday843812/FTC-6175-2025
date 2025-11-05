@@ -7,11 +7,13 @@ import static org.firstinspires.ftc.teamcode.config.DriveConfig.ROT_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.STICK_UNLOCK_DB;
 import static org.firstinspires.ftc.teamcode.config.DriveConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.SLOW_MODE_MULTIPLIER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.createFollower;
+import static org.firstinspires.ftc.teamcode.pedropathing.Constants.createFollower;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
+import com.pedropathing.paths.Path;
+import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
@@ -150,6 +152,20 @@ public class Mecanum {
         double strafe = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
 
         follower.setTeleOpDrive(forward, strafe, turnCmd, !fieldCentricEnabled);
+    }
+
+    public void followPath(Path path) {
+        mode = SubsystemMode.AUTO;
+        follower.followPath(path);
+    }
+
+    public void followPath(PathChain chain) {
+        mode = SubsystemMode.AUTO;
+        follower.followPath(chain);
+    }
+
+    public boolean isPathBusy() {
+        return follower.isBusy();
     }
 
     private void applyAutoCommand() {

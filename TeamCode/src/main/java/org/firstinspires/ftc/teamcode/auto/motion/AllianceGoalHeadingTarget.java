@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.FALLBACK_HEADING_BLUE_DEG;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.FALLBACK_HEADING_RED_DEG;
+
 import com.pedropathing.geometry.Pose;
 
 import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
@@ -21,10 +24,7 @@ public class AllianceGoalHeadingTarget implements HeadingTarget {
         if (info.fresh && !Double.isNaN(info.avgDeg)) {
             return normalizeDeg(currentDeg + info.avgDeg);
         } else {
-            // Fallback
-            return isRed
-                    ? org.firstinspires.ftc.teamcode.config.AutoDepositConfig.FALLBACK_HEADING_RED_DEG
-                    : org.firstinspires.ftc.teamcode.config.AutoDepositConfig.FALLBACK_HEADING_BLUE_DEG;
+            return isRed ? FALLBACK_HEADING_RED_DEG : FALLBACK_HEADING_BLUE_DEG;
         }
     }
 
