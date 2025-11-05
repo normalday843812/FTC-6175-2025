@@ -176,7 +176,7 @@ public class LLAprilTag {
         boolean poseAvailable = result != null && result.getBotpose() != null;
 
         tele.addLine("=== LL APRILTAG ===")
-                .addData("Pattern ID", () -> SELECTED_PATTERN_TAG_ID)
+                .addData("Pattern ID", () -> String.valueOf(SELECTED_PATTERN_TAG_ID))
                 .addData("Pattern Confidence", "%.3f", selectedPatternConfidence)
                 .addData("Pose Set", poseAvailable ? "yes" : "no");
 

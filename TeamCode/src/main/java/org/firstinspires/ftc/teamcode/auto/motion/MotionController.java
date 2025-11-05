@@ -1,111 +1,78 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
-import static com.pedropathing.math.MathFunctions.clamp;
-import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_APPROACH_GAIN;
-import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.DRIVE_MAX_VEL;
-import static org.firstinspires.ftc.teamcode.config.AutoMotionConfig.HEADING_MAX_ROT;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.CONTROL_POINT;
 
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.HeadingInterpolator;
+import com.pedropathing.paths.PathChain;
 
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-/**
- * Field-centric: vxField = +X (right), vyField = +Y (forward field).
- */
 public class MotionController {
     private final Mecanum drive;
-    private final HeadingController headingCtrl;
+    private final Follower follower;
     private final TelemetryHelper tele;
+    private final HeadingController manualHeading = new HeadingController();
 
-    public MotionController(Mecanum drive, HeadingController headingCtrl, TelemetryHelper tele) {
+    public MotionController(Mecanum drive, TelemetryHelper tele) {
         this.drive = drive;
-        this.headingCtrl = headingCtrl;
+        this.follower = drive.getFollower();
         this.tele = tele;
     }
 
-    public Pose getDrivetrainPose() {
-        return drive.getFollower().getPose();
-    }
+    public void followToPose(Pose target, double headDeg) {
+        Pose current = follower.getPose();
 
-    public void holdHeading(HeadingTarget target) {
-        Pose p = drive.getFollower().getPose();
-        double desiredDeg = target.getTargetHeadingDeg(p);
-        double currentDeg = Math.toDegrees(p.getHeading());
-        double rot = headingCtrl.update(desiredDeg, currentDeg);
+        PathChain chain = follower.pathBuilder()
+                .addPath(new BezierCurve(follower::getPose, CONTROL_POINT, target))
+                .setLinearHeadingInterpolation(
+                        current.getHeading(),
+                        Math.toRadians(headDeg),
+                        0.8
+                )
+                .build();
 
-        // No translation b/c field-centric is irrelevant
-        drive.setAutoDrive(0, 0, rot, true, 0);
-
-        addTelemetry("HOLD", 0, 0, rot,
-                desiredDeg, currentDeg, target.debugName());
+        drive.followPath(chain);
     }
 
     public void translateFacing(double vxField, double vyField, HeadingTarget target) {
-        Pose p = drive.getFollower().getPose();
+        Pose p = follower.getPose();
         double desiredDeg = target.getTargetHeadingDeg(p);
         double currentDeg = Math.toDegrees(p.getHeading());
-        double rot = headingCtrl.update(desiredDeg, currentDeg);
+        double rot = manualHeading.update(desiredDeg, currentDeg);
 
-        double forward = clamp(-vyField, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
-        double strafe = clamp(-vxField, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
+        double forward = -vyField;
+        double strafe = -vxField;
 
         drive.setAutoDrive(forward, strafe, rot, true, 0);
 
-        addTelemetry("TRANSLATE", vxField, vyField, rot,
-                desiredDeg, currentDeg, target.debugName());
-    }
-
-    public void spinInPlace(double turnCmd) {
-        double turn = clamp(turnCmd, -HEADING_MAX_ROT, HEADING_MAX_ROT);
-        drive.setAutoDrive(0, 0, turn, true, 0);
-
-        tele.addLine("--- Motion (SPIN) ---")
-                .addData("TurnCmd", "%.3f", turn);
-    }
-
-    /**
-     * Drive to pose with a P-based XY and heading lock.
-     * Returns true if finished by distance or timeout.
-     */
-    public boolean driveToPose(Pose target, double stopDistIn,
-                               double timeoutS, HeadingTarget heading) {
-        Pose p = drive.getFollower().getPose();
-        double dx = target.getX() - p.getX();
-        double dy = target.getY() - p.getY();
-        double dist = Math.hypot(dx, dy);
-
-        boolean completed = dist < stopDistIn || timeoutS <= 0;
-
-        double desiredDeg = heading.getTargetHeadingDeg(p);
-        double currentDeg = Math.toDegrees(p.getHeading());
-        double rot = headingCtrl.update(desiredDeg, currentDeg);
-
-        double vx = clamp(dx * DRIVE_APPROACH_GAIN, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
-        double vy = clamp(dy * DRIVE_APPROACH_GAIN, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
-
-        // Map to drive frame
-        double forward = clamp(-vy, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
-        double strafe = clamp(-vx, -DRIVE_MAX_VEL, DRIVE_MAX_VEL);
-
-        if (completed) {
-            drive.setAutoDrive(0, 0, rot, true, 0);
-        } else {
-            drive.setAutoDrive(forward, strafe, rot, true, 0);
-        }
-
-        addTelemetry("DRIVE_TO", vx, vy, rot, desiredDeg, currentDeg, heading.debugName());
-        return completed;
-    }
-
-    private void addTelemetry(String mode, double vxField, double vyField, double rotCmd,
-                              double desiredDeg, double currentDeg, String headingName) {
-        tele.addLine("--- Motion ---")
-                .addData("Mode", mode)
+        tele.addLine("--- Motion (INTAKE CREEP) ---")
                 .addData("HeadTgt", "%.1f", desiredDeg)
                 .addData("HeadCur", "%.1f", currentDeg)
-                .addData("RotCmd", "%.3f", rotCmd)
-                .addData("Vx,Vy", "(%.2f, %.2f)", vxField, vyField)
-                .addData("HeadingSrc", headingName);
+                .addData("RotCmd", "%.3f", rot)
+                .addData("Vx,Vy", "(%.2f, %.2f)", vxField, vyField);
+    }
+
+    public void followToPoseFacingPoint(Pose target, double faceX, double faceY) {
+        PathChain chain = follower.pathBuilder()
+                .addPath(new BezierLine(follower::getPose, target))
+                .setHeadingInterpolation(
+                        HeadingInterpolator.facingPoint(faceX, faceY)
+                )
+                .build();
+        drive.followPath(chain);
+    }
+
+    /** @noinspection BooleanMethodIsAlwaysInverted*/
+    public boolean isBusy() {
+        return drive.isPathBusy();
+    }
+
+    public Pose getPose() {
+        return follower.getPose();
     }
 }

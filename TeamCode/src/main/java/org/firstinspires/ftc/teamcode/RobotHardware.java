@@ -19,25 +19,18 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDi
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_1_DIRECTION;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_2_DIRECTION;
 
-import android.util.Size;
-
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
-import org.firstinspires.ftc.vision.VisionPortal;
-import org.firstinspires.ftc.vision.VisionProcessor;
 
 public class RobotHardware {
     private final OpMode inputOpMode;
@@ -47,31 +40,11 @@ public class RobotHardware {
         inputOpMode = opMode;
     }
 
-    public OpMode getOpMode() {
-        return inputOpMode;
-    }
-
     // Pinpoint
     GoBildaPinpointDriver pinpoint;
 
-    // Webcam
-    private WebcamName webcam1;
-    private VisionPortal visionPortal;
-    public static final Size CAMERA_RES = new Size(640, 480);
-    public static final VisionPortal.StreamFormat STREAM_FORMAT = VisionPortal.StreamFormat.MJPEG;
-    public static final boolean ENABLE_LIVE_VIEW = false;
-
     // Limelight
     private Limelight3A limelight;
-
-    // Color sensor
-    private NormalizedColorSensor intakeColorSensor;
-
-    private Servo rgbIndicator;
-
-    // IMU
-    IMU imu;
-    IMU.Parameters imuParams;
 
     // Motors
     // Drive
@@ -90,6 +63,11 @@ public class RobotHardware {
     private Servo hoodServo;
     private Servo spindexerServo;
     private Servo transferServo1, transferServo2;
+    private Servo rgbIndicator;
+
+    private NormalizedColorSensor slotColor0, slotColor1, slotColor2;
+
+    private DistanceSensor frontDistance;
 
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -102,23 +80,6 @@ public class RobotHardware {
         pinpoint.resetPosAndIMU();
     }
 
-    public void initIntakeColorSensor() {
-        intakeColorSensor = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor");
-    }
-
-    public void initIMU() {
-        imu = inputOpMode.hardwareMap.get(IMU.class, "imu");
-
-        imuParams = new IMU.Parameters(
-                new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
-                )
-        );
-
-        imu.initialize(imuParams);
-    }
-
     public void initTransfer() {
         transferServo1 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_1");
         transferServo2 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_2");
@@ -126,30 +87,9 @@ public class RobotHardware {
         transferServo2.setDirection(SERVO_2_DIRECTION);
     }
 
-    public void initWebcam() {
-        webcam1 = inputOpMode.hardwareMap.get(WebcamName.class, "Webcam 1");
-
-    }
-
     public void initRgbIndicator() {
         rgbIndicator = inputOpMode.hardwareMap.get(Servo.class, "rgb_indicator");
         rgbIndicator.setPosition(GREEN_POS);
-    }
-
-    public void initVision(CameraName webcam, VisionProcessor... processors) {
-        if (visionPortal != null) return;
-
-        VisionPortal.Builder builder = new VisionPortal.Builder()
-                .setCamera(webcam)
-                .setCameraResolution(CAMERA_RES)
-                .setStreamFormat(STREAM_FORMAT)
-                .enableLiveView(ENABLE_LIVE_VIEW);
-
-        for (VisionProcessor p : processors) {
-            builder.addProcessor(p);
-        }
-
-        visionPortal = builder.build();
     }
 
     public void initLimeLight(int pollRateHz) {
@@ -220,20 +160,14 @@ public class RobotHardware {
         spindexerServo = inputOpMode.hardwareMap.get(Servo.class, "spindexer_servo");
     }
 
-    // Webcam
-    public void stopVisionStreaming() {
-        if (visionPortal != null) visionPortal.stopStreaming();
+    public void initSpindexColorSensors() {
+        slotColor0 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0");
+        slotColor1 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1");
+        slotColor2 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2");
     }
 
-    public void resumeVisionStreaming() {
-        if (visionPortal != null) visionPortal.resumeStreaming();
-    }
-
-    public void closeVision() {
-        if (visionPortal != null) {
-            visionPortal.close();
-            visionPortal = null;
-        }
+    public void initFrontDistance() {
+        frontDistance = inputOpMode.hardwareMap.get(DistanceSensor.class, "front_distance");
     }
 
     // Getters
@@ -329,33 +263,6 @@ public class RobotHardware {
         }
     }
 
-    // Odo encoders
-    public DcMotorEx getOdoParallel() {
-        if (frontRightMotor == null) {
-            if (isFailFastOnMissingHardware()) {
-                throw new IllegalStateException("frontRightMotor (OdoParallel) not init");
-            } else {
-                initDriveMotors();
-                return frontRightMotor;
-            }
-        } else {
-            return frontRightMotor;
-        }
-    }
-
-    public DcMotorEx getOdoPerp() {
-        if (backLeftMotor == null) {
-            if (isFailFastOnMissingHardware()) {
-                throw new IllegalStateException("backLeftMotor (odoPerp) not init");
-            } else {
-                initDriveMotors();
-                return backLeftMotor;
-            }
-        } else {
-            return backLeftMotor;
-        }
-    }
-
     // Misc
     public Servo getRgbIndicator() {
         if (rgbIndicator == null) {
@@ -423,19 +330,6 @@ public class RobotHardware {
         }
     }
 
-    public NormalizedColorSensor getIntakeColorSensor() {
-        if (intakeColorSensor == null) {
-            if (isFailFastOnMissingHardware()) {
-                throw new IllegalStateException("intakeColorSensor not init");
-            } else {
-                initIntakeColorSensor();
-                return intakeColorSensor;
-            }
-        } else {
-            return intakeColorSensor;
-        }
-    }
-
     // Pinpoint
     public GoBildaPinpointDriver getPinpoint() {
         if (pinpoint == null) {
@@ -450,29 +344,6 @@ public class RobotHardware {
         }
     }
 
-    // IMU
-    public IMU getIMU() {
-        if (imu == null) {
-            if (isFailFastOnMissingHardware()) {
-                throw new IllegalStateException("imu not init");
-            } else {
-                initIMU();
-                return imu;
-            }
-        } else {
-            return imu;
-        }
-    }
-
-    // Webcam
-    public VisionPortal getVisionPortal() {
-        return visionPortal;
-    }
-
-    public WebcamName getWebcam1() {
-        return webcam1;
-    }
-
     // Limelight
     public Limelight3A getLimelight() {
         if (limelight == null) {
@@ -485,5 +356,21 @@ public class RobotHardware {
         } else {
             return limelight;
         }
+    }
+
+    public NormalizedColorSensor getSlotColor0() {
+        return slotColor0;
+    }
+
+    public NormalizedColorSensor getSlotColor1() {
+        return slotColor1;
+    }
+
+    public NormalizedColorSensor getSlotColor2() {
+        return slotColor2;
+    }
+
+    public DistanceSensor getFrontDistance() {
+        return frontDistance;
     }
 }

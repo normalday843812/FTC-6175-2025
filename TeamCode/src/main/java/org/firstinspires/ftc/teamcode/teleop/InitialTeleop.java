@@ -1,11 +1,6 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.isAudienceSide;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.SHOOT_RPM_BAND;
-import static org.firstinspires.ftc.teamcode.config.AutoDepositConfig.pickShootPose;
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
@@ -14,17 +9,21 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.config.RgbIndicatorConfig;
+import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
+import org.firstinspires.ftc.teamcode.config.ShooterConfig;
+import org.firstinspires.ftc.teamcode.config.UiLightConfig;
+import org.firstinspires.ftc.teamcode.managers.LightController;
+import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.shooting.PolynomialRpmModel;
 import org.firstinspires.ftc.teamcode.shooting.RpmModel;
 import org.firstinspires.ftc.teamcode.shooting.ShooterManager;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
-import org.firstinspires.ftc.teamcode.subsystems.IntakeColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.RgbIndicator;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
+import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -72,9 +71,14 @@ public class InitialTeleop extends LinearOpMode {
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
+        UiLight ui = new UiLight(rgbIndicator);
+        LightController light = new LightController(ui, shooter, shooterYaw, intake);
 
-        hw.initIntakeColorSensor();
-        IntakeColorSensor intakeColorSensor = new IntakeColorSensor(hw.getIntakeColorSensor(), this);
+        hw.initSpindexColorSensors();
+        SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(),
+                hw.getSlotColor1(), hw.getSlotColor2(), this);
+
+        ui.setBase(UiLightConfig.UiState.READY);
 
         if (isStopRequested()) return;
         waitForStart();
@@ -89,10 +93,10 @@ public class InitialTeleop extends LinearOpMode {
 
         RpmModel model = new PolynomialRpmModel();
         ShooterManager shooterManager = new ShooterManager(shooter, model, this);
-        shooterManager.setLimits(IDLE_RPM,
-                MAX_RPM);
+        shooterManager.setLimits(ShooterConfig.IDLE_RPM,
+                ShooterConfig.MAX_RPM);
 
-        Pose goal = pickShootPose(isRed, isAudienceSide);
+        Pose goal = DecodeGameConfig.shootPose(isRed);
         Limelight3A limelight = hw.getLimelight();
 
         while (opModeIsActive()) {
@@ -101,21 +105,11 @@ public class InitialTeleop extends LinearOpMode {
             if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
             shooterManager.setEnabled(managerEnabled);
 
-            if (RgbIndicatorConfig.IS_ENABLED) {
-                if (shooter.isAtTarget(SHOOT_RPM_BAND) && shooterYaw.isLockedOnTarget()) {
-                    rgbIndicator.setGreen();
-                } else {
-                    rgbIndicator.setRed();
-                }
-            } else {
-                rgbIndicator.setOff();
-            }
-
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);
 
             transfer.operate();
-            intakeColorSensor.update();
+            slots.update();
             aprilTag.update();
             drive.operate();
             intake.operate();

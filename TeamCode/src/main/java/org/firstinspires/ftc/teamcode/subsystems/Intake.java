@@ -14,7 +14,6 @@ import static org.firstinspires.ftc.teamcode.config.IntakeConfig.TELEMETRY_ENABL
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -95,6 +94,14 @@ public class Intake {
     public void clearJam() {
         jamState = JamState.OUT;
         jamTimer.resetTimer();
+    }
+
+    public boolean isJammed() {
+        return jamState != JamState.IDLE;
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 
     private void operateAuto() {
