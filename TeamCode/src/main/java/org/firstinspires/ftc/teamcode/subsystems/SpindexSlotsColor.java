@@ -18,6 +18,7 @@ public class SpindexSlotsColor {
     private final ColorClassifier c1 = new ColorClassifier();
     private final ColorClassifier c2 = new ColorClassifier();
     private final TelemetryHelper tele;
+    private boolean enabled = true;
 
     public SpindexSlotsColor(NormalizedColorSensor slot0,
                              NormalizedColorSensor slot1,
@@ -29,7 +30,25 @@ public class SpindexSlotsColor {
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
+    public void setEnabled(boolean enabled) {
+        if (this.enabled != enabled) {
+            this.enabled = enabled;
+            if (!enabled) {
+                c0.reset();
+                c1.reset();
+                c2.reset();
+            }
+        }
+    }
+
     public void update() {
+        if (!enabled) {
+            disabledTelemetry(0);
+            disabledTelemetry(1);
+            disabledTelemetry(2);
+            return;
+        }
+
         readOne(s0, c0, 0);
         readOne(s1, c1, 1);
         readOne(s2, c2, 2);
@@ -44,9 +63,10 @@ public class SpindexSlotsColor {
             int g = Math.round(x.green * 255f);
             int b = Math.round(x.blue * 255f);
             dead = (r == 0 && g == 0 && b == 0);
-            cls.pushRgb(r, g, b);
+            cls.pushSample(r, g, b, x.alpha);
         } catch (Throwable t) {
             dead = true;
+            cls.reset();
         }
 
         tele.addLine("--- SLOT " + idx + " ---")
@@ -54,7 +74,15 @@ public class SpindexSlotsColor {
                 .addData("deadFrame", "%b", dead);
     }
 
+    private void disabledTelemetry(int idx) {
+        tele.addLine("--- SLOT " + idx + " ---")
+                .addData("Color", BallColor.NONE::name)
+                .addData("deadFrame", "%b", true)
+                .addData("enabled", "%b", false);
+    }
+
     public BallColor getColor(int slot) {
+        if (!enabled) return BallColor.NONE;
         switch (slot) {
             case 0:
                 return c0.isPurple() ? BallColor.PURPLE : c0.isGreen() ? BallColor.GREEN : BallColor.NONE;
@@ -68,6 +96,7 @@ public class SpindexSlotsColor {
     }
 
     public boolean hasAnyBall(int slot) {
+        if (!enabled) return false;
         BallColor v = getColor(slot);
         return v == BallColor.PURPLE || v == BallColor.GREEN;
     }

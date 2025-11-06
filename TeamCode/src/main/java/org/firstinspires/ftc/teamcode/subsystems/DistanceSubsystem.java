@@ -16,13 +16,30 @@ public class DistanceSubsystem {
     private final TelemetryHelper tele;
     private final double[] buf = new double[Math.max(1, DIST_SMOOTH_WINDOW)];
     private int n = 0, i = 0;
+    private boolean enabled = true;
 
     public DistanceSubsystem(DistanceSensor sensor, OpMode opmode) {
         this.sensor = sensor;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
+    public void setEnabled(boolean enabled) {
+        if (this.enabled != enabled) {
+            this.enabled = enabled;
+            if (!enabled) {
+                n = 0;
+                i = 0;
+            }
+        }
+    }
+
     public void update() {
+        if (!enabled) {
+            tele.addLine("--- DIST ---")
+                    .addData("enabled", "%b", false);
+            return;
+        }
+
         double raw = sensor.getDistance(DistanceUnit.CM);
         if (Double.isFinite(raw) && raw > 0 && raw < DIST_MAX_VALID_CM) {
             buf[i] = raw;
@@ -35,13 +52,14 @@ public class DistanceSubsystem {
     }
 
     public double getAvg() {
-        if (n == 0) return Double.NaN;
+        if (!enabled || n == 0) return Double.NaN;
         double s = 0;
         for (int k = 0; k < n; k++) s += buf[k];
         return s / n;
     }
 
     public boolean isWallClose() {
+        if (!enabled) return false;
         double d = getAvg();
         return Double.isFinite(d) && d <= DIST_WALL_CLOSE_CM;
     }

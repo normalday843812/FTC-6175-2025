@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.sensors;
 
 import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.*;
 
+import java.util.Arrays;
+
 public class ColorClassifier {
     private final float[] hsv = new float[3];
     private final boolean[] purpleBuf = new boolean[WINDOW_SIZE];
@@ -9,13 +11,20 @@ public class ColorClassifier {
     private int idx = 0;
     private boolean purple, green;
 
-    public void pushRgb(int r, int g, int b) {
+    public void pushSample(int r, int g, int b, float alpha) {
         android.graphics.Color.RGBToHSV(r, g, b, hsv);
-        boolean pNow = hsv[0] >= HUE_MIN_PURPLE && hsv[0] <= HUE_MAX_PURPLE &&
+        float alpha255 = alpha * 255f;
+        boolean present = alpha255 >= ALPHA_MIN_BALL;
+
+        boolean pNow = present && alpha255 >= ALPHA_MIN_PURPLE &&
+                hsv[0] >= HUE_MIN_PURPLE && hsv[0] <= HUE_MAX_PURPLE &&
                 hsv[1] >= SATURATION_MIN_PURPLE && hsv[2] >= VALUE_MIN_PURPLE;
-        boolean gNow = hsv[0] >= HUE_MIN_GREEN && hsv[0] <= HUE_MAX_GREEN &&
+        boolean gNow = present && alpha255 >= ALPHA_MIN_GREEN &&
+                hsv[0] >= HUE_MIN_GREEN && hsv[0] <= HUE_MAX_GREEN &&
                 hsv[1] >= SATURATION_MIN_GREEN && hsv[2] >= VALUE_MIN_GREEN;
+
         if (pNow && gNow) {
+            // Ambiguous frame, drop to avoid false positives.
             pNow = false;
             gNow = false;
         }
@@ -26,6 +35,14 @@ public class ColorClassifier {
 
         purple = consistent(purpleBuf, N);
         green = consistent(greenBuf, N);
+    }
+
+    public void reset() {
+        Arrays.fill(purpleBuf, false);
+        Arrays.fill(greenBuf, false);
+        purple = false;
+        green = false;
+        idx = 0;
     }
 
     public boolean isPurple() {
