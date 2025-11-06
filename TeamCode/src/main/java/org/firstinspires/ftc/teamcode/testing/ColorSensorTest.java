@@ -96,7 +96,7 @@ public class ColorSensorTest extends LinearOpMode {
             android.graphics.Color.RGBToHSV(r, g, b, hsv);
 
             // Feed to classifier
-            classifier.pushRgb(r, g, b);
+            classifier.pushSample(r, g, b, rgba.alpha);
 
             // Determine detected color
             String detected = "NONE";

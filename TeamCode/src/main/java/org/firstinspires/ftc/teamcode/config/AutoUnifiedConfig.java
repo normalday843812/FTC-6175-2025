@@ -34,6 +34,7 @@ public class AutoUnifiedConfig {
     public static double INTAKE_FORWARD_TIMEOUT_S = 2.0;
 
     // Shooter/deposit
+    public static double AUTO_TARGET_RPM = ShooterConfig.RPM_AT_SHOT;
     public static double TARGET_RPM_BAND = 100;
     public static double RPM_VERIFY_DROP = ShooterConfig.RPM_AT_SHOT;
     public static double AT_RPM_WAIT_TIMEOUT_S = 1.2;

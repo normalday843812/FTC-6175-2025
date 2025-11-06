@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.auto.motion;
 
-import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.CONTROL_POINT;
-
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
@@ -27,8 +25,10 @@ public class MotionController {
     public void followToPose(Pose target, double headDeg) {
         Pose current = follower.getPose();
 
+        Pose control = midpointControl(current, target);
+
         PathChain chain = follower.pathBuilder()
-                .addPath(new BezierCurve(follower::getPose, CONTROL_POINT, target))
+                .addPath(new BezierCurve(follower::getPose, control, target))
                 .setLinearHeadingInterpolation(
                         current.getHeading(),
                         Math.toRadians(headDeg),
@@ -74,5 +74,11 @@ public class MotionController {
 
     public Pose getPose() {
         return follower.getPose();
+    }
+
+    private static Pose midpointControl(Pose start, Pose target) {
+        double midX = (start.getX() + target.getX()) / 2.0;
+        double midY = (start.getY() + target.getY()) / 2.0;
+        return new Pose(midX, midY, target.getHeading());
     }
 }
