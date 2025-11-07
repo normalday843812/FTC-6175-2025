@@ -22,6 +22,7 @@ import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_2_DIREC
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -62,7 +63,8 @@ public class RobotHardware {
     // Servos
     private Servo hoodServo;
     private Servo spindexerServo;
-    private Servo transferServo1, transferServo2;
+    private Servo transferServo1;
+    private CRServo transferServo2;
     private Servo rgbIndicator;
 
     private NormalizedColorSensor slotColor0, slotColor1, slotColor2;
@@ -82,7 +84,7 @@ public class RobotHardware {
 
     public void initTransfer() {
         transferServo1 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_1");
-        transferServo2 = inputOpMode.hardwareMap.get(Servo.class, "transfer_servo_2");
+        transferServo2 = inputOpMode.hardwareMap.get(CRServo.class, "transfer_servo_2");
         transferServo1.setDirection(SERVO_1_DIRECTION);
         transferServo2.setDirection(SERVO_2_DIRECTION);
     }
@@ -304,7 +306,7 @@ public class RobotHardware {
         }
     }
 
-    public Servo getTransferServo2() {
+    public CRServo getTransferServo2() {
         if (transferServo2 == null) {
             if (isFailFastOnMissingHardware()) {
                 throw new IllegalStateException("transferServo not init");

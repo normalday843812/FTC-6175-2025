@@ -20,6 +20,7 @@ public class GamepadMap {
     public double shooterUp, shooterDown;
     public double shooterYaw;
     public boolean transferButton, intakeClearJam, resetShooterYaw;
+    public boolean transferCrForward, transferCrReverse;
     public double hoodAxis;
     public boolean shooterYawAutoLockToggle;
     private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
@@ -43,6 +44,9 @@ public class GamepadMap {
 
         spindexerForward = x.rose(opmode.gamepad1.x);
         spindexerBackward = y.rose(opmode.gamepad1.y);
+
+        transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
+        transferCrReverse = dpad_left_t.rose(opmode.gamepad1.dpad_left);
 
         angleLockToggle = a.rose(opmode.gamepad2.a);
         slowModeToggle = b.rose(opmode.gamepad2.b);

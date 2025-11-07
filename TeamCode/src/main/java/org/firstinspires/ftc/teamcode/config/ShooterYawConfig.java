@@ -24,7 +24,16 @@ public class ShooterYawConfig {
     public static double KP_IMU = 1.0;
     public static double MAX_SLEW_TICKS_PER_SEC = 500.0;
 
-    public static FilteredPIDFCoefficients PIDF_COEFFICIENTS = new FilteredPIDFCoefficients(0.8,0 ,0.7, 0.80, 0);
+    public static long LL_GRACE_MS = 150;
+    public static long REACQUIRE_AFTER_MS = 300;
+
+    public static boolean SMOOTHING_ENABLED = true;
+    public static double SMOOTHING_ALPHA = 0.25;
+
+    public static boolean REACQUIRE_SCAN_ENABLED = true;
+    public static int MIN_SCAN_AMPLITUDE_TICKS = 4;
+
+    public static FilteredPIDFCoefficients PIDF_COEFFICIENTS = new FilteredPIDFCoefficients(0.8, 0, 0.7, 0.80, 0);
 
     public static int SOFT_LIMIT_MARGIN = 2;
     public static double SCAN_BAND_DEG = 12.0;
