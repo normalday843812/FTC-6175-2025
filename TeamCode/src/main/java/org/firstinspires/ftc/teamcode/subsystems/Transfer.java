@@ -1,14 +1,13 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.FLICK_TIME_S;
-import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MAX;
-import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.RESET_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TELEMETRY_ENABLED;
-import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_2_MAX;
-import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_2_MIN;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MAX;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
@@ -19,22 +18,29 @@ import org.firstinspires.ftc.teamcode.util.Timer;
 public class Transfer {
     private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN}
 
-    private final Servo transferServo1, transferServo2;
+    private enum CrState {OFF, FORWARD, REVERSE}
+
+    private final Servo transferServo1;
+    private final CRServo transferCrServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
     private FlickState state = FlickState.IDLE;
+    private CrState crState = CrState.OFF;
     private final Timer flickTimer = new Timer();
 
-    public Transfer(Servo transferServo1, Servo transferServo2, GamepadMap map, OpMode opmode) {
+    public Transfer(Servo transferServo1, CRServo transferCrServo, GamepadMap map, OpMode opmode) {
         this.transferServo1 = transferServo1;
-        this.transferServo2 = transferServo2;
+        this.transferCrServo = transferCrServo;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+
+        // start retracted
         this.transferServo1.setPosition(TRANSFER_1_MIN);
-        this.transferServo2.setPosition(TRANSFER_2_MIN);
+        // make sure CR servo is stopped
+        this.transferCrServo.setPower(0.0);
     }
 
     public void startTeleop() {
@@ -46,19 +52,30 @@ public class Transfer {
     }
 
     public void operate() {
+        // driver inputs
         if (mode == SubsystemMode.MANUAL && map != null) {
+            // flick is the old behavior
             if (map.transferButton) {
                 flick();
             }
+
+            // new CR servo controls on dpad right/left
+            if (map.transferCrForward) {
+                // tap to toggle forward
+                crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
+            }
+            if (map.transferCrReverse) {
+                // tap to toggle reverse
+                crState = (crState == CrState.REVERSE) ? CrState.OFF : CrState.REVERSE;
+            }
         }
 
+        // flick FSM (positional servo)
         switch (state) {
             case IDLE:
-                // nothing
                 break;
             case FLICK_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
-                transferServo2.setPosition(TRANSFER_2_MAX);
                 if (flickTimer.getElapsedTimeSeconds() >= FLICK_TIME_S) {
                     state = FlickState.FLICK_DOWN;
                     flickTimer.resetTimer();
@@ -66,10 +83,21 @@ public class Transfer {
                 break;
             case FLICK_DOWN:
                 transferServo1.setPosition(TRANSFER_1_MIN);
-                transferServo2.setPosition(TRANSFER_2_MIN);
                 if (flickTimer.getElapsedTimeSeconds() >= RESET_TIME_S) {
                     state = FlickState.IDLE;
                 }
+                break;
+        }
+
+        switch (crState) {
+            case OFF:
+                transferCrServo.setPower(0.0);
+                break;
+            case FORWARD:
+                transferCrServo.setPower(1.0);
+                break;
+            case REVERSE:
+                transferCrServo.setPower(-1.0);
                 break;
         }
 
@@ -90,8 +118,7 @@ public class Transfer {
     private void addTelemetry() {
         tele.addLine("=== TRANSFER ===")
                 .addData("Mode", mode::name)
-                .addData("State", state::name)
-                .addData("Pos1", "%.2f", transferServo1.getPosition())
-                .addData("Pos2", "%.2f", transferServo2.getPosition());
+                .addData("Flick State", state::name)
+                .addData("CR State", crState::name);
     }
 }
