@@ -10,7 +10,7 @@ public class TransferConfig {
     public static double TRANSFER_1_MIN = 0.22;
     public static double TRANSFER_1_MAX = 0.05;
 
-    public static double FLICK_TIME_S = 0.05;
+    public static double FLICK_TIME_S = 0.12;
     public static double RESET_TIME_S = 0.1;
 
     public static Servo.Direction SERVO_1_DIRECTION = Servo.Direction.FORWARD;
