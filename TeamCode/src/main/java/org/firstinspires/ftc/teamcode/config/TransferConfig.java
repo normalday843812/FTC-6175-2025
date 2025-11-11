@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 @Configurable
 public class TransferConfig {
     public static boolean TELEMETRY_ENABLED = true;
-    public static double TRANSFER_1_MIN = 0.19;
-    public static double TRANSFER_1_MAX = 1.00;
+    public static double TRANSFER_1_MIN = 0.22;
+    public static double TRANSFER_1_MAX = 0.05;
 
     public static double FLICK_TIME_S = 0.05;
     public static double RESET_TIME_S = 0.1;
