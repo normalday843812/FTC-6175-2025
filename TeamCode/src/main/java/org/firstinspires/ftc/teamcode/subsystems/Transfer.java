@@ -5,6 +5,7 @@ import static org.firstinspires.ftc.teamcode.config.TransferConfig.RESET_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MAX;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN_SHOOTING;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -30,6 +31,7 @@ public class Transfer {
     private FlickState state = FlickState.IDLE;
     private CrState crState = CrState.OFF;
     private final Timer flickTimer = new Timer();
+    private boolean shootingMode = false;
 
     public Transfer(Servo transferServo1, CRServo transferCrServo, GamepadMap map, OpMode opmode) {
         this.transferServo1 = transferServo1;
@@ -54,6 +56,11 @@ public class Transfer {
     public void operate() {
         // driver inputs
         if (mode == SubsystemMode.MANUAL && map != null) {
+            // toggle shooting mode with A button
+            if (map.shootingModeToggle) {
+                shootingMode = !shootingMode;
+            }
+
             // flick is the old behavior
             if (map.transferButton) {
                 flick();
@@ -70,6 +77,9 @@ public class Transfer {
             }
         }
 
+        // determine the min position based on shooting mode
+        double minPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
+
         // flick FSM (positional servo)
         switch (state) {
             case IDLE:
@@ -82,7 +92,7 @@ public class Transfer {
                 }
                 break;
             case FLICK_DOWN:
-                transferServo1.setPosition(TRANSFER_1_MIN);
+                transferServo1.setPosition(minPosition);
                 if (flickTimer.getElapsedTimeSeconds() >= RESET_TIME_S) {
                     state = FlickState.IDLE;
                 }
@@ -119,6 +129,7 @@ public class Transfer {
         tele.addLine("=== TRANSFER ===")
                 .addData("Mode", mode::name)
                 .addData("Flick State", state::name)
-                .addData("CR State", crState::name);
+                .addData("CR State", crState::name)
+                .addData("Shooting Mode", () -> shootingMode);
     }
 }

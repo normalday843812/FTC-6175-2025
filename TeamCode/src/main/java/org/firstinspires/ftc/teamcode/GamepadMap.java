@@ -23,11 +23,13 @@ public class GamepadMap {
     public boolean transferCrForward, transferCrReverse;
     public double hoodAxis;
     public boolean shooterYawAutoLockToggle;
+    public boolean shootingModeToggle;
     private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
             y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
             left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t = new EdgeTrigger(),
-            left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger();
+            left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger(),
+            a_gp1 = new EdgeTrigger();
     public GamepadMap(OpMode opmode) {
         this.opmode = opmode;
     }
@@ -44,6 +46,8 @@ public class GamepadMap {
 
         spindexerForward = x.rose(opmode.gamepad1.x);
         spindexerBackward = y.rose(opmode.gamepad1.y);
+
+        shootingModeToggle = a_gp1.rose(opmode.gamepad1.a);
 
         transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
         transferCrReverse = dpad_left_t.rose(opmode.gamepad1.dpad_left);
