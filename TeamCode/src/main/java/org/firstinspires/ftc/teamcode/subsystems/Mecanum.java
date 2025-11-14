@@ -45,7 +45,7 @@ public class Mecanum {
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
     private boolean slowMode = false;
-    private boolean fieldCentricEnabled = false;
+    private boolean fieldCentricEnabled = true;
 
     private final AutoDriveCommand autoCmd = new AutoDriveCommand();
 
