@@ -62,8 +62,7 @@ public class SimpleAuto extends LinearOpMode {
         Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), null, this);
 
         hw.initRgbIndicator();
-        RgbIndicator rgbIndicator = new Rgb
-        Indicator(hw.getRgbIndicator());
+        RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
 
         UiLight uiLight = new UiLight(rgbIndicator);
 
