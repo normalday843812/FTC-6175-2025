@@ -19,6 +19,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 public class Shooter {
     private final GamepadMap map;
     private final DcMotorEx motor;
+    private final DcMotorEx motor1;
     // Telemetry
     private final TelemetryHelper tele;
 
@@ -28,8 +29,9 @@ public class Shooter {
     private boolean shot = false;
     private double idleRpmMin = ShooterConfig.IDLE_RPM;
 
-    public Shooter(DcMotorEx motor, GamepadMap map, OpMode opmode) {
+    public Shooter(DcMotorEx motor, DcMotorEx motor1, GamepadMap map, OpMode opmode) {
         this.motor = motor;
+        this.motor1 = motor1;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }

@@ -59,11 +59,17 @@ public class Transfer {
             // toggle shooting mode with A button
             if (map.shootingModeToggle) {
                 shootingMode = !shootingMode;
+                if (!shootingMode) {
+                    transferServo1.setPosition(TRANSFER_1_MIN);
+                }
             }
 
-            // flick is the old behavior
-            if (map.transferButton) {
-                flick();
+            if (shootingMode) {
+                transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
+            } else {
+                if (map.transferButton) {
+                    flick();
+                }
             }
 
             // new CR servo controls on dpad right/left
