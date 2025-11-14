@@ -66,8 +66,9 @@ public class InitialTeleop extends LinearOpMode {
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
         hw.initTransfer();
+        hw.initTransferColorSensor();
         Transfer transfer = new Transfer(hw.getTransferServo1(),
-                hw.getTransferServo2(), map, this);
+                hw.getTransferServo2(), hw.getColorSensor1(), map, this);
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
