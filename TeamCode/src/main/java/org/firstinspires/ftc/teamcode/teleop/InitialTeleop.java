@@ -53,7 +53,7 @@ public class InitialTeleop extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
@@ -65,22 +65,16 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexer();
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
-        hw.initTransfer();
-        hw.initTransferColorSensor();
-        Transfer transfer = new Transfer(hw.getTransferServo1(),
-                hw.getTransferServo2(), hw.getColorSensor1(), map, this);
-
-        hw.initRgbIndicator();
-        RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
-        UiLight ui = new UiLight(rgbIndicator);
-        LightController light = new LightController(ui, shooter, shooterYaw, intake);
-
         hw.initSpindexColorSensors();
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(),
                 hw.getSlotColor1(), hw.getSlotColor2(), this);
         
-        // Link slots to spindexer for color-based positioning
+        // link slots to spindexer for color-based positioning
         spindexer.setColorSlots(slots);
+
+        hw.initTransfer();
+        Transfer transfer = new Transfer(hw.getTransferServo1(),
+                hw.getTransferServo2(), hw.getSlotColor0(), map, this);
 
         ui.setBase(UiLightConfig.UiState.READY);
 

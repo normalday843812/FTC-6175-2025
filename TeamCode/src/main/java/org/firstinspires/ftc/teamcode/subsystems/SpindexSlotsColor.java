@@ -102,8 +102,8 @@ public class SpindexSlotsColor {
     }
 
     /**
-     * Find the slot index containing the specified color.
-     * Returns -1 if not found.
+     * find the slot index containing the specified color.
+     * returns -1 if not found.
      */
     public int findBallSlot(BallColor targetColor) {
         if (!enabled || targetColor == BallColor.NONE) return -1;
