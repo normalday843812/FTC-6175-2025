@@ -58,6 +58,11 @@ public class Transfer {
         if (mode == SubsystemMode.MANUAL && map != null) {
             // toggle shooting mode with A button
             if (map.shootingModeToggle) {
+                // if already in shooting mode, reverse the intake CR servo
+                if (shootingMode) {
+                    crState = (crState == CrState.REVERSE) ? CrState.OFF : CrState.REVERSE;
+                }
+                
                 shootingMode = !shootingMode;
                 // immediately move to the new position when toggling modes and idle
                 if (state == FlickState.IDLE) {
