@@ -53,7 +53,7 @@ public class InitialTeleop extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
