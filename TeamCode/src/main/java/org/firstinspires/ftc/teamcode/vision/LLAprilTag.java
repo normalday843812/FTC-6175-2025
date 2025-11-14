@@ -9,6 +9,7 @@ import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MAX_TAG_DIS
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MIN_TAG_AREA;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.TTL_MS;
+import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.YAW_FILTER_ALPHA;
 
 import com.pedropathing.control.LowPassFilter;
 import com.qualcomm.hardware.limelightvision.LLResult;
@@ -68,8 +69,6 @@ public class LLAprilTag {
             return new YawInfo(rawDeg, avgDeg, fresh, lastDist, lastArea, age);
         }
     }
-
-    private static final double YAW_FILTER_ALPHA = 0.2; // tune
 
     private final Limelight3A limelight;
     private final TelemetryHelper tele;
@@ -189,8 +188,10 @@ public class LLAprilTag {
 
         YawInfo r = getYawInfoForTag(APRIL_TAG_RED);
         YawInfo b = getYawInfoForTag(APRIL_TAG_BLUE);
-        tele.addData("RedYaw(avg)", "%.1f", Double.isNaN(r.avgDeg) ? 0.0 : r.avgDeg)
+        tele.addData("RedYaw(raw)", "%.1f", Double.isNaN(r.rawDeg) ? 0.0 : r.rawDeg)
+                .addData("RedYaw(avg)", "%.1f", Double.isNaN(r.avgDeg) ? 0.0 : r.avgDeg)
                 .addData("RedFresh", "%b", r.fresh)
+                .addData("BlueYaw(raw)", "%.1f", Double.isNaN(b.rawDeg) ? 0.0 : b.rawDeg)
                 .addData("BlueYaw(avg)", "%.1f", Double.isNaN(b.avgDeg) ? 0.0 : b.avgDeg)
                 .addData("BlueFresh", "%b", b.fresh);
     }

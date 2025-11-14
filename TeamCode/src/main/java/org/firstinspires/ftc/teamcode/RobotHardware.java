@@ -15,7 +15,8 @@ import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.PINPOINT_Y_OFFSET_IN;
 import static org.firstinspires.ftc.teamcode.config.LocalisationConfig.STRAFE_ENCODER_DIRECTION;
 import static org.firstinspires.ftc.teamcode.config.RgbIndicatorConfig.GREEN_POS;
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDirection;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOOTER_MOTOR_DIRECTION;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOOTER_MOTOR_DIRECTION_1;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_1_DIRECTION;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.SERVO_2_DIRECTION;
 
@@ -55,7 +56,7 @@ public class RobotHardware {
     private DcMotorEx intakeMotor;
 
     // Shooter
-    private DcMotorEx shooterMotor;
+    private DcMotorEx shooterMotor, shooterMotor1;
 
     // Shooter Yaw
     private DcMotorEx shooterYawMotor;
@@ -140,11 +141,18 @@ public class RobotHardware {
 
     public void initShooter() {
         shooterMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "shooter");
+        shooterMotor1 = inputOpMode.hardwareMap.get(DcMotorEx.class, "shooter1");
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooterMotor1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shooterMotor1.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        shooterMotor.setDirection(shooterMotorDirection);
+        shooterMotor1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterMotor.setDirection(SHOOTER_MOTOR_DIRECTION);
+        shooterMotor1.setDirection(SHOOTER_MOTOR_DIRECTION_1);
         shooterMotor.setVelocityPIDFCoefficients(
+                ShooterConfig.P, ShooterConfig.I, ShooterConfig.D, ShooterConfig.F);
+        shooterMotor1.setVelocityPIDFCoefficients(
                 ShooterConfig.P, ShooterConfig.I, ShooterConfig.D, ShooterConfig.F);
     }
 
@@ -152,7 +160,7 @@ public class RobotHardware {
         shooterYawMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, "shooter_yaw");
         shooterYawMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         shooterYawMotor.setTargetPosition(0);
-        shooterYawMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        shooterYawMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
     public void initHood() {
@@ -254,6 +262,19 @@ public class RobotHardware {
             }
         } else {
             return shooterMotor;
+        }
+    }
+
+    public DcMotorEx getShooterMotor1() {
+        if (shooterMotor1 == null) {
+            if (isFailFastOnMissingHardware()) {
+                throw new IllegalStateException("shooterMotor1 not init");
+            } else {
+                initShooter();
+                return shooterMotor1;
+            }
+        } else {
+            return shooterMotor1;
         }
     }
 
