@@ -68,6 +68,7 @@ public class RobotHardware {
     private Servo rgbIndicator;
 
     private NormalizedColorSensor slotColor0, slotColor1, slotColor2;
+    private NormalizedColorSensor colorSensor1;
 
     private DistanceSensor frontDistance;
 
@@ -166,6 +167,10 @@ public class RobotHardware {
         slotColor0 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0");
         slotColor1 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1");
         slotColor2 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2");
+    }
+
+    public void initTransferColorSensor() {
+        colorSensor1 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "colorSensor1");
     }
 
     public void initFrontDistance() {
@@ -370,6 +375,10 @@ public class RobotHardware {
 
     public NormalizedColorSensor getSlotColor2() {
         return slotColor2;
+    }
+
+    public NormalizedColorSensor getColorSensor1() {
+        return colorSensor1;
     }
 
     public DistanceSensor getFrontDistance() {
