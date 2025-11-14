@@ -53,7 +53,7 @@ public class InitialTeleop extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), map, this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
@@ -75,6 +75,11 @@ public class InitialTeleop extends LinearOpMode {
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(),
                 hw.getTransferServo2(), hw.getSlotColor0(), map, this);
+
+        hw.initRgbIndicator();
+        RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
+        UiLight ui = new UiLight(rgbIndicator);
+        LightController light = new LightController(ui, shooter, shooterYaw, intake);
 
         ui.setBase(UiLightConfig.UiState.READY);
 

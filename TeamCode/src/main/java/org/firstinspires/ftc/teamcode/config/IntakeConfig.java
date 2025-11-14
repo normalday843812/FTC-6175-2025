@@ -5,8 +5,8 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class IntakeConfig {
     public static boolean TELEMETRY_ENABLED = true;
-    public static double FORWARD_PWR = 1.0;
-    public static double REVERSE_PWR = -1.0;
+    public static double FORWARD_PWR = -1.0;
+    public static double REVERSE_PWR = 1.0;
 
     public static double JAM_OUT_TIME_S = 0.1;
     public static double JAM_IN_TIME_S = 0.1;
