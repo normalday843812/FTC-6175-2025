@@ -17,8 +17,9 @@ public class TransferTest extends LinearOpMode {
 
         GamepadMap map = new GamepadMap(this);
 
+        hw.initSpindexColorSensors();
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), map, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), map, this);
 
         if (isStopRequested()) return;
 
