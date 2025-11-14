@@ -24,7 +24,8 @@ public class GamepadMap {
     public double hoodAxis;
     public boolean shooterYawAutoLockToggle;
     public boolean shootingModeToggle;
-    private final EdgeTrigger a = new EdgeTrigger(), b = new EdgeTrigger(), x = new EdgeTrigger(),
+    public boolean findGreenBall, findPurpleBall;
+    private final EdgeTrigger a_gp2 = new EdgeTrigger(), b_gp2 = new EdgeTrigger(), x = new EdgeTrigger(),
             y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
             left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t = new EdgeTrigger(),
@@ -52,8 +53,8 @@ public class GamepadMap {
         transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
         transferCrReverse = dpad_left_t.rose(opmode.gamepad1.dpad_left);
 
-        angleLockToggle = a.rose(opmode.gamepad2.a);
-        slowModeToggle = b.rose(opmode.gamepad2.b);
+        findGreenBall = a_gp2.rose(opmode.gamepad2.a);
+        findPurpleBall = b_gp2.rose(opmode.gamepad2.b);
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad2.dpad_down);
 
         shooterManagerToggle = back_button_t.rose(opmode.gamepad1.back);
