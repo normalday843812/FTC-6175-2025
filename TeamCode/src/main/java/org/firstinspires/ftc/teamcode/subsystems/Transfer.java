@@ -59,6 +59,11 @@ public class Transfer {
             // toggle shooting mode with A button
             if (map.shootingModeToggle) {
                 shootingMode = !shootingMode;
+                // immediately move to the new position when toggling modes and idle
+                if (state == FlickState.IDLE) {
+                    double newPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
+                    transferServo1.setPosition(newPosition);
+                }
             }
 
             // flick is the old behavior
@@ -83,6 +88,8 @@ public class Transfer {
         // flick FSM (positional servo)
         switch (state) {
             case IDLE:
+                // maintain the correct position while idle
+                transferServo1.setPosition(minPosition);
                 break;
             case FLICK_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
