@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.testing;
 
-import static org.firstinspires.ftc.teamcode.config.ShooterConfig.shooterMotorDirection;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOOTER_MOTOR_DIRECTION;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -13,7 +13,7 @@ public class SimpleShooterTest extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         DcMotor shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
 
-        shooterMotor.setDirection(shooterMotorDirection);
+        shooterMotor.setDirection(SHOOTER_MOTOR_DIRECTION);
 
         if (isStopRequested()) return;
 
