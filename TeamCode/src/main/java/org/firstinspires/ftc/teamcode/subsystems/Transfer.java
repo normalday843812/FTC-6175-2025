@@ -29,7 +29,7 @@ public class Transfer {
     private final CRServo transferCrServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
-    private final NormalizedColorSensor colorSensor1;
+    private final NormalizedColorSensor slotColor0;
     private final ColorClassifier colorClassifier;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
@@ -39,17 +39,17 @@ public class Transfer {
     private final Timer flickTimer = new Timer();
     private boolean shootingMode = false;
 
-    public Transfer(Servo transferServo1, CRServo transferCrServo, NormalizedColorSensor colorSensor1, GamepadMap map, OpMode opmode) {
+    public Transfer(Servo transferServo1, CRServo transferCrServo, NormalizedColorSensor slotColor0, GamepadMap map, OpMode opmode) {
         this.transferServo1 = transferServo1;
         this.transferCrServo = transferCrServo;
-        this.colorSensor1 = colorSensor1;
+        this.slotColor0 = slotColor0;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
         this.colorClassifier = new ColorClassifier();
 
         // configure color sensor
-        if (colorSensor1 != null) {
-            colorSensor1.setGain(GAIN);
+        if (slotColor0 != null) {
+            slotColor0.setGain(GAIN);
         }
 
         // start retracted
@@ -68,8 +68,8 @@ public class Transfer {
 
     public void operate() {
         // read color sensor
-        if (colorSensor1 != null) {
-            NormalizedRGBA colors = colorSensor1.getNormalizedColors();
+        if (slotColor0 != null) {
+            NormalizedRGBA colors = slotColor0.getNormalizedColors();
             int r = (int) (colors.red * 255);
             int g = (int) (colors.green * 255);
             int b = (int) (colors.blue * 255);
