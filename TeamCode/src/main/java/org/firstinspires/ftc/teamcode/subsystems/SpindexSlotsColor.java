@@ -100,4 +100,18 @@ public class SpindexSlotsColor {
         BallColor v = getColor(slot);
         return v == BallColor.PURPLE || v == BallColor.GREEN;
     }
+
+    /**
+     * Find the slot index containing the specified color.
+     * Returns -1 if not found.
+     */
+    public int findBallSlot(BallColor targetColor) {
+        if (!enabled || targetColor == BallColor.NONE) return -1;
+        for (int i = 0; i < 3; i++) {
+            if (getColor(i) == targetColor) {
+                return i;
+            }
+        }
+        return -1;
+    }
 }

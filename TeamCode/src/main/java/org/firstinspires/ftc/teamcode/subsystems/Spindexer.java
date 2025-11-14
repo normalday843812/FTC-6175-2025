@@ -17,6 +17,7 @@ public class Spindexer {
     private final Servo spindexerServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
+    private SpindexSlotsColor slots;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
@@ -44,10 +45,28 @@ public class Spindexer {
         spindexerServo.setPosition(BIAS);
     }
 
+    public void setColorSlots(SpindexSlotsColor slots) {
+        this.slots = slots;
+    }
+
     public void operate() {
         if (mode == SubsystemMode.MANUAL && map != null) {
             if (map.spindexerForward) stepForward();
             if (map.spindexerBackward) stepBackward();
+            
+            // Gamepad 2: A finds green, B finds purple
+            if (map.findGreenBall && slots != null) {
+                int slot = slots.findBallSlot(SpindexSlotsColor.BallColor.GREEN);
+                if (slot >= 0) {
+                    setSlot(slot);
+                }
+            }
+            if (map.findPurpleBall && slots != null) {
+                int slot = slots.findBallSlot(SpindexSlotsColor.BallColor.PURPLE);
+                if (slot >= 0) {
+                    setSlot(slot);
+                }
+            }
         }
 
         if (jiggleActive) {

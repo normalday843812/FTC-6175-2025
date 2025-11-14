@@ -78,6 +78,9 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexColorSensors();
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(),
                 hw.getSlotColor1(), hw.getSlotColor2(), this);
+        
+        // Link slots to spindexer for color-based positioning
+        spindexer.setColorSlots(slots);
 
         ui.setBase(UiLightConfig.UiState.READY);
 
