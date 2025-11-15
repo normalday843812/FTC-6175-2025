@@ -67,9 +67,6 @@ public class TeleopSortManager {
                 transfer.runTransfer(Transfer.CrState.OFF);
             }
         }
-
-        // X/Y ball finding is now handled directly in Spindexer.operate()
-        // Don't override it here
         
         if (!autoIndexing) {
             // only raise transfer if spindexer is at slot 0 and it has a ball
