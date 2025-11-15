@@ -30,7 +30,7 @@ public class Transfer {
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
     private FlickState state = FlickState.IDLE;
-    private CrState crState = CrState.OFF;
+    private CrState crState = CrState.FORWARD;
     private final Timer flickTimer = new Timer();
     private final Timer shootingModeTimer = new Timer();
     private boolean shootingMode = false;
@@ -44,8 +44,8 @@ public class Transfer {
 
         // start retracted
         this.transferServo1.setPosition(TRANSFER_1_MIN);
-        // make sure CR servo is stopped
-        this.transferCrServo.setPower(0.0);
+        // start CR servo in forward
+        this.transferCrServo.setPower(1.0);
     }
 
     public void startTeleop() {
@@ -116,6 +116,13 @@ public class Transfer {
                     state = FlickState.IDLE;
                 }
                 break;
+        }
+
+        // CR servo: always reverse when in shooting position (unless manual override)
+        if (!manualCrControl) {
+            if (shootingMode) {
+                crState = CrState.REVERSE;
+            }
         }
 
         switch (crState) {

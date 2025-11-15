@@ -13,7 +13,7 @@ public class TransferConfig {
 
     public static double FLICK_TIME_S = 0.1;
     public static double RESET_TIME_S = 0.05;
-    public static double SHOOTING_MODE_DURATION_S = 2.0;
+    public static double SHOOTING_MODE_DURATION_S = 1.5;
 
     public static Servo.Direction SERVO_1_DIRECTION = Servo.Direction.FORWARD;
     public static DcMotorSimple.Direction SERVO_2_DIRECTION = DcMotorSimple.Direction.REVERSE;
