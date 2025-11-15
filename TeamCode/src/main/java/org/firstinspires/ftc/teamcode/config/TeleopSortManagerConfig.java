@@ -9,4 +9,7 @@ public class TeleopSortManagerConfig {
     
     // how long transfer stays raised after spindexing completes
     public static double TRANSFER_LOWER_DELAY_S = 1.0;
+    
+    // cooldown after manual spindex control before auto-spindex can trigger
+    public static double MANUAL_SPINDEX_COOLDOWN_S = 1.0;
 }

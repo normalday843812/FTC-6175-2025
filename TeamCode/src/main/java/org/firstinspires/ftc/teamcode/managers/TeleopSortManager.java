@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.TeleopSortManagerConfig.BALL_GRIP_DELAY_S;
+import static org.firstinspires.ftc.teamcode.config.TeleopSortManagerConfig.MANUAL_SPINDEX_COOLDOWN_S;
 import static org.firstinspires.ftc.teamcode.config.TeleopSortManagerConfig.TRANSFER_LOWER_DELAY_S;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
@@ -21,6 +22,7 @@ public class TeleopSortManager {
     
     private final Timer autoIndexTimer = new Timer();
     private final Timer ballGripTimer = new Timer();
+    private final Timer manualSpindexCooldown = new Timer();
     private boolean autoIndexing = false;
     private boolean waitingToSpindex = false;
     private boolean prevSlot0HasBall = false;
@@ -44,13 +46,21 @@ public class TeleopSortManager {
         boolean hasEmptySlot = !slots.hasAnyBall(1) || !slots.hasAnyBall(2);
         boolean allSlotsFull = slots.hasAnyBall(0) && slots.hasAnyBall(1) && slots.hasAnyBall(2);
         
+        // detect manual spindexer controls (X/Y for ball finding, gamepad2 X/Y for manual stepping)
+        boolean manualSpindexControl = map.findGreenBall || map.findPurpleBall || 
+                                        map.spindexerForward || map.spindexerBackward;
+        if (manualSpindexControl) {
+            manualSpindexCooldown.resetTimer();
+        }
+        
         // if all 3 slots are full, turn off intake
         if (allSlotsFull) {
             intake.setAutoMode(Intake.AutoMode.OFF);
         }
         
-        // detect when color sensor sees a new ball
-        if (slot0HasBall && !prevSlot0HasBall && !allSlotsFull && !waitingToSpindex && !autoIndexing) {
+        // detect when color sensor sees a new ball (but not if recently manually controlled)
+        boolean cooldownExpired = manualSpindexCooldown.getElapsedTimeSeconds() > MANUAL_SPINDEX_COOLDOWN_S;
+        if (slot0HasBall && !prevSlot0HasBall && !allSlotsFull && !waitingToSpindex && !autoIndexing && cooldownExpired) {
             waitingToSpindex = true;
             ballGripTimer.resetTimer();
         }

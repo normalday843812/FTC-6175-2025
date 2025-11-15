@@ -122,6 +122,8 @@ public class Transfer {
         if (!manualCrControl) {
             if (shootingMode) {
                 crState = CrState.REVERSE;
+            } else {
+                crState = CrState.FORWARD;
             }
         }
 
