@@ -63,11 +63,10 @@ public class TestAuto extends LinearOpMode {
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(), hw.getSlotColor1(), hw.getSlotColor2(), this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), map, this);
 
         RgbIndicator rgbIndicator = null;
         UiLight uiLight = null;
-
         if (TestAutoConfig.USE_UI_LIGHT) {
             hw.initRgbIndicator();
             rgbIndicator = new RgbIndicator(hw.getRgbIndicator());

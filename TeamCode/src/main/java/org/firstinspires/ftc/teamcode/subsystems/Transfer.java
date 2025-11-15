@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.FLICK_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.RESET_TIME_S;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.SHOOTING_MODE_DURATION_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MAX;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN;
@@ -25,28 +26,21 @@ public class Transfer {
     private final CRServo transferCrServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
-//    private final NormalizedColorSensor slotColor0;
-//    private final ColorClassifier colorClassifier;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
     private FlickState state = FlickState.IDLE;
     private CrState crState = CrState.OFF;
     private final Timer flickTimer = new Timer();
+    private final Timer shootingModeTimer = new Timer();
     private boolean shootingMode = false;
+    private boolean manualCrControl = false;
 
     public Transfer(Servo transferServo1, CRServo transferCrServo, GamepadMap map, OpMode opmode) {
         this.transferServo1 = transferServo1;
         this.transferCrServo = transferCrServo;
-//        this.slotColor0 = slotColor0;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-//        this.colorClassifier = new ColorClassifier();
-
-        // configure color sensor
-//        if (slotColor0 != null) {
-//            slotColor0.setGain(GAIN);
-//        }
 
         // start retracted
         this.transferServo1.setPosition(TRANSFER_1_MIN);
@@ -65,24 +59,12 @@ public class Transfer {
     public void operate() {
         // driver inputs
         if (mode == SubsystemMode.MANUAL && map != null) {
-            // hold D-pad down to keep transfer in shooting position
-            if (map.shootingModeHeld) {
+            // A button puts transfer in shooting position for 2 seconds
+            if (map.shootingModeToggle) {
                 shootingMode = true;
+                shootingModeTimer.resetTimer();
                 if (state == FlickState.IDLE) {
                     transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
-                }
-            } else if (map.shootingModeToggle) {
-                // toggle shooting mode with D-pad down press
-                // if already in shooting mode, reverse the intake CR servo
-                if (shootingMode) {
-                    crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
-                }
-                
-                shootingMode = !shootingMode;
-                // immediately move to the new position when toggling modes and idle
-                if (state == FlickState.IDLE) {
-                    double newPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
-                    transferServo1.setPosition(newPosition);
                 }
             }
 
@@ -95,21 +77,31 @@ public class Transfer {
             if (map.transferCrForward) {
                 // tap to toggle forward
                 crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
+                manualCrControl = (crState != CrState.OFF);
             }
             if (map.transferCrReverse) {
                 // tap to toggle reverse
                 crState = (crState == CrState.REVERSE) ? CrState.OFF : CrState.REVERSE;
+                manualCrControl = (crState != CrState.OFF);
             }
         }
 
         // determine the min position based on shooting mode
         double minPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
 
+        // check if shooting mode timer has expired (2 seconds)
+        if (shootingMode && shootingModeTimer.getElapsedTimeSeconds() >= SHOOTING_MODE_DURATION_S) {
+            shootingMode = false;
+            if (state == FlickState.IDLE) {
+                transferServo1.setPosition(TRANSFER_1_MIN);
+            }
+        }
+
         // flick FSM (positional servo)
         switch (state) {
             case IDLE:
-                // maintain the correct position while idle
-                transferServo1.setPosition(minPosition);
+                // only set position in IDLE if we just toggled shooting mode
+                // otherwise position was already set and should not be overwritten
                 break;
             case FLICK_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
@@ -151,15 +143,21 @@ public class Transfer {
     public void raiseLever() {
         if (state == FlickState.IDLE) {
             shootingMode = true;
+            transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
         }
     }
 
     public void lowerLever() {
         shootingMode = false;
+        if (state == FlickState.IDLE) {
+            transferServo1.setPosition(TRANSFER_1_MIN);
+        }
     }
 
     public void runTransfer(CrState state) {
-        crState = state;
+        if (!manualCrControl) {
+            crState = state;
+        }
     }
 
     public boolean isLeverRaised() {
@@ -176,7 +174,5 @@ public class Transfer {
                 .addData("Flick State", state::name)
                 .addData("CR State", crState::name)
                 .addData("Shooting Mode", () -> shootingMode);
-//                .addData("Color Green", colorClassifier::isGreen)
-//                .addData("Color Purple", colorClassifier::isPurple)
     }
 }
