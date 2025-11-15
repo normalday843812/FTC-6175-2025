@@ -68,17 +68,8 @@ public class TeleopSortManager {
             }
         }
 
-        // manual controls
-        int slot;
-        if (map.findGreenBall) {
-            inv.setWantPurple(false);
-            slot = inv.decideTargetSlot(slots, spindexer);
-            if (slot >= 0 && slot != spindexer.getCurrentSlot()) spindexer.setSlot(slot);
-        } else if (map.findPurpleBall) {
-            inv.setWantPurple(true);
-            slot = inv.decideTargetSlot(slots, spindexer);
-            if (slot >= 0 && slot != spindexer.getCurrentSlot()) spindexer.setSlot(slot);
-        }
+        // X/Y ball finding is now handled directly in Spindexer.operate()
+        // Don't override it here
         
         if (!autoIndexing) {
             // only raise transfer if spindexer is at slot 0 and it has a ball
