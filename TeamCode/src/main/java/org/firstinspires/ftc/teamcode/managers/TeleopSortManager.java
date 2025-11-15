@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.managers;
 
+import static org.firstinspires.ftc.teamcode.config.TeleopSortManagerConfig.BALL_GRIP_DELAY_S;
+import static org.firstinspires.ftc.teamcode.config.TeleopSortManagerConfig.TRANSFER_LOWER_DELAY_S;
+
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
@@ -17,7 +20,9 @@ public class TeleopSortManager {
     private boolean isEnabled = true;
     
     private final Timer autoIndexTimer = new Timer();
+    private final Timer ballGripTimer = new Timer();
     private boolean autoIndexing = false;
+    private boolean waitingToSpindex = false;
     private boolean prevSlot0HasBall = false;
 
     public TeleopSortManager(GamepadMap map, Intake intake, Spindexer spindexer, Transfer transfer,
@@ -44,31 +49,43 @@ public class TeleopSortManager {
             intake.setAutoMode(Intake.AutoMode.OFF);
         }
         
-        // detect when a new ball enters slot 0 (regardless of spindexer position)
-        if (slot0HasBall && !prevSlot0HasBall && !allSlotsFull) {
-            // start auto-indexing: step forward one slot
-            spindexer.stepForward();
-            autoIndexing = true;
-            autoIndexTimer.resetTimer();
+        // detect when color sensor sees a new ball
+        if (slot0HasBall && !prevSlot0HasBall && !allSlotsFull && !waitingToSpindex && !autoIndexing) {
+            waitingToSpindex = true;
+            ballGripTimer.resetTimer();
         }
         
         prevSlot0HasBall = slot0HasBall;
         
-        // handle auto-indexing timer (2 seconds)
+        // after grip delay, start spindexing
+        if (waitingToSpindex && ballGripTimer.getElapsedTimeSeconds() >= BALL_GRIP_DELAY_S) {
+            spindexer.stepForward();
+            autoIndexing = true;
+            waitingToSpindex = false;
+            autoIndexTimer.resetTimer();
+        }
+        
+        // handle auto-indexing timer - brief delay after spindexing before lowering
         if (autoIndexing) {
-            if (autoIndexTimer.getElapsedTimeSeconds() < 2.0) {
-                // keep transfer in shooting position with wheels in reverse
+            if (autoIndexTimer.getElapsedTimeSeconds() < TRANSFER_LOWER_DELAY_S) {
+                // keep transfer raised briefly after spindex
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.REVERSE);
             } else {
-                // after 2 seconds, return to regular
+                // lower transfer
                 autoIndexing = false;
                 transfer.lowerLever();
                 transfer.runTransfer(Transfer.CrState.OFF);
             }
         }
         
-        if (!autoIndexing) {
+        // during waiting period, raise transfer to grip the ball
+        if (waitingToSpindex) {
+            transfer.raiseLever();
+            transfer.runTransfer(Transfer.CrState.REVERSE);
+        }
+        
+        if (!autoIndexing && !waitingToSpindex) {
             // only raise transfer if spindexer is at slot 0 and it has a ball
             if (spindexer.getCurrentSlot() == 0 && slots.hasAnyBall(0)) {
                 transfer.raiseLever();
