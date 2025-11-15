@@ -92,6 +92,10 @@ public class InitialTeleop extends LinearOpMode {
         if (isStopRequested()) return;
         waitForStart();
 
+        // Set starting pose with 90° heading for field-centric driving
+        // Robot should be placed facing 90° right from field forward direction
+        drive.setStartingPose(new Pose(0, 0, Math.toRadians(90)));
+
         drive.startTeleop();
         intake.startTeleop();
         shooter.startTeleop();

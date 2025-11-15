@@ -44,15 +44,12 @@ public class TeleopSortManager {
             intake.setAutoMode(Intake.AutoMode.OFF);
         }
         
-        // detect when a new ball enters slot 0
-        if (slot0HasBall && !prevSlot0HasBall && hasEmptySlot && spindexer.getCurrentSlot() == 0) {
-            // start auto-indexing: move to next empty slot
-            int nextEmptySlot = findNextEmptySlot();
-            if (nextEmptySlot >= 0) {
-                spindexer.setSlot(nextEmptySlot);
-                autoIndexing = true;
-                autoIndexTimer.resetTimer();
-            }
+        // detect when a new ball enters slot 0 (regardless of spindexer position)
+        if (slot0HasBall && !prevSlot0HasBall && !allSlotsFull) {
+            // start auto-indexing: step forward one slot
+            spindexer.stepForward();
+            autoIndexing = true;
+            autoIndexTimer.resetTimer();
         }
         
         prevSlot0HasBall = slot0HasBall;
@@ -84,7 +81,8 @@ public class TeleopSortManager {
         }
         
         if (!autoIndexing) {
-            if (slots.hasAnyBall(0)) {
+            // only raise transfer if spindexer is at slot 0 and it has a ball
+            if (spindexer.getCurrentSlot() == 0 && slots.hasAnyBall(0)) {
                 transfer.raiseLever();
             } else {
                 transfer.lowerLever();
