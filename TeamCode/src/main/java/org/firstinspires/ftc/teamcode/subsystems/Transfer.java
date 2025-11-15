@@ -90,7 +90,7 @@ public class Transfer {
             if (map.shootingModeToggle) {
                 // if already in shooting mode, reverse the intake CR servo
                 if (shootingMode) {
-                    crState = (crState == CrState.REVERSE) ? CrState.OFF : CrState.REVERSE;
+                    crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
                 }
                 
                 shootingMode = !shootingMode;
