@@ -55,6 +55,7 @@ public class GamepadMap {
 
         findGreenBall = a_gp2.rose(opmode.gamepad2.a);
         findPurpleBall = b_gp2.rose(opmode.gamepad2.b);
+
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad2.dpad_down);
 
         shooterManagerToggle = back_button_t.rose(opmode.gamepad1.back);

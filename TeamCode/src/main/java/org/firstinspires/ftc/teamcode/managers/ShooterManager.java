@@ -1,10 +1,11 @@
-package org.firstinspires.ftc.teamcode.shooting;
+package org.firstinspires.ftc.teamcode.managers;
 
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 
 import org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig;
+import org.firstinspires.ftc.teamcode.shooting.RpmModel;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
