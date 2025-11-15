@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.IntakeColorSensorConfig.GAIN;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.FLICK_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.RESET_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TELEMETRY_ENABLED;
@@ -10,12 +9,9 @@ import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MI
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
-import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.sensors.ColorClassifier;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
@@ -23,14 +19,14 @@ import org.firstinspires.ftc.teamcode.util.Timer;
 public class Transfer {
     private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN}
 
-    private enum CrState {OFF, FORWARD, REVERSE}
+    public enum CrState {OFF, FORWARD, REVERSE}
 
     private final Servo transferServo1;
     private final CRServo transferCrServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
-    private final NormalizedColorSensor slotColor0;
-    private final ColorClassifier colorClassifier;
+//    private final NormalizedColorSensor slotColor0;
+//    private final ColorClassifier colorClassifier;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
@@ -39,18 +35,18 @@ public class Transfer {
     private final Timer flickTimer = new Timer();
     private boolean shootingMode = false;
 
-    public Transfer(Servo transferServo1, CRServo transferCrServo, NormalizedColorSensor slotColor0, GamepadMap map, OpMode opmode) {
+    public Transfer(Servo transferServo1, CRServo transferCrServo, GamepadMap map, OpMode opmode) {
         this.transferServo1 = transferServo1;
         this.transferCrServo = transferCrServo;
-        this.slotColor0 = slotColor0;
+//        this.slotColor0 = slotColor0;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-        this.colorClassifier = new ColorClassifier();
+//        this.colorClassifier = new ColorClassifier();
 
         // configure color sensor
-        if (slotColor0 != null) {
-            slotColor0.setGain(GAIN);
-        }
+//        if (slotColor0 != null) {
+//            slotColor0.setGain(GAIN);
+//        }
 
         // start retracted
         this.transferServo1.setPosition(TRANSFER_1_MIN);
@@ -67,23 +63,6 @@ public class Transfer {
     }
 
     public void operate() {
-        // read color sensor
-        if (slotColor0 != null) {
-            NormalizedRGBA colors = slotColor0.getNormalizedColors();
-            int r = (int) (colors.red * 255);
-            int g = (int) (colors.green * 255);
-            int b = (int) (colors.blue * 255);
-            colorClassifier.pushSample(r, g, b, colors.alpha);
-
-            // automatically enter shooting mode when green or purple is detected
-            if ((colorClassifier.isGreen() || colorClassifier.isPurple()) && !shootingMode) {
-                shootingMode = true;
-                if (state == FlickState.IDLE) {
-                    transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
-                }
-            }
-        }
-
         // driver inputs
         if (mode == SubsystemMode.MANUAL && map != null) {
             // toggle shooting mode with A button
@@ -163,6 +142,24 @@ public class Transfer {
         }
     }
 
+    public void raiseLever() {
+        if (state == FlickState.IDLE) {
+            shootingMode = true;
+        }
+    }
+
+    public void lowerLever() {
+        shootingMode = false;
+    }
+
+    public void runTransfer(CrState state) {
+        crState = state;
+    }
+
+    public boolean isLeverRaised() {
+        return shootingMode || (state != FlickState.IDLE);
+    }
+
     public boolean isIdle() {
         return state == FlickState.IDLE;
     }
@@ -172,8 +169,8 @@ public class Transfer {
                 .addData("Mode", mode::name)
                 .addData("Flick State", state::name)
                 .addData("CR State", crState::name)
-                .addData("Shooting Mode", () -> shootingMode)
-                .addData("Color Green", colorClassifier::isGreen)
-                .addData("Color Purple", colorClassifier::isPurple);
+                .addData("Shooting Mode", () -> shootingMode);
+//                .addData("Color Green", colorClassifier::isGreen)
+//                .addData("Color Purple", colorClassifier::isPurple)
     }
 }

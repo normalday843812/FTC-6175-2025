@@ -12,11 +12,13 @@ import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
+import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.LightController;
+import org.firstinspires.ftc.teamcode.managers.ShooterManager;
+import org.firstinspires.ftc.teamcode.managers.TeleopSortManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.shooting.PolynomialRpmModel;
 import org.firstinspires.ftc.teamcode.shooting.RpmModel;
-import org.firstinspires.ftc.teamcode.shooting.ShooterManager;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -74,12 +76,16 @@ public class InitialTeleop extends LinearOpMode {
 
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(),
-                hw.getTransferServo2(), hw.getSlotColor0(), map, this);
+                hw.getTransferServo2(), map, this);
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
         UiLight ui = new UiLight(rgbIndicator);
         LightController light = new LightController(ui, shooter, shooterYaw, intake);
+
+        InventoryManager inv = new InventoryManager();
+        TeleopSortManager teleopSortManager =
+                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv);
 
         ui.setBase(UiLightConfig.UiState.READY);
 
@@ -120,6 +126,8 @@ public class InitialTeleop extends LinearOpMode {
             hood.operate();
             spindexer.operate();
             shooterYaw.operate();
+
+            teleopSortManager.update();
 
             TelemetryHelper.update();
         }
