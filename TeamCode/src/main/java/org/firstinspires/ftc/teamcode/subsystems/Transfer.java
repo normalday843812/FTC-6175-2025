@@ -65,8 +65,14 @@ public class Transfer {
     public void operate() {
         // driver inputs
         if (mode == SubsystemMode.MANUAL && map != null) {
-            // toggle shooting mode with A button
-            if (map.shootingModeToggle) {
+            // hold D-pad down to keep transfer in shooting position
+            if (map.shootingModeHeld) {
+                shootingMode = true;
+                if (state == FlickState.IDLE) {
+                    transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
+                }
+            } else if (map.shootingModeToggle) {
+                // toggle shooting mode with D-pad down press
                 // if already in shooting mode, reverse the intake CR servo
                 if (shootingMode) {
                     crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
