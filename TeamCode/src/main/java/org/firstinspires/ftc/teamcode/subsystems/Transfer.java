@@ -143,14 +143,17 @@ public class Transfer {
     public void raiseLever() {
         if (state == FlickState.IDLE) {
             shootingMode = true;
+            shootingModeTimer.resetTimer();
             transferServo1.setPosition(TRANSFER_1_MIN_SHOOTING);
         }
     }
 
     public void lowerLever() {
-        shootingMode = false;
-        if (state == FlickState.IDLE) {
-            transferServo1.setPosition(TRANSFER_1_MIN);
+        // Only lower if shooting mode timer has expired
+        if (!shootingMode) {
+            if (state == FlickState.IDLE) {
+                transferServo1.setPosition(TRANSFER_1_MIN);
+            }
         }
     }
 
