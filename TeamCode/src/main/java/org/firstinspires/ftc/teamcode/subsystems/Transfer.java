@@ -103,6 +103,7 @@ public class Transfer {
 
             // flick is the old behavior
             if (map.transferButton) {
+                crState = CrState.FORWARD;
                 flick();
             }
 

@@ -49,9 +49,6 @@ public class InitialTeleop extends LinearOpMode {
         LLAprilTag aprilTag = new LLAprilTag(hw.getLimelight(), this);
 
         // Subsystems
-        hw.initIntake();
-        Intake intake = new Intake(hw.getIntakeMotor(), map, this);
-
         hw.initShooter();
         Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
 
@@ -68,8 +65,10 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexColorSensors();
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(),
                 hw.getSlotColor1(), hw.getSlotColor2(), this);
-        
-        // link slots to spindexer for color-based positioning
+
+        hw.initIntake();
+        Intake intake = new Intake(hw.getIntakeMotor(), map, slots, this);
+
         spindexer.setColorSlots(slots);
 
         hw.initTransfer();

@@ -14,6 +14,7 @@ import static org.firstinspires.ftc.teamcode.config.IntakeConfig.TELEMETRY_ENABL
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -46,7 +47,7 @@ public class Intake {
     private int lastDir = 0;
     private long lastDirChangeMs = 0;
 
-    public Intake(DcMotorEx motor, GamepadMap map, OpMode opmode) {
+    public Intake(DcMotorEx motor, GamepadMap map, SpindexSlotsColor slots, OpMode opmode) {
         this.motor = motor;
         this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
@@ -198,6 +199,10 @@ public class Intake {
     private double getMotorRPM() {
         double tps = motor.getVelocity();
         return tps * 60.0 / INTAKE_TPR;
+    }
+
+    public double getMotorCurrent(CurrentUnit currentUnit) {
+        return motor.getCurrent(currentUnit);
     }
 
     private void addTelemetry() {
