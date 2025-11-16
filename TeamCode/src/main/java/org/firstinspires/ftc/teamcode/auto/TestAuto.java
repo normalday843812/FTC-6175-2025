@@ -47,9 +47,6 @@ public class TestAuto extends LinearOpMode {
         hw.initLimeLight(100);
         LLAprilTag ll = new LLAprilTag(hw.getLimelight(), this);
 
-        hw.initIntake();
-        Intake intake = new Intake(hw.getIntakeMotor(), null, this);
-
         hw.initShooter();
         Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), null, this);
 
@@ -61,6 +58,9 @@ public class TestAuto extends LinearOpMode {
 
         hw.initSpindexColorSensors();
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(), hw.getSlotColor1(), hw.getSlotColor2(), this);
+
+        hw.initIntake();
+        Intake intake = new Intake(hw.getIntakeMotor(), map, slots, this);
 
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), null, this);

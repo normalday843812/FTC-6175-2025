@@ -25,8 +25,9 @@ public class GamepadMap {
     public boolean shooterYawAutoLockToggle;
     public boolean shootingModeToggle;
     public boolean findGreenBall, findPurpleBall;
-    private final EdgeTrigger a_gp2 = new EdgeTrigger(), b_gp2 = new EdgeTrigger(), x = new EdgeTrigger(),
-            y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
+    private final EdgeTrigger a_gp2 = new EdgeTrigger(), b_gp1 = new EdgeTrigger(), x = new EdgeTrigger(),
+            y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), dpad_down_t_gp1 = new EdgeTrigger(),
+            right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
             left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t = new EdgeTrigger(),
             left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger(),
@@ -48,13 +49,13 @@ public class GamepadMap {
         spindexerForward = x.rose(opmode.gamepad1.x);
         spindexerBackward = y.rose(opmode.gamepad1.y);
 
-        shootingModeToggle = a_gp1.rose(opmode.gamepad1.a);
+        shootingModeToggle = dpad_down_t_gp1.rose(opmode.gamepad1.dpad_down);
 
         transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
         transferCrReverse = dpad_left_t.rose(opmode.gamepad1.dpad_left);
 
-        findGreenBall = a_gp2.rose(opmode.gamepad2.a);
-        findPurpleBall = b_gp2.rose(opmode.gamepad2.b);
+        findGreenBall = a_gp1.rose(opmode.gamepad1.a);
+        findPurpleBall = b_gp1.rose(opmode.gamepad1.b);
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad2.dpad_down);
 
         shooterManagerToggle = back_button_t.rose(opmode.gamepad1.back);
