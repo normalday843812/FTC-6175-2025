@@ -19,7 +19,7 @@ public class TransferTest extends LinearOpMode {
 
         hw.initSpindexColorSensors();
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), map, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), map, this);
 
         if (isStopRequested()) return;
 

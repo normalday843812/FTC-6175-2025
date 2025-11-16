@@ -63,11 +63,10 @@ public class TestAuto extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, slots, this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), null, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), map, this);
 
         RgbIndicator rgbIndicator = null;
         UiLight uiLight = null;
-
         if (TestAutoConfig.USE_UI_LIGHT) {
             hw.initRgbIndicator();
             rgbIndicator = new RgbIndicator(hw.getRgbIndicator());

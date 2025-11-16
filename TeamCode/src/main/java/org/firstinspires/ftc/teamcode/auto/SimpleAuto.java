@@ -59,7 +59,7 @@ public class SimpleAuto extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, slots, this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), hw.getSlotColor0(), null, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
