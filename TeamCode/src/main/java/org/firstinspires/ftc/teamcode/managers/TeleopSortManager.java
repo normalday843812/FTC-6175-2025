@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.managers;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
-import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 
@@ -11,12 +11,12 @@ public class TeleopSortManager {
     private final Intake intake;
     private final Spindexer spindexer;
     private final Transfer transfer;
-    private final SpindexSlotsColor slots;
+    private final SlotColorSensors slots;
     private final InventoryManager inv;
     private boolean isEnabled = true;
 
     public TeleopSortManager(GamepadMap map, Intake intake, Spindexer spindexer, Transfer transfer,
-                             SpindexSlotsColor slots, InventoryManager inv) {
+                             SlotColorSensors slots, InventoryManager inv) {
         this.map = map;
         this.intake = intake;
         this.spindexer = spindexer;

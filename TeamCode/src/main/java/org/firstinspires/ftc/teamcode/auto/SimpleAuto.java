@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.RgbIndicator;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
-import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.Menu;
@@ -56,7 +56,7 @@ public class SimpleAuto extends LinearOpMode {
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), null, this);
 
         hw.initSpindexColorSensors();
-        SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(), hw.getSlotColor1(), hw.getSlotColor2(), this);
+        SlotColorSensors slots = new SlotColorSensors(hw.getSlotColor0(), hw.getSlotColor1(), hw.getSlotColor2(), this);
 
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);

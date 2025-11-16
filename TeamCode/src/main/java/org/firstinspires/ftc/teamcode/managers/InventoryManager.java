@@ -5,7 +5,7 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PREFER_CLO
 import com.pedropathing.geometry.Pose;
 
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
-import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 
 public class InventoryManager {
@@ -63,21 +63,21 @@ public class InventoryManager {
         return !(visitedSets[0] && visitedSets[1] && visitedSets[2]);
     }
 
-    public int decideTargetSlot(SpindexSlotsColor slots, Spindexer spx) {
+    public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
         int cur = spx.getCurrentSlot();
         int best = -1, bestDist = 999;
 
         if (isPatternKnown()) {
             boolean wantPurple = wantPurpleThisShot();
-            SpindexSlotsColor.BallColor s0 = slots.getColor(0);
-            if ((wantPurple && s0 == SpindexSlotsColor.BallColor.PURPLE) ||
-                    (!wantPurple && s0 == SpindexSlotsColor.BallColor.GREEN)) {
+            SlotColorSensors.BallColor s0 = slots.getColor(0);
+            if ((wantPurple && s0 == SlotColorSensors.BallColor.PURPLE) ||
+                    (!wantPurple && s0 == SlotColorSensors.BallColor.GREEN)) {
                 return 0;
             }
             for (int i = 0; i < 3; i++) {
-                SpindexSlotsColor.BallColor c = slots.getColor(i);
-                if (wantPurple && c != SpindexSlotsColor.BallColor.PURPLE) continue;
-                if (!wantPurple && c != SpindexSlotsColor.BallColor.GREEN) continue;
+                SlotColorSensors.BallColor c = slots.getColor(i);
+                if (wantPurple && c != SlotColorSensors.BallColor.PURPLE) continue;
+                if (!wantPurple && c != SlotColorSensors.BallColor.GREEN) continue;
                 int d = modDist(cur, i, 3);
                 if (d < bestDist || (d == bestDist && tiePrefers(i, best, cur))) {
                     best = i;
@@ -98,7 +98,7 @@ public class InventoryManager {
         return best;
     }
 
-    public int findNearestEmptySlot(SpindexSlotsColor slots, Spindexer spx) {
+    public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
         int cur = spx.getCurrentSlot();
         int best = -1;
         int bestDist = Integer.MAX_VALUE;

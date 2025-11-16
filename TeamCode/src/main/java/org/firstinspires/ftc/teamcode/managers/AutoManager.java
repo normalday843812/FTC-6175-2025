@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
-import org.firstinspires.ftc.teamcode.subsystems.SpindexSlotsColor;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -77,7 +77,7 @@ public class AutoManager {
     private final ShooterYaw shooterYaw;
     private final Spindexer spindexer;
     private final Intake intake;
-    private final SpindexSlotsColor slots;
+    private final SlotColorSensors slots;
     private final InventoryManager inv;
     private final DistanceSubsystem distance;
 
@@ -103,7 +103,7 @@ public class AutoManager {
                        Spindexer spindexer,
                        Intake intake,
                        Transfer transfer,
-                       SpindexSlotsColor slots,
+                       SlotColorSensors slots,
                        InventoryManager inv,
                        DistanceSubsystem distance,
                        HeadingTarget heading,
@@ -123,7 +123,7 @@ public class AutoManager {
                        Spindexer spindexer,
                        Intake intake,
                        Transfer transfer,
-                       SpindexSlotsColor slots,
+                       SlotColorSensors slots,
                        InventoryManager inv,
                        DistanceSubsystem distance,
                        HeadingTarget heading,
