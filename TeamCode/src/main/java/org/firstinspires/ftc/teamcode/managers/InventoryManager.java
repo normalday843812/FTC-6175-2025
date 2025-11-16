@@ -14,6 +14,8 @@ public class InventoryManager {
     private boolean[] pattern = null;
     private int shotsTaken = 0;
     private final boolean[] visitedSets = new boolean[]{false, false, false};
+    private boolean wantPurple = false;
+    private boolean wantPurpleSet = false;
 
     public void setPatternFromTagId(int tagId) {
         pattern = DecodeGameConfig.patternForTag(tagId);
@@ -24,9 +26,15 @@ public class InventoryManager {
     }
 
     public boolean wantPurpleThisShot() {
+        if (wantPurpleSet) return wantPurple;
         if (!isPatternKnown()) return false;
         int idx = Math.min(shotsTaken, 2);
         return pattern[idx];
+    }
+
+    public void setWantPurple(boolean wantPurple) {
+        wantPurpleSet = true;
+        this.wantPurple = wantPurple;
     }
 
     public void onShot() {
@@ -89,6 +97,25 @@ public class InventoryManager {
         }
         return best;
     }
+
+    public int findNearestEmptySlot(SpindexSlotsColor slots, Spindexer spx) {
+        int cur = spx.getCurrentSlot();
+        int best = -1;
+        int bestDist = Integer.MAX_VALUE;
+
+        for (int i = 0; i < 3; i++) {
+            if (slots.hasAnyBall(i)) continue;
+
+            int d = modDist(cur, i, 3);
+            if (d < bestDist || (d == bestDist && tiePrefers(i, best, cur))) {
+                best = i;
+                bestDist = d;
+            }
+        }
+
+        return best;
+    }
+
 
     private static int modDist(int a, int b, int mod) {
         int diff = Math.abs(b - a) % mod;

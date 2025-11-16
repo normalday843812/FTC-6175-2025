@@ -101,6 +101,17 @@ public class SpindexSlotsColor {
         return v == BallColor.PURPLE || v == BallColor.GREEN;
     }
 
+    public boolean isFull() {
+        if (!enabled) return false;
+        for (int i = 0; i < 3; i++) {
+            if (!hasAnyBall(i)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * find the slot index containing the specified color.
      * returns -1 if not found.
