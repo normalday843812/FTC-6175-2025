@@ -7,8 +7,8 @@ import com.pedropathing.control.FilteredPIDFCoefficients;
 public class ShooterYawConfig {
     public static boolean TELEMETRY_ENABLED = true;
 
-    public static int MIN_POSITION = -308;
-    public static int MAX_POSITION = 360;
+    public static int MIN_POSITION = -340;
+    public static int MAX_POSITION = 450;
     public static int CENTER_POS = 0;
     public static double TICKS_PER_DEG_INIT = 3.0;
 
@@ -45,7 +45,7 @@ public class ShooterYawConfig {
 
     public static FilteredPIDFCoefficients PIDF_COEFFICIENTS =
             new FilteredPIDFCoefficients(
-                    0.035,
+                    0.012,
                     0.0,
                     0.0,
                     0.20,

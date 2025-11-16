@@ -51,6 +51,9 @@ public class InitialTeleop extends LinearOpMode {
         LLAprilTag aprilTag = new LLAprilTag(hw.getLimelight(), this);
 
         // Subsystems
+        hw.initIntake();
+        Intake intake = new Intake(hw.getIntakeMotor(), map, this);
+
         hw.initShooter();
         Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
 
@@ -67,10 +70,8 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexColorSensors();
         SpindexSlotsColor slots = new SpindexSlotsColor(hw.getSlotColor0(),
                 hw.getSlotColor1(), hw.getSlotColor2(), this);
-
-        hw.initIntake();
-        Intake intake = new Intake(hw.getIntakeMotor(), map, slots, this);
-
+        
+        // link slots to spindexer for color-based positioning
         spindexer.setColorSlots(slots);
 
         hw.initTransfer();
@@ -90,10 +91,6 @@ public class InitialTeleop extends LinearOpMode {
 
         if (isStopRequested()) return;
         waitForStart();
-
-        // Set starting pose with 90° heading for field-centric driving
-        // Robot should be placed facing 90° right from field forward direction
-        drive.setStartingPose(new Pose(0, 0, Math.toRadians(90)));
 
         drive.startTeleop();
         intake.startTeleop();

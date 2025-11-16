@@ -14,14 +14,12 @@ public class ColorClassifier {
     public void pushSample(int r, int g, int b, float alpha) {
         android.graphics.Color.RGBToHSV(r, g, b, hsv);
         float alpha255 = alpha * 255f;
-        boolean present = alpha255 >= ALPHA_MIN_BALL && alpha255 <= ALPHA_MAX_BALL;
+        boolean present = alpha255 >= ALPHA_MIN_BALL;
 
         boolean pNow = present && alpha255 >= ALPHA_MIN_PURPLE &&
-                alpha255 <= ALPHA_MAX_PURPLE &&
                 hsv[0] >= HUE_MIN_PURPLE && hsv[0] <= HUE_MAX_PURPLE &&
                 hsv[1] >= SATURATION_MIN_PURPLE && hsv[2] >= VALUE_MIN_PURPLE;
         boolean gNow = present && alpha255 >= ALPHA_MIN_GREEN &&
-                alpha255 <= ALPHA_MAX_GREEN &&
                 hsv[0] >= HUE_MIN_GREEN && hsv[0] <= HUE_MAX_GREEN &&
                 hsv[1] >= SATURATION_MIN_GREEN && hsv[2] >= VALUE_MIN_GREEN;
 

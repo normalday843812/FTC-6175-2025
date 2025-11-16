@@ -16,13 +16,8 @@ public class IntakeColorSensorConfig {
     public static float VALUE_MIN_GREEN = 0.08f;
 
     public static float ALPHA_MIN_BALL = 20f;
-    public static float ALPHA_MAX_BALL = 20f;
-
     public static float ALPHA_MIN_PURPLE = 45f;
     public static float ALPHA_MIN_GREEN = 22f;
-
-    public static float ALPHA_MAX_PURPLE = 200f;
-    public static float ALPHA_MAX_GREEN = 200f;
 
     public static float GAIN = 45f;
 

@@ -12,7 +12,7 @@ public final class TestAutoConfig {
     public static boolean ENABLE_DEPOSIT = true;
     public static boolean ENABLE_FINAL_MOVE = true;
     public static boolean USE_COLOR_SENSORS = true;
-    public static boolean USE_DISTANCE_SENSOR = false;
+    public static boolean USE_DISTANCE_SENSOR = true;
     public static boolean RUN_DEPOSIT_ROUTE = true;
     public static boolean USE_UI_LIGHT = true;
 

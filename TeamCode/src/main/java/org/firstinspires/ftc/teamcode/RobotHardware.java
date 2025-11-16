@@ -31,7 +31,6 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 
@@ -233,14 +232,6 @@ public class RobotHardware {
         } else {
             return backLeftMotor;
         }
-    }
-
-    public double getDriveCurrent(CurrentUnit currentUnit) {
-        double current = frontRightMotor.getCurrent(currentUnit);
-        current += backRightMotor.getCurrent(currentUnit);
-        current += frontLeftMotor.getCurrent(currentUnit);
-        current += backLeftMotor.getCurrent(currentUnit);
-        return current;
     }
 
     public DcMotorEx getIntakeMotor() {

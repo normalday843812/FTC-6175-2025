@@ -54,17 +54,17 @@ public class Spindexer {
             if (map.spindexerForward) stepForward();
             if (map.spindexerBackward) stepBackward();
             
-            // gamepad 1: x finds green ball and moves to slot 0, y finds purple ball and moves to slot 0
+            // gamepad 2: A finds green, B finds purple
             if (map.findGreenBall && slots != null) {
                 int slot = slots.findBallSlot(SpindexSlotsColor.BallColor.GREEN);
                 if (slot >= 0) {
-                    setSlot(slot);  // move to the slot where green ball was found
+                    setSlot(slot);
                 }
             }
             if (map.findPurpleBall && slots != null) {
                 int slot = slots.findBallSlot(SpindexSlotsColor.BallColor.PURPLE);
                 if (slot >= 0) {
-                    setSlot(slot);  // move to the slot where purple ball was found
+                    setSlot(slot);
                 }
             }
         }
