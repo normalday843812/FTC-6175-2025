@@ -14,19 +14,14 @@ public class ShooterYawConfig {
 
     public static double CONTROL_LEVEL = 20;
 
-    public static double AUTO_LOCK_DEADBAND_DEG = 1.5;
-
-    // RUN_WITHOUT_ENCODER
-    public static double YAW_MAX_POWER = 1.0; // power cap while tuning
-    public static double YAW_KS = 0.02; // static friction compensation
+    public static double YAW_MAX_POWER = 1.0;
+    public static double YAW_KS = 0.02;
 
     public static long LL_GRACE_MS = 150;
     public static long REACQUIRE_AFTER_MS = 300;
 
-    // Skip LL world-target updates when robot spinning very fast
-    public static double OMEGA_LL_UPDATE_MAX_RAD = 3.0; // ~172 deg/s
+    public static double OMEGA_LL_UPDATE_MAX_RAD = 3.0;
 
-    // Blend factor for world target updates
     public static double TARGET_BLEND_ALPHA = 0.6;
 
     // Scan/search

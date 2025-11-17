@@ -37,8 +37,14 @@ public class Hood {
         hoodServo.setPosition(commanded);
     }
 
-    public void startTeleop() { mode = SubsystemMode.MANUAL; }
-    public void startAuto()   { mode = SubsystemMode.AUTO; manualActive = false; }
+    public void startTeleop() {
+        mode = SubsystemMode.MANUAL;
+    }
+
+    public void startAuto() {
+        mode = SubsystemMode.AUTO;
+        manualActive = false;
+    }
 
     public void setAutoTarget(double pos) {
         autoTarget = clamp(pos);
@@ -46,7 +52,10 @@ public class Hood {
     }
 
     public void operate() {
-        if (FALLBACK_MODE) { operateFallback(); return; }
+        if (FALLBACK_MODE) {
+            operateFallback();
+            return;
+        }
 
         double now = opmode.getRuntime();
         double dt = lastUpdateSec < 0 ? 0 : Math.max(0, now - lastUpdateSec);

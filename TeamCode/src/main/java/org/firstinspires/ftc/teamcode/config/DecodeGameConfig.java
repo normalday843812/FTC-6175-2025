@@ -35,7 +35,6 @@ public class DecodeGameConfig {
         return null;
     }
 
-    // Three intake sets per alliance — PLACEHOLDERS; edit as needed
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
             new Pose(103, 84, Math.toRadians(0)),
             new Pose(103, 60, Math.toRadians(0)),
@@ -46,10 +45,6 @@ public class DecodeGameConfig {
             new Pose(40, 60, Math.toRadians(180)),
             new Pose(40, 35, Math.toRadians(180))
     };
-
-    // Start/Shoot/Final defaults
-    public static Pose CONTROL_POINT = new Pose(72, 72, Math.toRadians(0));
-
 
     public static Pose startPose(boolean isRed, boolean audienceSide) {
         return isRed

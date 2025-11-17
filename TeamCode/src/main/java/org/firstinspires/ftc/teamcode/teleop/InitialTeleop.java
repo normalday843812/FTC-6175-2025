@@ -70,7 +70,7 @@ public class InitialTeleop extends LinearOpMode {
         hw.initSpindexColorSensors();
         SlotColorSensors slots = new SlotColorSensors(hw.getSlotColor0(),
                 hw.getSlotColor1(), hw.getSlotColor2(), this);
-        
+
         // link slots to spindexer for color-based positioning
         spindexer.setColorSlots(slots);
 
@@ -113,6 +113,10 @@ public class InitialTeleop extends LinearOpMode {
 
             if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
             shooterManager.setEnabled(managerEnabled);
+
+            if (map.teleopSortManagerToggle) {
+                teleopSortManager.setEnabled(!teleopSortManager.getEnabled());
+            }
 
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);

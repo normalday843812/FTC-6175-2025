@@ -6,7 +6,6 @@ import com.bylazar.configurables.annotations.Configurable;
 public class GlobalConfig {
     public static boolean ENABLE_TELEMETRY = true;
     public static boolean FALLBACK_MODE = false;
-    public static boolean HIGH_VERBOSITY_ENABLED = true;
 
     public static boolean FAIL_FAST_ON_MISSING_HARDWARE = false;
 

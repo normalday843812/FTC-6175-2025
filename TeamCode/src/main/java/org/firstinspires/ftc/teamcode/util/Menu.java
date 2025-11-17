@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.util;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -34,15 +35,22 @@ public final class Menu {
             if (falseEdge.rose(falseButton.getAsBoolean())) value = false;
         }
 
-        public boolean get() { return value; }
+        public boolean get() {
+            return value;
+        }
     }
 
     private final LinearOpMode opmode;
     private final List<Item> items = new ArrayList<>();
 
-    public Menu(LinearOpMode op) { this.opmode = op; }
+    public Menu(LinearOpMode op) {
+        this.opmode = op;
+    }
 
-    public Menu add(Item item) { items.add(item); return this; }
+    public Menu add(Item item) {
+        items.add(item);
+        return this;
+    }
 
     public void showUntilStart() {
         while (!opmode.isStarted() && !opmode.isStopRequested()) {

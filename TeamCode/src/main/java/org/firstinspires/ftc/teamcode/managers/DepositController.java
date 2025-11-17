@@ -9,8 +9,8 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_MAX
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.REFIRE_MAX;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.RPM_VERIFY_DROP;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.VERIFY_WINDOW_S;
 
-import org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
@@ -57,6 +57,10 @@ public class DepositController {
         switch (s) {
             case SPINUP:
                 if (shooter.isAtTarget(TARGET_RPM_BAND) || tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S) {
+                    if (transfer.isLeverRaised()) {
+                        transfer.lowerLever();
+                        break;
+                    }
                     spx.stepForward();
                     tState.resetTimer();
                     s = S.WAIT_INDEX;
@@ -78,9 +82,11 @@ public class DepositController {
                 break;
 
             case VERIFY:
-                if (shooter.getOutputRPM() < RPM_VERIFY_DROP || shooter.getMotorRPM() < RPM_VERIFY_DROP) {
+                if (shooter.shotOccurred()) {
                     s = S.DONE;
-                } else if (tVerify.getElapsedTimeSeconds() >= AutoUnifiedConfig.VERIFY_WINDOW_S) {
+                } else if (shooter.getOutputRPM() < RPM_VERIFY_DROP || shooter.getMotorRPM() < RPM_VERIFY_DROP) {
+                    s = S.DONE;
+                } else if (tVerify.getElapsedTimeSeconds() >= VERIFY_WINDOW_S) {
                     if (refires < REFIRE_MAX) {
                         refires++;
                         transfer.flick();

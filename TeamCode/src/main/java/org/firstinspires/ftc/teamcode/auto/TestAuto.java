@@ -18,13 +18,12 @@ import org.firstinspires.ftc.teamcode.config.TestAutoConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
-import org.firstinspires.ftc.teamcode.subsystems.DistanceSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.RgbIndicator;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
-import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -65,19 +64,13 @@ public class TestAuto extends LinearOpMode {
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);
 
-        RgbIndicator rgbIndicator = null;
+        RgbIndicator rgbIndicator;
         UiLight uiLight = null;
 
         if (TestAutoConfig.USE_UI_LIGHT) {
             hw.initRgbIndicator();
             rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
             uiLight = new UiLight(rgbIndicator);
-        }
-
-        DistanceSubsystem distance = null;
-        if (TestAutoConfig.USE_DISTANCE_SENSOR) {
-            hw.initFrontDistance();
-            distance = new DistanceSubsystem(hw.getFrontDistance(), this);
         }
 
         InventoryManager inv = new InventoryManager();
@@ -101,13 +94,12 @@ public class TestAuto extends LinearOpMode {
                 TestAutoConfig.ENABLE_INTAKE,
                 TestAutoConfig.ENABLE_DEPOSIT,
                 TestAutoConfig.ENABLE_FINAL_MOVE,
-                TestAutoConfig.USE_COLOR_SENSORS,
-                TestAutoConfig.USE_DISTANCE_SENSOR
+                TestAutoConfig.USE_COLOR_SENSORS
         );
 
         AutoManager auto = new AutoManager(
                 drive, motion, shooter, shooterYaw, spindexer, intake, transfer,
-                slots, inv, distance, heading, isRed, shootPose, finalPose, uiLight, tele, options
+                slots, inv, heading, isRed, shootPose, finalPose, uiLight, tele, options
         );
 
         boolean depositRoute = TestAutoConfig.RUN_DEPOSIT_ROUTE && TestAutoConfig.ENABLE_DEPOSIT;

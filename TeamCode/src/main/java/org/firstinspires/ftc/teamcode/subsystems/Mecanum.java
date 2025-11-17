@@ -12,7 +12,6 @@ import static org.firstinspires.ftc.teamcode.pedropathing.Constants.createFollow
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
-import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -95,11 +94,6 @@ public class Mecanum {
         addTelemetry();
     }
 
-    public void enableTeleopHeadingLock(boolean enable) {
-        headingLockEnabled = enable;
-        if (!enable) headingLockActive = false;
-    }
-
     private void toggleHeadingLock() {
         headingLockEnabled = !headingLockEnabled;
         if (!headingLockEnabled) headingLockActive = false;
@@ -152,11 +146,6 @@ public class Mecanum {
         double strafe = slowMode ? -map.strafe * SLOW_MODE_MULTIPLIER : -map.strafe;
 
         follower.setTeleOpDrive(forward, strafe, turnCmd, !fieldCentricEnabled);
-    }
-
-    public void followPath(Path path) {
-        mode = SubsystemMode.AUTO;
-        follower.followPath(path);
     }
 
     public void followPath(PathChain chain) {

@@ -53,7 +53,7 @@ public class Spindexer {
         if (mode == SubsystemMode.MANUAL && map != null) {
             if (map.spindexerForward) stepForward();
             if (map.spindexerBackward) stepBackward();
-            
+
             // gamepad 2: A finds green, B finds purple
             if (map.findGreenBall && slots != null) {
                 int slot = slots.findBallSlot(SlotColorSensors.BallColor.GREEN);

@@ -36,10 +36,6 @@ public class ShooterManager {
         }
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
     public void setLimits(double idle, double max) {
         this.idleRpm = idle;
         this.maxRpm = max;
@@ -48,14 +44,14 @@ public class ShooterManager {
 
     public void update(Pose robot, Pose goal, Limelight3A limelight) {
         if (!enabled) {
-            addTelemetry(robot, goal, false, false, false, idleRpm);
+            addTelemetry(robot, goal, false, false, idleRpm);
             return;
         }
 
         boolean abortToIdle = shouldIdleNow(robot, limelight);
         if (abortToIdle) {
             shooter.setAutoRpm(idleRpm);
-            addTelemetry(robot, goal, true, true, false, idleRpm);
+            addTelemetry(robot, goal, true, false, idleRpm);
             return;
         }
 
@@ -68,7 +64,7 @@ public class ShooterManager {
 
         double clamped = Math.max(idleRpm, Math.min(maxRpm, rpm));
         shooter.setAutoRpm(clamped);
-        addTelemetry(robot, goal, false, false, rpmModel != null && rpmModel.isValid(), clamped);
+        addTelemetry(robot, goal, false, rpmModel != null && rpmModel.isValid(), clamped);
     }
 
     private boolean shouldIdleNow(Pose robotPose, Limelight3A ll) {
@@ -91,7 +87,7 @@ public class ShooterManager {
         return a;
     }
 
-    private void addTelemetry(Pose robot, Pose goal, boolean idling, boolean policyIdle, boolean modelValid, double targetRpm) {
+    private void addTelemetry(Pose robot, Pose goal, boolean policyIdle, boolean modelValid, double targetRpm) {
         tele.addLine("--- ShooterManager ---")
                 .addData("Enabled", "%b", enabled)
                 .addData("PolicyIdle", "%b", policyIdle)

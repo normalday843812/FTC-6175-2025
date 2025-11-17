@@ -41,10 +41,6 @@ public final class PolynomialRpmModel implements RpmModel {
         this.valid = true;
     }
 
-    public synchronized double[] getCoefficients() {
-        return new double[]{a0, a1, a2, b1, b2};
-    }
-
     @Override
     public boolean isValid() {
         return valid;

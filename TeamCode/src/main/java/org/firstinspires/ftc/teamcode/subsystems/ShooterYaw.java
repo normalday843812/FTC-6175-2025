@@ -47,7 +47,7 @@ public class ShooterYaw {
     private final double degPerTick = 1.0 / TICKS_PER_DEG_INIT;
 
     private double worldTargetRad = 0.0;
-    private boolean worldTargetInitialized = false;
+    private boolean worldTargetInitialized;
 
     private int targetId = -1;
 
@@ -426,7 +426,6 @@ public class ShooterYaw {
             best = t1;
         }
         if (Math.abs(t2 - currentTicks) < bestErr) {
-            bestErr = Math.abs(t2 - currentTicks);
             best = t2;
         }
         return clampPosition(best);

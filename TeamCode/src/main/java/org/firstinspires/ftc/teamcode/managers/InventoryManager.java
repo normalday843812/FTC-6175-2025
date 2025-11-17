@@ -41,10 +41,6 @@ public class InventoryManager {
         shotsTaken++;
     }
 
-    public int getShotsTaken() {
-        return shotsTaken;
-    }
-
     public Pose nextIntakePose(boolean isRed) {
         Pose[] sets = isRed ? DecodeGameConfig.INTAKE_SETS_RED : DecodeGameConfig.INTAKE_SETS_BLUE;
         for (int i = 0; i < 3; i++) if (!visitedSets[i]) return sets[i];

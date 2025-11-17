@@ -17,11 +17,6 @@ public class AutoConfig {
     public static Pose START_RED_DEPOT = new Pose(117.5,131.2,Math.toRadians(-142));
     public static Pose START_BLUE_DEPOT = new Pose(27.29,131.2, Math.toRadians(-36));
 
-    // Poses
-    public static Pose LEAVE_LAUNCH_LINE_RED = new Pose(88,58, Math.toRadians(0));
-    public static Pose LEAVE_LAUNCH_LINE_BLUE = new Pose(56,58, Math.toRadians(180));
-
-
     // Vision
     public static int APRIL_TAG_BLUE = 20;
     public static int APRIL_TAG_RED = 24;

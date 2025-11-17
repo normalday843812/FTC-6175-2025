@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+
 @TeleOp(name = "VelocityPIDF Tuner", group = "Tuning")
 public class VelocityPIDFTuner extends LinearOpMode {
     // Made by ChatGPT may or may not work
@@ -19,7 +20,7 @@ public class VelocityPIDFTuner extends LinearOpMode {
 
     // PIDF increments
     private static final double STEP_FINE = 0.0001;
-    private static final double STEP_MED  = 0.0010;
+    private static final double STEP_MED = 0.0010;
     private static final double STEP_COARSE = 0.0100;
 
     // Runtime state
@@ -27,7 +28,12 @@ public class VelocityPIDFTuner extends LinearOpMode {
 
     private static class Edge {
         boolean last;
-        boolean press(boolean now) { boolean p = now && !last; last = now; return p; }
+
+        boolean press(boolean now) {
+            boolean p = now && !last;
+            last = now;
+            return p;
+        }
     }
 
     private static class Fit {
@@ -76,8 +82,8 @@ public class VelocityPIDFTuner extends LinearOpMode {
             boolean dn = gamepad1.dpad_down;
             boolean lf = gamepad1.dpad_left;
             boolean rt = gamepad1.dpad_right;
-            boolean x  = gamepad1.x; // increase I
-            boolean b  = gamepad1.b; // decrease I
+            boolean x = gamepad1.x; // increase I
+            boolean b = gamepad1.b; // decrease I
             boolean lb = gamepad1.left_bumper;
             boolean rb = gamepad1.right_bumper;
 
@@ -97,12 +103,30 @@ public class VelocityPIDFTuner extends LinearOpMode {
                 PIDMotor.setVelocityPIDFCoefficients(P, I, D, F);
             }
 
-            if (upEdge.press(up)) { P += inc; setPidIfEncoder(PIDMotor, P, I, D, F); }
-            if (dnEdge.press(dn)) { P = Math.max(0, P - inc); setPidIfEncoder(PIDMotor, P, I, D, F); }
-            if (lfEdge.press(lf)) { D = Math.max(0, D - inc); setPidIfEncoder(PIDMotor, P, I, D, F); }
-            if (rtEdge.press(rt)) { D += inc; setPidIfEncoder(PIDMotor, P, I, D, F); }
-            if (xEdge.press(x))   { I += inc; setPidIfEncoder(PIDMotor, P, I, D, F); }
-            if (bEdge.press(b))   { I = Math.max(0, I - inc); setPidIfEncoder(PIDMotor, P, I, D, F); }
+            if (upEdge.press(up)) {
+                P += inc;
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
+            if (dnEdge.press(dn)) {
+                P = Math.max(0, P - inc);
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
+            if (lfEdge.press(lf)) {
+                D = Math.max(0, D - inc);
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
+            if (rtEdge.press(rt)) {
+                D += inc;
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
+            if (xEdge.press(x)) {
+                I += inc;
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
+            if (bEdge.press(b)) {
+                I = Math.max(0, I - inc);
+                setPidIfEncoder(PIDMotor, P, I, D, F);
+            }
 
             // Target set via triggers: RT forward, LT reverse
             double targetScale = (fit != null && maxTpsEstimate > 0) ? maxTpsEstimate : 1.0;

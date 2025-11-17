@@ -20,12 +20,11 @@ import com.pedropathing.geometry.Pose;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
-import org.firstinspires.ftc.teamcode.subsystems.DistanceSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
-import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
@@ -49,24 +48,21 @@ public class AutoManager {
         public final boolean enableDeposit;
         public final boolean enableFinalMove;
         public final boolean useColorSensors;
-        public final boolean useDistanceSensor;
 
         public Options(boolean enablePatternSeek,
                        boolean enableIntake,
                        boolean enableDeposit,
                        boolean enableFinalMove,
-                       boolean useColorSensors,
-                       boolean useDistanceSensor) {
+                       boolean useColorSensors) {
             this.enablePatternSeek = enablePatternSeek;
             this.enableIntake = enableIntake;
             this.enableDeposit = enableDeposit;
             this.enableFinalMove = enableFinalMove;
             this.useColorSensors = useColorSensors;
-            this.useDistanceSensor = useDistanceSensor;
         }
 
         public static Options defaults() {
-            return new Options(true, true, true, true, true, true);
+            return new Options(true, true, true, true, true);
         }
     }
 
@@ -79,7 +75,6 @@ public class AutoManager {
     private final Intake intake;
     private final SlotColorSensors slots;
     private final InventoryManager inv;
-    private final DistanceSubsystem distance;
 
     private final HeadingTarget heading;
     private final boolean isRed;
@@ -105,14 +100,13 @@ public class AutoManager {
                        Transfer transfer,
                        SlotColorSensors slots,
                        InventoryManager inv,
-                       DistanceSubsystem distance,
                        HeadingTarget heading,
                        boolean isRed,
                        Pose shootPose,
                        Pose finalPose,
                        UiLight ui,
                        TelemetryHelper tele) {
-        this(drive, motion, shooter, shooterYaw, spindexer, intake, transfer, slots, inv, distance,
+        this(drive, motion, shooter, shooterYaw, spindexer, intake, transfer, slots, inv,
                 heading, isRed, shootPose, finalPose, ui, tele, Options.defaults());
     }
 
@@ -125,7 +119,6 @@ public class AutoManager {
                        Transfer transfer,
                        SlotColorSensors slots,
                        InventoryManager inv,
-                       DistanceSubsystem distance,
                        HeadingTarget heading,
                        boolean isRed,
                        Pose shootPose,
@@ -141,7 +134,6 @@ public class AutoManager {
         this.intake = intake;
         this.slots = slots;
         this.inv = inv;
-        this.distance = distance;
         this.heading = heading;
         this.isRed = isRed;
         this.shootPose = shootPose;
@@ -152,9 +144,6 @@ public class AutoManager {
         this.options = options == null ? Options.defaults() : options;
         if (this.slots != null) {
             this.slots.setEnabled(this.options.useColorSensors);
-        }
-        if (this.distance != null) {
-            this.distance.setEnabled(this.options.useDistanceSensor);
         }
     }
 
@@ -178,7 +167,6 @@ public class AutoManager {
 
     public void update() {
         if (slots != null) slots.update();
-        if (distance != null) distance.update();
         if (ui != null) ui.update();
         if (spindexer != null) spindexer.operate();
 
@@ -208,8 +196,12 @@ public class AutoManager {
 
             case SPINDEX_DECIDE: {
                 if (ui != null) ui.setBase(UiLightConfig.UiState.DECIDING);
-                int slot = inv.decideTargetSlot(slots, spindexer);
-                if (slot >= 0 && slot != spindexer.getCurrentSlot()) spindexer.setSlot(slot);
+                int slot = 0;
+                if (spindexer != null) {
+                    slot = inv.decideTargetSlot(slots, spindexer);
+                }
+                if (spindexer != null && slot >= 0 && slot != spindexer.getCurrentSlot())
+                    spindexer.setSlot(slot);
                 if (slot >= 0 && options.enableDeposit) {
                     s = State.PATH_TO_GOAL;
                     pathToGoalIssued = false;
@@ -223,7 +215,6 @@ public class AutoManager {
                 t.resetTimer();
                 break;
             }
-
 
             case PATH_TO_GOAL: {
                 if (!options.enableDeposit) {
@@ -253,7 +244,6 @@ public class AutoManager {
                 }
                 break;
             }
-
 
             case DEPOSIT: {
                 if (!options.enableDeposit) {
@@ -334,7 +324,6 @@ public class AutoManager {
                 intake.operate();
 
                 boolean gotBall = slots != null && slots.hasAnyBall(0);
-                boolean wallClose = options.useDistanceSensor && distance != null && distance.isWallClose();
                 boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
 
                 if (gotBall) {
@@ -348,11 +337,11 @@ public class AutoManager {
                     s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
                     finalPathIssued = false;
                     t.resetTimer();
-                } else if ((timeout || wallClose) && options.enableDeposit) {
+                } else if (timeout && options.enableDeposit) {
                     s = State.PATH_TO_GOAL;
                     pathToGoalIssued = false;
                     t.resetTimer();
-                } else if (timeout || wallClose) {
+                } else if (timeout) {
                     s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
                     finalPathIssued = false;
                     t.resetTimer();
@@ -377,7 +366,6 @@ public class AutoManager {
                 }
                 break;
             }
-
 
             case DONE:
                 if (ui != null) ui.setBase(UiLightConfig.UiState.DONE);

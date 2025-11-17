@@ -16,7 +16,8 @@ public class GamepadMap {
 
     public double forward, strafe, rotate;
     public boolean angleLockToggle, slowModeToggle, fieldCentricToggle, shooterManagerToggle,
-            spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle;
+            spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle,
+            teleopSortManagerToggle;
     public double shooterUp, shooterDown;
     public double shooterYaw;
     public boolean transferButton, intakeClearJam, resetShooterYaw;
@@ -28,7 +29,8 @@ public class GamepadMap {
     private final EdgeTrigger a_gp2 = new EdgeTrigger(), b_gp2 = new EdgeTrigger(), x = new EdgeTrigger(),
             y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
             dpad_up_t = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
-            left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t = new EdgeTrigger(),
+            left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(), back_button_t_gp1 = new EdgeTrigger(),
+            back_button_t_gp2 = new EdgeTrigger(),
             left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger(),
             a_gp1 = new EdgeTrigger();
     public GamepadMap(OpMode opmode) {
@@ -58,7 +60,8 @@ public class GamepadMap {
 
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad2.dpad_down);
 
-        shooterManagerToggle = back_button_t.rose(opmode.gamepad1.back);
+        shooterManagerToggle = back_button_t_gp1.rose(opmode.gamepad1.back);
+        teleopSortManagerToggle = back_button_t_gp2.rose(opmode.gamepad2.back);
 
         intakeToggle = right_bumper_t.rose(opmode.gamepad1.right_bumper);
         intakeReverseToggle = left_bumper_t.rose(opmode.gamepad1.left_bumper);

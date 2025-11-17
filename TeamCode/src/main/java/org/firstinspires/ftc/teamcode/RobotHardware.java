@@ -27,7 +27,6 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -70,8 +69,6 @@ public class RobotHardware {
 
     private NormalizedColorSensor slotColor0, slotColor1, slotColor2;
 
-    private DistanceSensor frontDistance;
-
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
@@ -113,7 +110,7 @@ public class RobotHardware {
             limelight.pipelineSwitch(pipelineNum);
         }
     }
-    
+
     public void initDriveMotors() {
         frontRightMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, FRONT_RIGHT_NAME);
         frontLeftMotor = inputOpMode.hardwareMap.get(DcMotorEx.class, FRONT_LEFT_NAME);
@@ -174,10 +171,6 @@ public class RobotHardware {
         slotColor0 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0");
         slotColor1 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1");
         slotColor2 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2");
-    }
-
-    public void initFrontDistance() {
-        frontDistance = inputOpMode.hardwareMap.get(DistanceSensor.class, "front_distance");
     }
 
     // Getters
@@ -391,9 +384,5 @@ public class RobotHardware {
 
     public NormalizedColorSensor getSlotColor2() {
         return slotColor2;
-    }
-
-    public DistanceSensor getFrontDistance() {
-        return frontDistance;
     }
 }

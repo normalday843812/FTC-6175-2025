@@ -183,15 +183,15 @@ public class Intake {
     private void detectAndClearJamIfNeeded() {
         if (jamState != JamState.IDLE) return;
 
+        double rpm = getMotorRPM();
+        updateArming(rpm);
+
         if (System.currentTimeMillis() - lastDirChangeMs < 150) return;
 
-        double rpm = getMotorRPM();
         int dir = desiredDir();
 
-        if (dir == 1) {
-            if (fwdArmed && rpm < JAM_FWD_MIN_RPM) {
-                clearJam();
-            }
+        if (dir == 1 && fwdArmed && rpm < JAM_FWD_MIN_RPM) {
+            clearJam();
         }
     }
 

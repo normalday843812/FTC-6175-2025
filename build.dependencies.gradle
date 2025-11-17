@@ -17,6 +17,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.pedropathing:ftc:2.0.4'
     implementation 'com.pedropathing:telemetry:1.0.0'
-    implementation 'com.bylazar:fullpanels:1.0.8' // TODO: fix NPEs from TelemetryHelper when upgraded to 1.0.8
+    implementation 'com.bylazar:fullpanels:1.0.10'
 }
 

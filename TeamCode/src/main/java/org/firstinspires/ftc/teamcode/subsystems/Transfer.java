@@ -25,8 +25,6 @@ public class Transfer {
     private final CRServo transferCrServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
-//    private final NormalizedColorSensor slotColor0;
-//    private final ColorClassifier colorClassifier;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
 
@@ -71,7 +69,7 @@ public class Transfer {
                 if (shootingMode) {
                     crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
                 }
-                
+
                 shootingMode = !shootingMode;
                 // immediately move to the new position when toggling modes and idle
                 if (state == FlickState.IDLE) {

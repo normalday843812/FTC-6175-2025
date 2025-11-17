@@ -16,7 +16,6 @@ import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
-import org.firstinspires.ftc.teamcode.subsystems.DistanceSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.RgbIndicator;
@@ -66,9 +65,6 @@ public class SimpleAuto extends LinearOpMode {
 
         UiLight uiLight = new UiLight(rgbIndicator);
 
-        hw.initFrontDistance();
-        DistanceSubsystem distance = new DistanceSubsystem(hw.getFrontDistance(), this);
-
         // Managers and motion helpers
         InventoryManager inv = new InventoryManager();
         TelemetryHelper tele = new TelemetryHelper(this, AutoUnifiedConfig.TELEMETRY_ENABLED);
@@ -98,7 +94,7 @@ public class SimpleAuto extends LinearOpMode {
 
         AutoManager auto = new AutoManager(
                 drive, motion, shooter, shooterYaw, spindexer, intake, transfer,
-                slots, inv, distance, heading, isRed,
+                slots, inv, heading, isRed,
                 shootPose, finalPose, uiLight, tele
         );
         auto.start(depositRoute);
