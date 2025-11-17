@@ -141,7 +141,7 @@ public class RgbIndicator {
 
             case SWEEP: {
                 final int T = Math.max(1, p.periodMs);
-                final double phase = (now % T) / (double) T;     // 0..1
+                final double phase = (now % T) / (double) T; // 0..1
                 final double h = p.hueDeg + p.sweepSpanDeg * Math.sin(2 * Math.PI * phase);
                 writePos(hueToPos(h));
                 break;
