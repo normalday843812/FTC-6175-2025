@@ -228,7 +228,7 @@ public class AutoManager {
                 shooterYaw.operate();
 
                 if (!pathToGoalIssued) {
-                    double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
+                    double headDeg = heading.getTargetHeadingDeg(shootPose);
                     motion.followToPose(shootPose, headDeg);
                     pathToGoalIssued = true;
                 }

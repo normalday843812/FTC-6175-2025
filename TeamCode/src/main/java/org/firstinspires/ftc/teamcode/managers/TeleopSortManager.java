@@ -1,38 +1,33 @@
 package org.firstinspires.ftc.teamcode.managers;
 
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DELTA_DOWN;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DELTA_UP;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DWELL_S;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_MAX;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEED_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SHIFT_CONFIRM_MS;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SHOOT_SPINUP_MS;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_WAIT_BALL_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.COLOR_MARGIN;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.MIN_BALL_CONF;
+
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
+import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class TeleopSortManager {
 
     private enum State {
         DISABLED,
-        IDLE,
-        INTAKE_ARM,
-        WAIT_SLOT0_BALL,
-        FEED_TO_SPX,
-        SHIFT_PREP,
-        SHIFT_TO_SLOTS,
-        FULL_BEHAVIOR,
-        SHOOT_STAGING,
-        SHOOT_EXEC,
-        VERIFY_SHOT,
-        FIND_COLOR,
-        RECOVER
+        INTAKING,
+        LIFT_AND_LOAD,
+        INDEXING,
+        RESET_LEVER,
+        FULL_HOLD,
+        SHOOTING_STAGING,
+        SHOOTING_FLICK,
+        SHOOTING_RESET,
+        FIND_COLOR
     }
 
     private final GamepadMap map;
@@ -41,15 +36,15 @@ public class TeleopSortManager {
     private final Transfer transfer;
     private final SlotColorSensors slots;
     private final InventoryManager inv;
+    private final TelemetryHelper tele;
 
     private State state;
     private boolean enabled;
-
     private long tMs;
-    private int recoverJiggles = 0;
+    private int ballConfirmationCount = 0;
 
     public TeleopSortManager(GamepadMap map, Intake intake, Spindexer spindexer, Transfer transfer,
-                             SlotColorSensors slots, InventoryManager inv) {
+                             SlotColorSensors slots, InventoryManager inv, OpMode opmode) {
         this.map = map;
         this.intake = intake;
         this.spindexer = spindexer;
@@ -57,123 +52,134 @@ public class TeleopSortManager {
         this.slots = slots;
         this.inv = inv;
         enabled = true;
-        state = State.IDLE;
+        state = State.INTAKING;
         tMs = now();
+        tele = new TelemetryHelper(opmode, true);
     }
 
     public void update() {
+        addTelemetry();
         if (!enabled) return;
 
-        if (map.findGreenBall && (state == State.IDLE || state == State.INTAKE_ARM)) {
-            state = State.FIND_COLOR;
+        boolean isShooting = (state == State.SHOOTING_STAGING || state == State.SHOOTING_FLICK || state == State.SHOOTING_RESET);
+
+        if (map.transferButton && !isShooting) {
+            state = State.SHOOTING_STAGING;
             tMs = now();
-        } else if (map.findPurpleBall && (state == State.IDLE || state == State.INTAKE_ARM)) {
-            state = State.FIND_COLOR;
-            tMs = now();
+        } else if (!isShooting) {
+            if (map.findGreenBall) {
+                state = State.FIND_COLOR;
+                tMs = now();
+            } else if (map.findPurpleBall) {
+                state = State.FIND_COLOR;
+                tMs = now();
+            }
         }
 
         switch (state) {
             case DISABLED:
-                break;
-
-            case IDLE:
-                transfer.lowerLever();
+                intake.setAutoMode(Intake.AutoMode.OFF);
                 transfer.runTransfer(Transfer.CrState.OFF);
-                state = State.INTAKE_ARM;
-                tMs = now();
                 break;
 
-            case INTAKE_ARM:
+            case INTAKING:
                 transfer.lowerLever();
                 transfer.runTransfer(Transfer.CrState.REVERSE);
-                intake.setAutoMode(Intake.AutoMode.FORWARD);
-                state = State.WAIT_SLOT0_BALL;
-                tMs = now();
-                break;
+                intake.setAutoMode(Intake.AutoMode.REVERSE);
 
-            case WAIT_SLOT0_BALL: {
                 SlotColorSensors.Observation observation = slots.getObservation(0);
-                boolean ok = observation.valid && observation.ballConfidence >= MIN_BALL_CONF &&
+                boolean potentialBall = observation.valid && observation.ballConfidence >= MIN_BALL_CONF &&
                         Math.abs(observation.purpleConfidence - observation.greenConfidence) >= COLOR_MARGIN;
-                if (ok) {
+
+                if (potentialBall) {
+                    ballConfirmationCount++;
+                } else {
+                    ballConfirmationCount = 0;
+                }
+
+                if (ballConfirmationCount > 2) {
                     inv.setWantPurple(observation.color == SlotColorSensors.BallColor.PURPLE);
-                    state = State.FEED_TO_SPX;
+
+                    ballConfirmationCount = 0;
+
+                    state = State.LIFT_AND_LOAD;
                     tMs = now();
-                } else if (since(tMs) >= (long) (TELEOP_WAIT_BALL_TIMEOUT_S * 1000)) {
-                    state = State.RECOVER;
-                    tMs = now();
-                    recoverJiggles = 0;
                 }
                 break;
-            }
 
-            case FEED_TO_SPX:
+            case LIFT_AND_LOAD:
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
-                if (since(tMs) >= (long) (TELEOP_FEED_DWELL_S * 1000)) {
-                    transfer.runTransfer(Transfer.CrState.OFF);
-                    state = State.SHIFT_PREP;
+
+                boolean timeExpired = since(tMs) >= (long) (TELEOP_FEED_DWELL_S * 1000);
+
+                if (timeExpired) {
+                    state = State.INDEXING;
                     tMs = now();
                 }
                 break;
 
-            case SHIFT_PREP:
+            case INDEXING:
+                int target = inv.findNearestEmptySlot(slots, spindexer);
+
+                if (target == -1) {
+                    state = State.FULL_HOLD;
+                    tMs = now();
+                } else {
+                    if (!transfer.isLeverRaised()) transfer.raiseLever();
+                    spindexer.setSlot(target);
+
+                    if (since(tMs) >= TELEOP_SHIFT_CONFIRM_MS) {
+                        state = State.RESET_LEVER;
+                        tMs = now();
+                    }
+                }
+                break;
+
+            case RESET_LEVER:
                 transfer.lowerLever();
-                state = State.SHIFT_TO_SLOTS;
+                state = State.INTAKING;
+                ballConfirmationCount = 0;
                 tMs = now();
                 break;
 
-            case SHIFT_TO_SLOTS: {
-                int target = inv.findNearestEmptySlot(slots, spindexer);
-                if (target >= 0) {
-                    if (!transfer.isLeverRaised() && transfer.isIdle()) {
-                        spindexer.setSlot(target);
-                        if (since(tMs) >= TELEOP_SHIFT_CONFIRM_MS) {
-                            state = State.INTAKE_ARM;
-                            tMs = now();
-                        }
-                    }
-                } else {
-                    state = State.FULL_BEHAVIOR;
-                    tMs = now();
-                }
-                break;
-            }
-
-            case FULL_BEHAVIOR:
+            case FULL_HOLD:
                 intake.setAutoMode(Intake.AutoMode.OFF);
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
-                if (map.transferButton) {
-                    state = State.SHOOT_STAGING;
+
+                if (inv.findNearestEmptySlot(slots, spindexer) != -1) {
+                    state = State.INTAKING;
+                    ballConfirmationCount = 0;
                     tMs = now();
                 }
                 break;
 
-            case SHOOT_STAGING:
+            case SHOOTING_STAGING:
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
                 if (since(tMs) >= TELEOP_SHOOT_SPINUP_MS) {
                     transfer.flick();
-                    state = State.SHOOT_EXEC;
+                    state = State.SHOOTING_FLICK;
                     tMs = now();
                 }
                 break;
 
-            case SHOOT_EXEC:
-                if (transfer.isIdle()) {
-                    state = State.VERIFY_SHOT;
-                    tMs = now();
-                }
-                break;
-
-            case VERIFY_SHOT:
-                // Shooter shot detection is event-based; also time out
-                if (since(tMs) >= 500) {
+            case SHOOTING_FLICK:
+                if (since(tMs) >= 250) {
                     inv.onShot();
-                    transfer.lowerLever();
-                    transfer.runTransfer(Transfer.CrState.REVERSE);
-                    state = State.INTAKE_ARM;
+                    state = State.SHOOTING_RESET;
+                    tMs = now();
+                }
+                break;
+
+            case SHOOTING_RESET:
+                transfer.lowerLever();
+                transfer.runTransfer(Transfer.CrState.REVERSE);
+
+                if (since(tMs) >= 200) {
+                    state = State.INTAKING;
+                    ballConfirmationCount = 0;
                     tMs = now();
                 }
                 break;
@@ -183,37 +189,18 @@ public class TeleopSortManager {
                         map.findGreenBall ? SlotColorSensors.BallColor.GREEN :
                                 (map.findPurpleBall ? SlotColorSensors.BallColor.PURPLE
                                         : SlotColorSensors.BallColor.NONE);
+
                 if (want == SlotColorSensors.BallColor.NONE) {
-                    state = State.IDLE;
+                    state = State.INTAKING;
+                    ballConfirmationCount = 0;
                     tMs = now();
                     break;
                 }
+
                 int idx = slots.findBallSlot(want);
                 if (idx >= 0) {
                     transfer.lowerLever();
-                    if (transfer.isIdle()) {
-                        spindexer.setSlot(idx);
-                        state = State.IDLE;
-                        tMs = now();
-                    }
-                } else {
-                    state = State.IDLE;
-                    tMs = now();
-                }
-                break;
-
-            case RECOVER:
-                if (recoverJiggles < JIGGLE_MAX && !transfer.isLeverRaised() && transfer.isIdle()) {
-                    spindexer.startJiggle(JIGGLE_DELTA_UP, JIGGLE_DELTA_DOWN, JIGGLE_DWELL_S);
-                    if (spindexer.updateJiggle()) {
-                        recoverJiggles++;
-                        tMs = now();
-                    }
-                } else {
-                    intake.setAutoMode(Intake.AutoMode.OFF);
-                    transfer.runTransfer(Transfer.CrState.OFF);
-                    state = State.IDLE;
-                    tMs = now();
+                    spindexer.setSlot(idx);
                 }
                 break;
         }
@@ -223,20 +210,20 @@ public class TeleopSortManager {
         this.enabled = enabled;
         if (!enabled) state = State.DISABLED;
         else {
-            state = State.IDLE;
+            state = State.INTAKING;
+            ballConfirmationCount = 0;
             tMs = now();
         }
     }
 
-    public boolean getEnabled() {
-        return enabled;
-    }
+    public boolean getEnabled() { return enabled; }
+    private static long now() { return System.nanoTime() / 1_000_000L; }
+    private static long since(long startMs) { return now() - startMs; }
 
-    private static long now() {
-        return System.nanoTime() / 1_000_000L;
-    }
-
-    private static long since(long startMs) {
-        return now() - startMs;
+    private void addTelemetry() {
+        tele.addLine("=== TELEOP SORT MANAGER ===");
+        tele.addData("Enabled", "%b", enabled);
+        tele.addData("State", "%s", state);
+        tele.addData("Conf Count", "%d", ballConfirmationCount);
     }
 }

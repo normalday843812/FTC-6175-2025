@@ -84,8 +84,6 @@ public class DepositController {
             case VERIFY:
                 if (shooter.shotOccurred()) {
                     s = S.DONE;
-                } else if (shooter.getOutputRPM() < RPM_VERIFY_DROP || shooter.getMotorRPM() < RPM_VERIFY_DROP) {
-                    s = S.DONE;
                 } else if (tVerify.getElapsedTimeSeconds() >= VERIFY_WINDOW_S) {
                     if (refires < REFIRE_MAX) {
                         refires++;

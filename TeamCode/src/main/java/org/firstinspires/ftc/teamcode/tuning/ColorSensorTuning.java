@@ -13,12 +13,18 @@ import static org.firstinspires.ftc.teamcode.config.ColorCal.V;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.applyClassStats;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.applyGain;
 
+import java.util.Arrays;
+
 import android.graphics.Color;
 
+import com.bylazar.telemetry.PanelsTelemetry;
+import com.bylazar.telemetry.TelemetryManager;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 @TeleOp(name = "Color Sensor Tuning", group = "Tuning")
 public class ColorSensorTuning extends LinearOpMode {
@@ -35,6 +41,8 @@ public class ColorSensorTuning extends LinearOpMode {
     private final double[][][] sessionMu = new double[3][5][4];
     private final double[][][] sessionSigma = new double[3][5][4];
 
+
+
     @Override
     public void runOpMode() throws InterruptedException {
         NormalizedColorSensor[] sensors = new NormalizedColorSensor[]{
@@ -46,16 +54,28 @@ public class ColorSensorTuning extends LinearOpMode {
         System.arraycopy(SENSOR_GAIN, 0, sessionGain, 0, 3);
 
         waitForStart();
+        TelemetryManager.TelemetryWrapper panels = PanelsTelemetry.INSTANCE.getFtcTelemetry();
         if (isStopRequested()) return;
 
         for (int sIdx = 0; sIdx < 3 && opModeIsActive(); sIdx++) {
-            tuneSensor(sIdx, sensors[sIdx]);
+            tuneSensor(sIdx, sensors[sIdx], panels);
         }
 
         telemetry.clearAll();
+        panels.clearAll();
+        telemetry.addData("Gain", Arrays.toString(sessionGain));
+        panels.addData("Gain", Arrays.toString(sessionGain));
+        telemetry.addData("Mu", Arrays.deepToString(sessionMu));
+        panels.addData("Mu", Arrays.deepToString(sessionMu));
+        telemetry.addData("Sigma", Arrays.deepToString(sessionSigma));
+        panels.addData("Sigma", Arrays.deepToString(sessionSigma));
         telemetry.addLine("Apply calibration?");
+        panels.addLine("Apply calibration?");
         telemetry.addLine("[Y] Apply  |  [B] Discard");
+        panels.addLine("[Y] Apply  |  [B] Discard");
         telemetry.update();
+        panels.update();
+
 
         while (opModeIsActive()) {
             if (gamepad1.y) {
@@ -66,15 +86,21 @@ public class ColorSensorTuning extends LinearOpMode {
                     }
                 }
                 telemetry.clearAll();
+                panels.clearAll();
                 telemetry.addLine("Applied.");
+                panels.addLine("Applied.");
                 telemetry.update();
+                panels.update();
                 sleep(500);
                 break;
             }
             if (gamepad1.b) {
                 telemetry.clearAll();
+                panels.clearAll();
                 telemetry.addLine("Discarded.");
+                panels.addLine("Discarded.");
                 telemetry.update();
+                panels.update();
                 sleep(500);
                 break;
             }
@@ -82,7 +108,8 @@ public class ColorSensorTuning extends LinearOpMode {
         }
     }
 
-    private void tuneSensor(int sensorIndex, NormalizedColorSensor sensor) {
+    private void tuneSensor(int sensorIndex, NormalizedColorSensor sensor,
+                            TelemetryManager.TelemetryWrapper panels) {
         float gain = sessionGain[sensorIndex];
 
         for (int p = 0; p < CLASS_ORDER.length && opModeIsActive(); p++) {
@@ -161,6 +188,17 @@ public class ColorSensorTuning extends LinearOpMode {
                 telemetry.addData("A mean/std", "%.3f / %.3f", a.mean(), a.std());
                 telemetry.addLine("[A] Hold to sample  |  [B] Accept");
                 telemetry.update();
+
+                panels.clearAll();
+                panels.addLine("Sensor " + sensorIndex + " — " + name);
+                panels.addData("Gain", "%.1f", gain);
+                panels.addData("Frames", "%d", h.n);
+                panels.addData("H mean/std", "%.1f / %.1f", h.mean(), h.std());
+                panels.addData("S mean/std", "%.3f / %.3f", s.mean(), s.std());
+                panels.addData("V mean/std", "%.3f / %.3f", v.mean(), v.std());
+                panels.addData("A mean/std", "%.3f / %.3f", a.mean(), a.std());
+                panels.addLine("[A] Hold to sample  |  [B] Accept");
+                panels.update();
 
                 idle();
             }

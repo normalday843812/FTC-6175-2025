@@ -85,7 +85,7 @@ public class InitialTeleop extends LinearOpMode {
 
         InventoryManager inv = new InventoryManager();
         TeleopSortManager teleopSortManager =
-                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv);
+                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv, this);
 
         ui.setBase(UiLightConfig.UiState.READY);
 
@@ -111,12 +111,9 @@ public class InitialTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             map.update();
 
-            if (map.shooterManagerToggle) managerEnabled = !managerEnabled;
-            shooterManager.setEnabled(managerEnabled);
-
-            if (map.teleopSortManagerToggle) {
-                teleopSortManager.setEnabled(!teleopSortManager.getEnabled());
-            }
+            if (map.teleopSortManagerToggle) managerEnabled = !managerEnabled;
+            shooterManager.setEnabled(false);
+            teleopSortManager.setEnabled(managerEnabled);
 
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);
