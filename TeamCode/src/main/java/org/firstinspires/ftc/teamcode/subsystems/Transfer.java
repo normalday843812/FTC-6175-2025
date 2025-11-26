@@ -17,7 +17,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class Transfer {
-    private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN}
+    private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN, HOLD_UP}
 
     public enum CrState {OFF, FORWARD, REVERSE}
 
@@ -116,6 +116,10 @@ public class Transfer {
                     state = FlickState.IDLE;
                 }
                 break;
+            case HOLD_UP:
+                transferServo1.setPosition(TRANSFER_1_MAX);
+                // Stays here until releaseHold() is called by the manager
+                break;
         }
 
         switch (crState) {
@@ -160,6 +164,21 @@ public class Transfer {
 
     public boolean isIdle() {
         return state == FlickState.IDLE;
+    }
+
+    public void holdUp() {
+        // Only allow if controlled by the manager (AUTO mode)
+        if (mode == SubsystemMode.AUTO) {
+            state = FlickState.HOLD_UP;
+        }
+    }
+
+    public void releaseHold() {
+        // If we were holding, transition to the downward movement
+        if (mode == SubsystemMode.AUTO && state == FlickState.HOLD_UP) {
+            state = FlickState.FLICK_DOWN;
+            flickTimer.resetTimer();
+        }
     }
 
     private void addTelemetry() {

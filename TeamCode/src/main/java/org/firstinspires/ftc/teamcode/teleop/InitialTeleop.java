@@ -37,6 +37,8 @@ public class InitialTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
+        telemetry.setAutoClear(true);
+
         RobotHardware hw = new RobotHardware(this);
 
         GamepadMap map = new GamepadMap(this);
@@ -85,7 +87,7 @@ public class InitialTeleop extends LinearOpMode {
 
         InventoryManager inv = new InventoryManager();
         TeleopSortManager teleopSortManager =
-                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv, this);
+                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv, shooter,  this);
 
         ui.setBase(UiLightConfig.UiState.READY);
 
@@ -111,9 +113,15 @@ public class InitialTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             map.update();
 
-            if (map.teleopSortManagerToggle) managerEnabled = !managerEnabled;
             shooterManager.setEnabled(false);
-            teleopSortManager.setEnabled(managerEnabled);
+            boolean prevManagerEnabled = managerEnabled;
+            if (map.teleopSortManagerToggle) {
+                managerEnabled = !managerEnabled;
+            }
+
+            if (managerEnabled != prevManagerEnabled) {
+                teleopSortManager.setEnabled(managerEnabled);
+            }
 
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);

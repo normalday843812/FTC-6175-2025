@@ -56,7 +56,6 @@ public final class Menu {
         while (!opmode.isStarted() && !opmode.isStopRequested()) {
             for (Item it : items) it.poll();
 
-            opmode.telemetry.clearAll();
             for (Item it : items) {
                 opmode.telemetry.addLine(it.title + ":");
                 opmode.telemetry.addLine((it.get() ? "> " : "  ") + it.trueName);

@@ -115,7 +115,7 @@ public class Shooter {
         motor1.setVelocity(tps);
     }
 
-    private void resetShotLogic() {
+    public void resetShotLogic() {
         armed = false;
         shotPulse = false;
         rpmMaxSinceArm = 0.0;

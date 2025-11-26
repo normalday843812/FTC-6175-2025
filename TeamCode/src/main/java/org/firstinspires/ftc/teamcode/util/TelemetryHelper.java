@@ -49,9 +49,9 @@ public final class TelemetryHelper {
         if (SHARED == null) {
             Telemetry ftc = opMode.telemetry;
             Telemetry panels = PanelsTelemetry.INSTANCE.getFtcTelemetry();
-            SHARED = new JoinedTelemetry(ftc, panels);
+            SHARED = new JoinedTelemetry(panels, ftc);
             SHARED.setAutoClear(true);
-            SHARED.setMsTransmissionInterval(50);
+            SHARED.setMsTransmissionInterval(250);
         }
     }
 

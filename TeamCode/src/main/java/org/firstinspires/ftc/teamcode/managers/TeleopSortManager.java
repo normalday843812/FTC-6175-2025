@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
@@ -27,6 +28,7 @@ public class TeleopSortManager {
         SHOOTING_STAGING,
         SHOOTING_FLICK,
         SHOOTING_RESET,
+        SHOOTING_HOLD,
         FIND_COLOR
     }
 
@@ -36,6 +38,7 @@ public class TeleopSortManager {
     private final Transfer transfer;
     private final SlotColorSensors slots;
     private final InventoryManager inv;
+    private final Shooter shooter;
     private final TelemetryHelper tele;
 
     private State state;
@@ -44,11 +47,12 @@ public class TeleopSortManager {
     private int ballConfirmationCount = 0;
 
     public TeleopSortManager(GamepadMap map, Intake intake, Spindexer spindexer, Transfer transfer,
-                             SlotColorSensors slots, InventoryManager inv, OpMode opmode) {
+                             SlotColorSensors slots, InventoryManager inv, Shooter shooter, OpMode opmode) {
         this.map = map;
         this.intake = intake;
         this.spindexer = spindexer;
         this.transfer = transfer;
+        this.shooter = shooter;
         this.slots = slots;
         this.inv = inv;
         enabled = true;
@@ -61,11 +65,13 @@ public class TeleopSortManager {
         addTelemetry();
         if (!enabled) return;
 
-        boolean isShooting = (state == State.SHOOTING_STAGING || state == State.SHOOTING_FLICK || state == State.SHOOTING_RESET);
+        boolean isShooting = (state == State.SHOOTING_HOLD);
 
         if (map.transferButton && !isShooting) {
             state = State.SHOOTING_STAGING;
             tMs = now();
+            shooter.resetShotLogic();
+            transfer.holdUp();
         } else if (!isShooting) {
             if (map.findGreenBall) {
                 state = State.FIND_COLOR;
@@ -83,7 +89,11 @@ public class TeleopSortManager {
                 break;
 
             case INTAKING:
-                transfer.lowerLever();
+                if (!map.shootingModeToggle) {
+                    transfer.lowerLever();
+                } else {
+                    transfer.raiseLever();
+                }
                 transfer.runTransfer(Transfer.CrState.REVERSE);
                 intake.setAutoMode(Intake.AutoMode.REVERSE);
 
@@ -184,6 +194,31 @@ public class TeleopSortManager {
                 }
                 break;
 
+            case SHOOTING_HOLD:
+                // Keep CR servo running forward
+                transfer.runTransfer(Transfer.CrState.FORWARD);
+                // Note: transfer.holdUp() was called during transition; the Transfer subsystem FSM handles the servo position.
+
+                boolean shotDetected = shooter.shotOccurred();
+                boolean buttonReleased = !map.transferButtonHeld; // Use the raw held state
+
+                // Requirement: Keep raised UNTIL shot detected OR button released
+                if (shotDetected || buttonReleased) {
+                    if (shotDetected) {
+                        // Requirement: Only count the shot if RPM drop occurred
+                        inv.onShot();
+                    }
+                    // Requirement: If either condition is true, then drop down.
+                    transfer.releaseHold();
+
+                    // Transition back to standard operation.
+                    // The Transfer FSM (FLICK_DOWN -> IDLE) handles the physical downward motion.
+                    state = State.INTAKING;
+                    ballConfirmationCount = 0;
+                    tMs = now();
+                }
+                break;
+
             case FIND_COLOR:
                 SlotColorSensors.BallColor want =
                         map.findGreenBall ? SlotColorSensors.BallColor.GREEN :
@@ -207,9 +242,25 @@ public class TeleopSortManager {
     }
 
     public void setEnabled(boolean enabled) {
+        // If the status isn't changing, do nothing (Fixes the reset bug).
+        if (this.enabled == enabled) {
+            return;
+        }
         this.enabled = enabled;
-        if (!enabled) state = State.DISABLED;
-        else {
+
+        if (!enabled) {
+            state = State.DISABLED;
+            // Switch subsystems back to manual control (sets mode = MANUAL)
+            intake.startTeleop();
+            spindexer.startTeleop();
+            transfer.startTeleop(); // Fixes the double flick
+        } else {
+            // Switch subsystems to auto control (sets mode = AUTO)
+            intake.startAuto();
+            spindexer.startAuto();
+            transfer.startAuto(); // Fixes the double flick
+
+            // Initialize the manager's state machine
             state = State.INTAKING;
             ballConfirmationCount = 0;
             tMs = now();

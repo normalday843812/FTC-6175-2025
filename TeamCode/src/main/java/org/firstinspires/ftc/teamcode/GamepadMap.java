@@ -20,7 +20,7 @@ public class GamepadMap {
             teleopSortManagerToggle;
     public double shooterUp, shooterDown;
     public double shooterYaw;
-    public boolean transferButton, intakeClearJam, resetShooterYaw;
+    public boolean transferButton, transferButtonHeld, intakeClearJam, resetShooterYaw;
     public boolean transferCrForward, transferCrReverse;
     public double hoodAxis;
     public boolean shooterYawAutoLockToggle;
@@ -75,6 +75,7 @@ public class GamepadMap {
         shooterYaw = deadband(opmode.gamepad1.right_stick_y, ROT_DB);
 
         transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
+        transferButtonHeld = opmode.gamepad1.dpad_up;
 
         hoodAxis = opmode.gamepad1.right_trigger - opmode.gamepad1.left_trigger;
     }

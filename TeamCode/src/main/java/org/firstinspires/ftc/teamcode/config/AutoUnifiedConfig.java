@@ -48,7 +48,7 @@ public class AutoUnifiedConfig {
     public static double FALLBACK_HEADING_BLUE_DEG = 180.0;
 
     // Teleop sort manager timings
-    public static double TELEOP_FEED_DWELL_S = 3.00;
-    public static long TELEOP_SHIFT_CONFIRM_MS = 1000;
-    public static long TELEOP_SHOOT_SPINUP_MS = 1200;
+    public static double TELEOP_FEED_DWELL_S = 1.00;
+    public static long TELEOP_SHIFT_CONFIRM_MS = 500;
+    public static long TELEOP_SHOOT_SPINUP_MS = 500;
 }
