@@ -60,50 +60,63 @@ public class InventoryManager {
     }
 
     public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
-        int cur = spx.getCurrentSlot();
-        int best = -1, bestDist = 999;
+        int cur = spx.getCurrentSlot(); // Where the spindexer is currently rotated
+        int best = -1;
+        int bestDist = 999;
+
+        // 1. Determine which color we want based on the Pattern (GPP, PGP, etc.)
+        boolean wantPurple = false;
+        boolean specificColorNeeded = false;
 
         if (isPatternKnown()) {
-            boolean wantPurple = wantPurpleThisShot();
-            SlotColorSensors.BallColor s0 = slots.getColor(0);
-            if ((wantPurple && s0 == SlotColorSensors.BallColor.PURPLE) ||
-                    (!wantPurple && s0 == SlotColorSensors.BallColor.GREEN)) {
-                return 0;
+            wantPurple = wantPurpleThisShot();
+            specificColorNeeded = true;
+        }
+
+        // 2. Iterate through physical Buckets (0, 1, 2)
+        for (int targetBucket = 0; targetBucket < 3; targetBucket++) {
+
+            // RELATIVE MAPPING: Which sensor is currently looking at 'targetBucket'?
+            // Formula: (TargetBucket - CurrentPos + 3) % 3
+            int sensorIndex = (targetBucket - cur + 3) % 3;
+
+            SlotColorSensors.BallColor colorSeen = slots.getColor(sensorIndex);
+
+            // If the bucket is empty, we can't shoot from it. Skip.
+            if (colorSeen == SlotColorSensors.BallColor.NONE) continue;
+
+            // If we need a specific color, check it.
+            if (specificColorNeeded) {
+                if (wantPurple && colorSeen != SlotColorSensors.BallColor.PURPLE) continue;
+                if (!wantPurple && colorSeen != SlotColorSensors.BallColor.GREEN) continue;
             }
-            for (int i = 0; i < 3; i++) {
-                SlotColorSensors.BallColor c = slots.getColor(i);
-                if (wantPurple && c != SlotColorSensors.BallColor.PURPLE) continue;
-                if (!wantPurple && c != SlotColorSensors.BallColor.GREEN) continue;
-                int d = modDist(cur, i, 3);
-                if (d < bestDist || (d == bestDist && tiePrefers(i, best, cur))) {
-                    best = i;
-                    bestDist = d;
-                }
-            }
-        } else {
-            if (slots.hasAnyBall(0)) return 0;
-            for (int i = 0; i < 3; i++) {
-                if (!slots.hasAnyBall(i)) continue;
-                int d = modDist(cur, i, 3);
-                if (d < bestDist || (d == bestDist && tiePrefers(i, best, cur))) {
-                    best = i;
-                    bestDist = d;
-                }
+
+            // Calculate rotation distance
+            int d = modDist(cur, targetBucket, 3);
+
+            // Standard "Find Nearest" logic
+            if (d < bestDist || (d == bestDist && tiePrefers(targetBucket, best, cur))) {
+                best = targetBucket;
+                bestDist = d;
             }
         }
+
         return best;
     }
 
     public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
-        int cur = spx.getCurrentSlot();
+        int currentSlot = spx.getCurrentSlot();
         int best = -1;
         int bestDist = Integer.MAX_VALUE;
 
         for (int i = 0; i < 3; i++) {
-            if (slots.hasAnyBall(i)) continue;
+            int sensorIndex = (i - currentSlot + 3) % 3;
 
-            int d = modDist(cur, i, 3);
-            if (d < bestDist || (d == bestDist && tiePrefers(i, best, cur))) {
+            // Check that specific sensor
+            if (slots.hasAnyBall(sensorIndex)) continue;
+
+            int d = modDist(currentSlot, i, 3);
+            if (d < bestDist || (d == bestDist && tiePrefers(i, best, currentSlot))) {
                 best = i;
                 bestDist = d;
             }

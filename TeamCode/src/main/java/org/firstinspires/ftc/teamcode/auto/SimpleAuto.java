@@ -55,7 +55,7 @@ public class SimpleAuto extends LinearOpMode {
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), null, this);
 
         hw.initSpindexColorSensors();
-        SlotColorSensors slots = new SlotColorSensors(hw.getSlotColor0(), hw.getSlotColor1(), hw.getSlotColor2(), this);
+        SlotColorSensors slots = new SlotColorSensors(hw.getSpindexSensors(), this);
 
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);

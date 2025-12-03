@@ -58,17 +58,22 @@ public class Mecanum {
         follower = createFollower(opmode.hardwareMap);
         follower.setStartingPose(new Pose());
         follower.update();
+        teleopHeadingCtrl.reloadCoefficients();
     }
 
     public void startTeleop() {
         mode = SubsystemMode.MANUAL;
         follower.startTeleopDrive();
+        teleopHeadingCtrl.reloadCoefficients();
+        teleopHeadingCtrl.reset();
     }
 
     public void startAuto() {
         mode = SubsystemMode.AUTO;
         follower.startTeleopDrive();
         clearAutoCommand();
+        teleopHeadingCtrl.reloadCoefficients();
+        teleopHeadingCtrl.reset();
     }
 
     public void setAutoDrive(double forward, double strafe, double turn, boolean fieldCentric, double offsetHeading) {
@@ -96,7 +101,11 @@ public class Mecanum {
 
     private void toggleHeadingLock() {
         headingLockEnabled = !headingLockEnabled;
-        if (!headingLockEnabled) headingLockActive = false;
+        if (!headingLockEnabled && headingLockActive) {
+            headingLockActive = false;
+            quietStartMs = 0;
+            teleopHeadingCtrl.reset();
+        }
     }
 
     private void handleTeleopInputs() {
@@ -113,7 +122,7 @@ public class Mecanum {
         boolean rateQuiet = Math.abs(omegaDeg) <= OMEGA_LOCK_DEG_S;
         boolean rateActive = Math.abs(omegaDeg) >= OMEGA_UNLOCK_DEG_S;
 
-        double turnCmd;
+        double turnCmd = rawTurn;
 
         if (headingLockEnabled) {
             if (!headingLockActive) {
@@ -122,24 +131,26 @@ public class Mecanum {
                     if (System.currentTimeMillis() - quietStartMs >= ARM_DWELL_MS) {
                         lockHeadingDeg = currentHeadingDeg;
                         headingLockActive = true;
+                        teleopHeadingCtrl.reset();
                     }
                 } else {
                     quietStartMs = 0;
                 }
-                turnCmd = rawTurn;
             } else {
                 if (stickActive || rateActive) {
                     headingLockActive = false;
                     quietStartMs = 0;
-                    turnCmd = rawTurn;
+                    teleopHeadingCtrl.reset();
                 } else {
                     turnCmd = teleopHeadingCtrl.update(lockHeadingDeg, currentHeadingDeg);
                 }
             }
-        } else {
+        } else if (headingLockActive) {
             headingLockActive = false;
             quietStartMs = 0;
-            turnCmd = rawTurn;
+            teleopHeadingCtrl.reset();
+        } else {
+            quietStartMs = 0;
         }
 
         double forward = slowMode ? -map.forward * SLOW_MODE_MULTIPLIER : -map.forward;
@@ -180,6 +191,7 @@ public class Mecanum {
                 .addData("Mode", mode::name)
                 .addData("Pose", "(%.1f, %.1f, %.1f°)", p.getX(), p.getY(), Math.toDegrees(p.getHeading()))
                 .addData("Vel", "(%.1f, %.1f)", v.getXComponent(), v.getYComponent())
+                .addData("Angular Velocity", "%.1f", follower.getAngularVelocity())
                 .addData("SlowMode", "%b", slowMode)
                 .addData("FieldCentric", "%b", fieldCentricEnabled)
                 .addData("HeadingLockEnabled", "%b", headingLockEnabled)

@@ -15,6 +15,6 @@ public class LocalisationConfig {
             GoBildaPinpointDriver.EncoderDirection.FORWARD;
     public static final GoBildaPinpointDriver.EncoderDirection STRAFE_ENCODER_DIRECTION =
             GoBildaPinpointDriver.EncoderDirection.REVERSED;
-    public static double PINPOINT_X_OFFSET_IN = 3 ;
-    public static double PINPOINT_Y_OFFSET_IN = 6;
+    public static double PINPOINT_X_OFFSET_IN = 7;
+    public static double PINPOINT_Y_OFFSET_IN = -1.5;
 }

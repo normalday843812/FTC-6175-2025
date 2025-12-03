@@ -52,7 +52,6 @@ public class DepositController {
     public Result update(double targetRpm) {
         shooter.setAutoRpm(targetRpm);
         shooter.operate();
-        transfer.operate();
 
         switch (s) {
             case SPINUP:
@@ -61,7 +60,6 @@ public class DepositController {
                         transfer.lowerLever();
                         break;
                     }
-                    spx.stepForward();
                     tState.resetTimer();
                     s = S.WAIT_INDEX;
                 }

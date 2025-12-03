@@ -70,8 +70,7 @@ public class InitialTeleop extends LinearOpMode {
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
 
         hw.initSpindexColorSensors();
-        SlotColorSensors slots = new SlotColorSensors(hw.getSlotColor0(),
-                hw.getSlotColor1(), hw.getSlotColor2(), this);
+        SlotColorSensors slots = new SlotColorSensors(hw.getSpindexSensors(), this);
 
         // link slots to spindexer for color-based positioning
         spindexer.setColorSlots(slots);

@@ -23,6 +23,7 @@ public class TeleopSortManager {
         INTAKING,
         LIFT_AND_LOAD,
         INDEXING,
+        SPINDEX_TRANSIT,
         RESET_LEVER,
         FULL_HOLD,
         SHOOTING_STAGING,
@@ -55,7 +56,7 @@ public class TeleopSortManager {
         this.shooter = shooter;
         this.slots = slots;
         this.inv = inv;
-        enabled = true;
+        enabled = false;
         state = State.INTAKING;
         tMs = now();
         tele = new TelemetryHelper(opmode, true);
@@ -73,12 +74,15 @@ public class TeleopSortManager {
             shooter.resetShotLogic();
             transfer.holdUp();
         } else if (!isShooting) {
-            if (map.findGreenBall) {
-                state = State.FIND_COLOR;
-                tMs = now();
-            } else if (map.findPurpleBall) {
-                state = State.FIND_COLOR;
-                tMs = now();
+            if (state != State.LIFT_AND_LOAD && state != State.INDEXING) {
+                if (map.findGreenBall) {
+                    state = State.FIND_COLOR;
+                    tMs = now();
+                }
+                if (map.findPurpleBall) {
+                    state = State.FIND_COLOR;
+                    tMs = now();
+                }
             }
         }
 
@@ -89,7 +93,7 @@ public class TeleopSortManager {
                 break;
 
             case INTAKING:
-                if (!map.shootingModeToggle) {
+                if (!map.shootingModeToggleHeld) {
                     transfer.lowerLever();
                 } else {
                     transfer.raiseLever();
@@ -131,18 +135,33 @@ public class TeleopSortManager {
 
             case INDEXING:
                 int target = inv.findNearestEmptySlot(slots, spindexer);
-
                 if (target == -1) {
                     state = State.FULL_HOLD;
                     tMs = now();
                 } else {
                     if (!transfer.isLeverRaised()) transfer.raiseLever();
-                    spindexer.setSlot(target);
 
-                    if (since(tMs) >= TELEOP_SHIFT_CONFIRM_MS) {
-                        state = State.RESET_LEVER;
+                    // If we need to move, go to transit state first
+                    if (target != spindexer.getCurrentSlot()) {
+                        spindexer.setSlot(target);
+                        state = State.SPINDEX_TRANSIT; // NEW STATE
                         tMs = now();
+                    } else {
+                        // Already there? Go straight to checking confirmation
+                        if (since(tMs) >= TELEOP_SHIFT_CONFIRM_MS) {
+                            state = State.RESET_LEVER;
+                            tMs = now();
+                        }
                     }
+                }
+                break;
+
+            case SPINDEX_TRANSIT:
+                // Wait for physical servo to move (e.g., 250ms)
+                if (since(tMs) >= 250) {
+                    // Now verify/confirm
+                    state = State.RESET_LEVER;
+                    tMs = now();
                 }
                 break;
 
@@ -272,9 +291,28 @@ public class TeleopSortManager {
     private static long since(long startMs) { return now() - startMs; }
 
     private void addTelemetry() {
-        tele.addLine("=== TELEOP SORT MANAGER ===");
+        tele.addLine("=== SYSTEM STATUS ===");
         tele.addData("Enabled", "%b", enabled);
-        tele.addData("State", "%s", state);
-        tele.addData("Conf Count", "%d", ballConfirmationCount);
+        tele.addData("State", "%s (%.2fs)", state, since(tMs) / 1000.0);
+        tele.addData("Loop Time", "%.1f ms", (System.nanoTime() - (tMs * 1_000_000)) / 1_000_000.0);
+
+        SlotColorSensors.Observation obs = slots.getObservation(0);
+
+        tele.addLine("\n=== SENSOR READINGS ===");
+        tele.addData("Valid Reading", "%b", obs.valid);
+
+        boolean confThresholdMet = obs.ballConfidence >= MIN_BALL_CONF;
+        double abs = Math.abs(obs.purpleConfidence - obs.greenConfidence);
+        boolean colorMarginMet = abs >= COLOR_MARGIN;
+        boolean potentialBall = obs.valid && confThresholdMet && colorMarginMet;
+
+        tele.addLine("\n=== SORTING LOGIC ===");
+        tele.addData("1. Conf > Min?", "%b (%.2f > %.2f)", confThresholdMet, obs.ballConfidence, MIN_BALL_CONF);
+        tele.addData("2. Margin Ok?", "%b (Diff: %.3f)", colorMarginMet, abs);
+        tele.addData("3. Potential Ball?", "%b", potentialBall);
+        tele.addData("Confirmation Count", "%d / 3", ballConfirmationCount);
+
+        tele.addLine("\n=== INVENTORY ===");
+        tele.addData("Want Purple?", "%b", inv.findNearestEmptySlot(slots, spindexer));
     }
 }

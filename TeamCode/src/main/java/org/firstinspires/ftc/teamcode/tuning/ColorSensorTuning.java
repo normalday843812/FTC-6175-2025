@@ -24,9 +24,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
-import org.firstinspires.ftc.robotcore.external.Telemetry;
-
-@TeleOp(name = "Color Sensor Tuning", group = "Tuning")
+@TeleOp(name = "Color Sensor Tuning (6x)", group = "Tuning")
 public class ColorSensorTuning extends LinearOpMode {
 
     private static final int[] CLASS_ORDER = new int[]{
@@ -36,72 +34,69 @@ public class ColorSensorTuning extends LinearOpMode {
             "Purple HOLE", "Purple SOLID", "Green HOLE", "Green SOLID", "Blank"
     };
 
-    // Session buffers
-    private final float[] sessionGain = new float[3];
-    private final double[][][] sessionMu = new double[3][5][4];
-    private final double[][][] sessionSigma = new double[3][5][4];
+    // 6 Sensors total now
+    private static final int SENSOR_COUNT = 6;
 
-
+    // Session buffers (resized for 6)
+    private final float[] sessionGain = new float[SENSOR_COUNT];
+    private final double[][][] sessionMu = new double[SENSOR_COUNT][5][4];
+    private final double[][][] sessionSigma = new double[SENSOR_COUNT][5][4];
 
     @Override
     public void runOpMode() throws InterruptedException {
+        // Initialize 6 sensors
+        // Mapping: 0=Slot0_1, 1=Slot0_2, 2=Slot1_1, 3=Slot1_2, 4=Slot2_1, 5=Slot2_2
         NormalizedColorSensor[] sensors = new NormalizedColorSensor[]{
-                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0"),
-                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1"),
-                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2")
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_1"),
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_2"),
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_1"),
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_2"),
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_1"),
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_2")
         };
 
-        System.arraycopy(SENSOR_GAIN, 0, sessionGain, 0, 3);
+        // Load existing config (make sure ColorCal is updated to size 6!)
+        System.arraycopy(SENSOR_GAIN, 0, sessionGain, 0, SENSOR_COUNT);
 
         waitForStart();
         TelemetryManager.TelemetryWrapper panels = PanelsTelemetry.INSTANCE.getFtcTelemetry();
         if (isStopRequested()) return;
 
-        for (int sIdx = 0; sIdx < 3 && opModeIsActive(); sIdx++) {
+        // Tune each sensor sequentially
+        for (int sIdx = 0; sIdx < SENSOR_COUNT && opModeIsActive(); sIdx++) {
             tuneSensor(sIdx, sensors[sIdx], panels);
         }
 
+        // Summary Screen
         telemetry.clearAll();
         panels.clearAll();
         telemetry.addData("Gain", Arrays.toString(sessionGain));
         panels.addData("Gain", Arrays.toString(sessionGain));
-        telemetry.addData("Mu", Arrays.deepToString(sessionMu));
-        panels.addData("Mu", Arrays.deepToString(sessionMu));
-        telemetry.addData("Sigma", Arrays.deepToString(sessionSigma));
-        panels.addData("Sigma", Arrays.deepToString(sessionSigma));
-        telemetry.addLine("Apply calibration?");
-        panels.addLine("Apply calibration?");
-        telemetry.addLine("[Y] Apply  |  [B] Discard");
-        panels.addLine("[Y] Apply  |  [B] Discard");
+        telemetry.addLine("Ready to save. Press Y to Apply, B to Discard.");
+        panels.addLine("Ready to save. Press Y to Apply, B to Discard.");
         telemetry.update();
         panels.update();
 
-
         while (opModeIsActive()) {
             if (gamepad1.y) {
-                for (int s = 0; s < 3; s++) {
+                // Apply to static config
+                for (int s = 0; s < SENSOR_COUNT; s++) {
                     applyGain(s, sessionGain[s]);
                     for (int cls : CLASS_ORDER) {
                         applyClassStats(s, cls, sessionMu[s][cls], sessionSigma[s][cls]);
                     }
                 }
                 telemetry.clearAll();
-                panels.clearAll();
-                telemetry.addLine("Applied.");
-                panels.addLine("Applied.");
+                telemetry.addLine("Applied to Config.");
                 telemetry.update();
-                panels.update();
-                sleep(500);
+                sleep(1000);
                 break;
             }
             if (gamepad1.b) {
                 telemetry.clearAll();
-                panels.clearAll();
                 telemetry.addLine("Discarded.");
-                panels.addLine("Discarded.");
                 telemetry.update();
-                panels.update();
-                sleep(500);
+                sleep(1000);
                 break;
             }
             idle();
@@ -112,19 +107,24 @@ public class ColorSensorTuning extends LinearOpMode {
                             TelemetryManager.TelemetryWrapper panels) {
         float gain = sessionGain[sensorIndex];
 
+        // Determine human-readable name for this sensor
+        int slotNum = sensorIndex / 2;
+        int sensorSubNum = (sensorIndex % 2) + 1;
+        String sensorName = "Slot " + slotNum + " (Sensor " + sensorSubNum + ")";
+
         for (int p = 0; p < CLASS_ORDER.length && opModeIsActive(); p++) {
             int cls = CLASS_ORDER[p];
-            String name = CLASS_NAMES[p];
+            String className = CLASS_NAMES[p];
 
             Stats h = new Stats();
             Stats s = new Stats();
             Stats v = new Stats();
             Stats a = new Stats();
 
-            boolean sampling;
             boolean finishedPrompt = false;
 
             while (opModeIsActive() && !finishedPrompt) {
+                // Gain adjustment
                 if (gamepad1.dpad_up) {
                     gain += 1f;
                     sleep(140);
@@ -146,9 +146,8 @@ public class ColorSensorTuning extends LinearOpMode {
 
                 sensor.setGain(gain);
 
-                sampling = gamepad1.a;
-
-                if (sampling) {
+                // Sampling
+                if (gamepad1.a) {
                     NormalizedRGBA rgba = sensor.getNormalizedColors();
                     int ri = clamp255(Math.round(rgba.red * 255f));
                     int gi = clamp255(Math.round(rgba.green * 255f));
@@ -162,6 +161,7 @@ public class ColorSensorTuning extends LinearOpMode {
                     a.add(clamp01(rgba.alpha));
                 }
 
+                // Finish this class
                 if (gamepad1.b) {
                     sessionGain[sensorIndex] = gain;
                     sessionMu[sensorIndex][cls][H] = h.mean();
@@ -169,35 +169,33 @@ public class ColorSensorTuning extends LinearOpMode {
                     sessionMu[sensorIndex][cls][V] = v.mean();
                     sessionMu[sensorIndex][cls][A] = a.mean();
 
+                    // Minimum sigmas to prevent overfitting
                     sessionSigma[sensorIndex][cls][H] = Math.max(h.std(), 1.0);
                     sessionSigma[sensorIndex][cls][S] = Math.max(s.std(), 0.05);
                     sessionSigma[sensorIndex][cls][V] = Math.max(v.std(), 0.05);
                     sessionSigma[sensorIndex][cls][A] = Math.max(a.std(), 0.05);
 
                     finishedPrompt = true;
-                    sleep(200);
+                    sleep(250);
                 }
 
+                // Telemetry
+                String status = "TUNING: " + sensorName + " -> " + className;
+
                 telemetry.clearAll();
-                telemetry.addLine("Sensor " + sensorIndex + " — " + name);
+                telemetry.addLine(status);
                 telemetry.addData("Gain", "%.1f", gain);
-                telemetry.addData("Frames", "%d", h.n);
-                telemetry.addData("H mean/std", "%.1f / %.1f", h.mean(), h.std());
-                telemetry.addData("S mean/std", "%.3f / %.3f", s.mean(), s.std());
-                telemetry.addData("V mean/std", "%.3f / %.3f", v.mean(), v.std());
-                telemetry.addData("A mean/std", "%.3f / %.3f", a.mean(), a.std());
-                telemetry.addLine("[A] Hold to sample  |  [B] Accept");
+                telemetry.addData("Samples", "%d", h.n);
+                telemetry.addData("H", "%.1f (%.1f)", h.mean(), h.std());
+                telemetry.addData("S", "%.3f (%.3f)", s.mean(), s.std());
+                telemetry.addData("V", "%.3f (%.3f)", v.mean(), v.std());
+                telemetry.addLine("[A] Hold to Sample | [B] Save & Next");
                 telemetry.update();
 
                 panels.clearAll();
-                panels.addLine("Sensor " + sensorIndex + " — " + name);
+                panels.addLine(status);
                 panels.addData("Gain", "%.1f", gain);
-                panels.addData("Frames", "%d", h.n);
-                panels.addData("H mean/std", "%.1f / %.1f", h.mean(), h.std());
-                panels.addData("S mean/std", "%.3f / %.3f", s.mean(), s.std());
-                panels.addData("V mean/std", "%.3f / %.3f", v.mean(), v.std());
-                panels.addData("A mean/std", "%.3f / %.3f", a.mean(), a.std());
-                panels.addLine("[A] Hold to sample  |  [B] Accept");
+                panels.addData("Samples", "%d", h.n);
                 panels.update();
 
                 idle();

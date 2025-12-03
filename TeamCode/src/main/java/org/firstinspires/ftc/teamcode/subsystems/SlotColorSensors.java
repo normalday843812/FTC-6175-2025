@@ -52,24 +52,19 @@ public class SlotColorSensors {
         }
     }
 
-    private final NormalizedColorSensor[] devices = new NormalizedColorSensor[3];
+    private final NormalizedColorSensor[] devices;
     private final TelemetryHelper tele;
 
     private boolean enabled = true;
 
-    private final double[] ewmaPurple = new double[3];
-    private final double[] ewmaGreen = new double[3];
-    private final double[] ewmaBall = new double[3];
-    private final boolean[] ewmaInit = new boolean[3];
+    private final double[] ewmaPurple = new double[6];
+    private final double[] ewmaGreen = new double[6];
+    private final double[] ewmaBall = new double[6];
+    private final boolean[] ewmaInit = new boolean[6];
 
-    public SlotColorSensors(NormalizedColorSensor s0,
-                            NormalizedColorSensor s1,
-                            NormalizedColorSensor s2,
-                            OpMode opmode) {
-        devices[0] = s0;
-        devices[1] = s1;
-        devices[2] = s2;
-        tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+    public SlotColorSensors(NormalizedColorSensor[] sensors, OpMode opmode) {
+        this.devices = sensors;
+        this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
     public void setEnabled(boolean on) {
@@ -77,28 +72,28 @@ public class SlotColorSensors {
     }
 
     public void update() {
-        if (!enabled) {
-            for (int i = 0; i < 3; i++) {
-                addTelemetry(i, new Observation(BallColor.NONE, 0, 0, 0, false));
-            }
-            return;
-        }
-        for (int i = 0; i < 3; i++) {
-            Observation observation = classify(i);
-            addTelemetry(i, observation);
+        if (!enabled) return;
+
+        // FIX #3: Show telemetry for each SLOT with both sensors' data
+        for (int slot = 0; slot < 3; slot++) {
+            Observation obs = classifySlot(slot);
+            addSlotTelemetry(slot, obs);
         }
     }
 
+    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
     public Observation getObservation(int slot) {
-        return classify(slot);
+        return classifySlot(slot);
     }
 
+    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
     public BallColor getColor(int slot) {
-        return classify(slot).color;
+        return classifySlot(slot).color;
     }
 
+    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
     public boolean hasAnyBall(int slot) {
-        Observation o = classify(slot);
+        Observation o = classifySlot(slot);
         return o.valid && o.ballConfidence >= MIN_BALL_CONF && o.color != BallColor.NONE;
     }
 
@@ -114,7 +109,41 @@ public class SlotColorSensors {
         return -1;
     }
 
-    private Observation classify(int idx) {
+    /**
+     * Classifies a SLOT (0-2) by merging data from both sensors in that slot.
+     * Slot 0 = sensors 0 & 1
+     * Slot 1 = sensors 2 & 3
+     * Slot 2 = sensors 4 & 5
+     */
+    private Observation classifySlot(int slotIdx) {
+        int sensorA = slotIdx * 2;
+        int sensorB = slotIdx * 2 + 1;
+
+        Observation obsA = classifySensor(sensorA);
+        Observation obsB = classifySensor(sensorB);
+
+        // Merge logic: pick the sensor with stronger ball detection
+        boolean aHasBall = obsA.valid && obsA.color != BallColor.NONE;
+        boolean bHasBall = obsB.valid && obsB.color != BallColor.NONE;
+
+        if (aHasBall && !bHasBall) return obsA;
+        if (!aHasBall && bHasBall) return obsB;
+        if (aHasBall && bHasBall) {
+            return (obsA.ballConfidence > obsB.ballConfidence) ? obsA : obsB;
+        }
+
+        // Neither has ball - return higher confidence (noise floor)
+        return (obsA.ballConfidence > obsB.ballConfidence) ? obsA : obsB;
+    }
+
+    /**
+     * Classifies a single SENSOR (0-5) - internal use only.
+     */
+    private Observation classifySensor(int idx) {
+        if (idx < 0 || idx >= devices.length) {
+            return new Observation(BallColor.NONE, 0, 0, 0, false);
+        }
+
         NormalizedColorSensor sensor = devices[idx];
         float gain = SENSOR_GAIN[idx];
         boolean valid = true;
@@ -202,13 +231,42 @@ public class SlotColorSensors {
         return (d > 180.0) ? 360.0 - d : d;
     }
 
-    private void addTelemetry(int idx, Observation observation) {
-        tele.addLine("--- SLOT " + idx + " ---")
-                .addData("Color", "%s", observation.color.name())
-                .addData("BallConf", "%.2f", observation.ballConfidence)
-                .addData("PurpleConf", "%.2f", observation.purpleConfidence)
-                .addData("GreenConf", "%.2f", observation.greenConfidence)
-                .addData("Valid", "%b", observation.valid);
+    // FIX #3: New telemetry method that shows slot-level data with both sensors
+    private void addSlotTelemetry(int slot, Observation obs) {
+        int sensorA = slot * 2;
+        int sensorB = slot * 2 + 1;
+
+        tele.addLine("--- SLOT " + slot + " (sensors " + sensorA + "," + sensorB + ") ---")
+                .addData("Color", "%s", obs.color.name())
+                .addData("BallConf", "%.2f", obs.ballConfidence)
+                .addData("PurpleConf", "%.2f", obs.purpleConfidence)
+                .addData("GreenConf", "%.2f", obs.greenConfidence)
+                .addData("Valid", "%b", obs.valid);
+
+        // Show raw HSV from both sensors for debugging
+        if (TELEMETRY_ENABLED && devices[sensorA] != null && devices[sensorB] != null) {
+            try {
+                NormalizedRGBA rgbaA = devices[sensorA].getNormalizedColors();
+                NormalizedRGBA rgbaB = devices[sensorB].getNormalizedColors();
+
+                int rA = clamp255(Math.round(rgbaA.red * 255f));
+                int gA = clamp255(Math.round(rgbaA.green * 255f));
+                int bA = clamp255(Math.round(rgbaA.blue * 255f));
+                float[] hsvA = new float[3];
+                Color.RGBToHSV(rA, gA, bA, hsvA);
+
+                int rB = clamp255(Math.round(rgbaB.red * 255f));
+                int gB = clamp255(Math.round(rgbaB.green * 255f));
+                int bB = clamp255(Math.round(rgbaB.blue * 255f));
+                float[] hsvB = new float[3];
+                Color.RGBToHSV(rB, gB, bB, hsvB);
+
+                tele.addData("Sensor" + sensorA + " H/S/V", "%.0f/%.2f/%.2f", hsvA[0], hsvA[1], hsvA[2])
+                        .addData("Sensor" + sensorB + " H/S/V", "%.0f/%.2f/%.2f", hsvB[0], hsvB[1], hsvB[2]);
+            } catch (Throwable t) {
+                // Ignore telemetry errors
+            }
+        }
     }
 
     private static int clamp255(int v) {

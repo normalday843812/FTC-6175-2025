@@ -75,6 +75,7 @@ public class AutoManager {
     private final Intake intake;
     private final SlotColorSensors slots;
     private final InventoryManager inv;
+    private final Transfer transfer;
 
     private final HeadingTarget heading;
     private final boolean isRed;
@@ -131,6 +132,7 @@ public class AutoManager {
         this.shooter = shooter;
         this.shooterYaw = shooterYaw;
         this.spindexer = spindexer;
+        this.transfer = transfer;
         this.intake = intake;
         this.slots = slots;
         this.inv = inv;
@@ -152,6 +154,7 @@ public class AutoManager {
         shooter.startAuto();
         intake.startAuto();
         shooterYaw.startAuto();
+        transfer.startAuto();
         shooter.setAutoRpm(IDLE_RPM);
         boolean wantDeposit = depositRoute && options.enableDeposit;
         if (wantDeposit) {
@@ -169,6 +172,7 @@ public class AutoManager {
         if (slots != null) slots.update();
         if (ui != null) ui.update();
         if (spindexer != null) spindexer.operate();
+        if (transfer != null) transfer.operate();
 
         switch (s) {
             case SEEK_PATTERN:

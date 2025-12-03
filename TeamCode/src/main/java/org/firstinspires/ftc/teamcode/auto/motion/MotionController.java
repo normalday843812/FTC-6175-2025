@@ -57,21 +57,6 @@ public class MotionController {
                 .addData("Vx,Vy", "(%.2f, %.2f)", vxField, vyField);
     }
 
-    public void followToPoseFacingPoint(Pose target, double faceX, double faceY) {
-        Pose current = follower.getPose();
-
-        Pose control = midpointControl(current, target);
-
-        PathChain chain = follower.pathBuilder()
-                .addPath(new BezierCurve(follower::getPose, control, target))
-                .setHeadingInterpolation(
-                        HeadingInterpolator.facingPoint(faceX, faceY)
-                )
-                .build();
-
-        drive.followPath(chain);
-    }
-
     /**
      * @noinspection BooleanMethodIsAlwaysInverted
      */

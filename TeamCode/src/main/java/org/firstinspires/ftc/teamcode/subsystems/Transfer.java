@@ -187,7 +187,5 @@ public class Transfer {
                 .addData("Flick State", state::name)
                 .addData("CR State", crState::name)
                 .addData("Shooting Mode", () -> shootingMode);
-//                .addData("Color Green", colorClassifier::isGreen)
-//                .addData("Color Purple", colorClassifier::isPurple)
     }
 }

@@ -67,7 +67,7 @@ public class RobotHardware {
     private CRServo transferServo2;
     private Servo rgbIndicator;
 
-    private NormalizedColorSensor slotColor0, slotColor1, slotColor2;
+    private NormalizedColorSensor[] spindexSensors;
 
     public void initPinpoint() {
         pinpoint = inputOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -168,9 +168,13 @@ public class RobotHardware {
     }
 
     public void initSpindexColorSensors() {
-        slotColor0 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0");
-        slotColor1 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1");
-        slotColor2 = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2");
+        spindexSensors = new NormalizedColorSensor[6];
+        spindexSensors[0] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_1");
+        spindexSensors[1] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_2");
+        spindexSensors[2] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_1");
+        spindexSensors[3] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_2");
+        spindexSensors[4] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_1");
+        spindexSensors[5] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_2");
     }
 
     // Getters
@@ -374,15 +378,7 @@ public class RobotHardware {
         }
     }
 
-    public NormalizedColorSensor getSlotColor0() {
-        return slotColor0;
-    }
-
-    public NormalizedColorSensor getSlotColor1() {
-        return slotColor1;
-    }
-
-    public NormalizedColorSensor getSlotColor2() {
-        return slotColor2;
+    public NormalizedColorSensor[] getSpindexSensors() {
+        return spindexSensors;
     }
 }
