@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MOTOR1_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOT_ARM_AT_RPM;
@@ -8,18 +9,27 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOT_DROP_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.SHOT_DROP_WINDOW_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_MOTOR;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TPR_OUTPUT;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE_DOWN;
+import static org.firstinspires.ftc.teamcode.config.ShooterConfig.TRIGGER_SCALE_UP;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
+import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class Shooter {
+    private final GamepadMap map;
     private final DcMotorEx motor;
     private final DcMotorEx motor1;
     // Telemetry
     private final TelemetryHelper tele;
+
+    private SubsystemMode mode = SubsystemMode.MANUAL;
     private double targetRpm = 0.0;
+    private double idleRpmMin = IDLE_RPM;
 
     private boolean armed = false;
     private boolean shotPulse = false;
@@ -28,9 +38,10 @@ public class Shooter {
     private long lastUpdateMs = 0;
     private int shotCount = 0;
 
-    public Shooter(DcMotorEx motor, DcMotorEx motor1, OpMode opmode) {
+    public Shooter(DcMotorEx motor, DcMotorEx motor1, GamepadMap map, OpMode opmode) {
         this.motor = motor;
         this.motor1 = motor1;
+        this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
     }
 
@@ -38,7 +49,13 @@ public class Shooter {
         this.idleRpmMin = idle;
     }
 
-    public void start() {
+    public void startTeleop() {
+        mode = SubsystemMode.MANUAL;
+        resetShotLogic();
+    }
+
+    public void startAuto() {
+        mode = SubsystemMode.AUTO;
         resetShotLogic();
     }
 
@@ -46,7 +63,16 @@ public class Shooter {
         shotPulse = false;
         updateShotLogic();
 
-        setShooterMotorRpm(targetRpm);
+        if (mode == SubsystemMode.MANUAL) {
+            if (map != null) {
+                if (targetRpm < MAX_RPM) targetRpm += map.shooterUp * TRIGGER_SCALE_UP * 3;
+                if (targetRpm > 0) targetRpm -= map.shooterDown * TRIGGER_SCALE_DOWN * 3;
+                if (targetRpm < idleRpmMin) targetRpm = idleRpmMin;
+            }
+            setShooterMotorRpm(targetRpm);
+        } else {
+            setShooterOutputRpm(targetRpm);
+        }
         addTelemetry();
     }
 
@@ -60,12 +86,27 @@ public class Shooter {
         return tps * 60.0 / TPR_MOTOR;
     }
 
+    public double getOutputRPM() {
+        double tps = motor.getVelocity();
+        if (MOTOR1_ENABLED) tps = (tps + motor1.getVelocity()) / 2;
+        return tps * 60.0 / TPR_OUTPUT;
+    }
+
     public boolean isAtTarget(double band) {
-        return Math.abs(getMotorRPM() - targetRpm) <= band;
+        if (mode == SubsystemMode.MANUAL) {
+            return Math.abs(getMotorRPM() - targetRpm) <= band;
+        }
+        return Math.abs(getOutputRPM() - targetRpm) <= band;
     }
 
     public boolean shotOccurred() {
         return shotPulse;
+    }
+
+    private void setShooterOutputRpm(double outputRpm) {
+        double tps = outputRpm * TPR_OUTPUT / 60.0;
+        motor.setVelocity(tps);
+        motor1.setVelocity(tps);
     }
 
     private void setShooterMotorRpm(double motorRpm) {
@@ -121,8 +162,11 @@ public class Shooter {
         double tps0 = motor.getVelocity();
         double tps1 = motor1.getVelocity();
         tele.addLine("=== SHOOTER ===")
+                .addData("Mode", mode::name)
                 .addData("Target RPM", "%.0f", targetRpm)
+                .addData("Output RPM (0)", "%.0f", tps0 * 60.0 / TPR_OUTPUT)
                 .addData("Motor RPM (0)", "%.0f", tps0 * 60.0 / TPR_MOTOR)
+                .addData("Output RPM (1)", "%.0f", tps1 * 60.0 / TPR_OUTPUT)
                 .addData("Motor RPM (1)", "%.0f", tps1 * 60.0 / TPR_MOTOR)
                 .addData("Shot Count", "%d", shotCount);
     }

@@ -11,7 +11,6 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
-import org.firstinspires.ftc.teamcode.config.UiLightConfig;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.LightController;
 import org.firstinspires.ftc.teamcode.managers.ShooterManager;
@@ -57,7 +56,7 @@ public class InitialTeleop extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), map, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
@@ -87,8 +86,6 @@ public class InitialTeleop extends LinearOpMode {
         InventoryManager inv = new InventoryManager();
         TeleopSortManager teleopSortManager =
                 new TeleopSortManager(map, intake, spindexer, transfer, slots, inv, shooter,  this);
-
-        ui.setBase(UiLightConfig.UiState.READY);
 
         if (isStopRequested()) return;
         waitForStart();
@@ -121,6 +118,8 @@ public class InitialTeleop extends LinearOpMode {
             if (managerEnabled != prevManagerEnabled) {
                 teleopSortManager.setEnabled(managerEnabled);
             }
+
+            light.update(true);
 
             Pose current = drive.getFollower().getPose();
             shooterManager.update(current, goal, limelight);
