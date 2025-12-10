@@ -14,17 +14,21 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class Spindexer {
+    private static final long SETTLE_TIME_MS = 300;
+
     private final Servo spindexerServo;
     private final GamepadMap map;
     private final TelemetryHelper tele;
     private SlotColorSensors slots;
 
     private SubsystemMode mode = SubsystemMode.MANUAL;
+    private int commandedSlot = 0;
+    private long lastCommandMs = 0;
 
-    // Jiggle runner
+    // Jiggle state
     private boolean jiggleActive = false;
     private double jUp, jDown, jDwellS;
-    private int jPhase = 0; // 0: up, 1: down, 2: back
+    private int jPhase = 0;
     private final Timer jTimer = new Timer();
     private double lastJiggleBase = 0.0;
 
@@ -38,11 +42,13 @@ public class Spindexer {
     public void startTeleop() {
         mode = SubsystemMode.MANUAL;
         spindexerServo.setPosition(BIAS);
+        commandedSlot = 0;
     }
 
     public void startAuto() {
         mode = SubsystemMode.AUTO;
         spindexerServo.setPosition(BIAS);
+        commandedSlot = 0;
     }
 
     public void setColorSlots(SlotColorSensors slots) {
@@ -107,9 +113,25 @@ public class Spindexer {
         return ((slot % getSlots()) + getSlots()) % getSlots();
     }
 
+    public int getCommandedSlot() {
+        return commandedSlot;
+    }
+
+    public boolean isMoving() {
+        return jiggleActive || (System.currentTimeMillis() - lastCommandMs < SETTLE_TIME_MS);
+    }
+
+    public boolean isSettled() {
+        return !isMoving();
+    }
+
     public void setSlot(int idx) {
         int slots = getSlots();
         int k = ((idx % slots) + slots) % slots;
+
+        commandedSlot = k;
+        lastCommandMs = System.currentTimeMillis();
+
         double target = BIAS + k * STEP;
         while (target > 1.0) target -= 1.0;
         while (target < 0.0) target += 1.0;
@@ -150,7 +172,6 @@ public class Spindexer {
     }
 
     public boolean updateJiggle() {
-        // Return true when jiggle is finished
         return !jiggleActive;
     }
 
@@ -163,6 +184,8 @@ public class Spindexer {
                 .addData("Mode", mode::name)
                 .addData("Pos", "%.2f", spindexerServo.getPosition())
                 .addData("Slot", "%d", getCurrentSlot())
+                .addData("CmdSlot", "%d", commandedSlot)
+                .addData("Moving", "%b", isMoving())
                 .addData("JiggleActive", "%b", jiggleActive)
                 .addData("JigglePhase", "%d", jPhase)
                 .addData("LastJiggleBase", "%.2f", lastJiggleBase);

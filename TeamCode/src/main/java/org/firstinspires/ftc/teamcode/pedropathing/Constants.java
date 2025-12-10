@@ -34,12 +34,14 @@ public class Constants {
             .mass(ROBOT_MASS)
             .forwardZeroPowerAcceleration(-31.521)
             .lateralZeroPowerAcceleration(-47.84)
-            .translationalPIDFCoefficients(new PIDFCoefficients(0.1, 0, 0.01, 0.02))
-            .headingPIDFCoefficients(new PIDFCoefficients(1, 0, 0.05, 0.028))
-            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(3, 0, 0.06, 0.02))
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.08, 0, 0.008, 0.024))
+            .headingPIDFCoefficients(new PIDFCoefficients(3.75, 0, 0.18, 0.02))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(2.45, 0, 0.24, 0.02))
             .useSecondaryTranslationalPIDF(true)
             .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.2, 0, 0.015, 0.015))
-            .useSecondaryHeadingPIDF(true);
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.025, 0, 0.00001, 0.6, 0.01))
+            .useSecondaryHeadingPIDF(true)
+            .centripetalScaling(0.0037);
 
     public static MecanumConstants driveConstants = new MecanumConstants()
             .xVelocity(70.46433)

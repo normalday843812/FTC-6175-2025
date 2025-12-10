@@ -66,13 +66,15 @@ public class TeleopSortManager {
         addTelemetry();
         if (!enabled) return;
 
-        boolean isShooting = (state == State.SHOOTING_HOLD);
+        boolean isShooting = (state == State.SHOOTING_STAGING ||
+                state == State.SHOOTING_FLICK ||
+                state == State.SHOOTING_HOLD ||
+                state == State.SHOOTING_RESET);
 
         if (map.transferButton && !isShooting) {
             state = State.SHOOTING_STAGING;
             tMs = now();
             shooter.resetShotLogic();
-            transfer.holdUp();
         } else if (!isShooting) {
             if (state != State.LIFT_AND_LOAD && state != State.INDEXING) {
                 if (map.findGreenBall) {
@@ -114,6 +116,9 @@ public class TeleopSortManager {
                 if (ballConfirmationCount > 2) {
                     inv.setWantPurple(observation.color == SlotColorSensors.BallColor.PURPLE);
 
+                    inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+                    inv.onBallIntaked(observation.color);
+
                     ballConfirmationCount = 0;
 
                     state = State.LIFT_AND_LOAD;
@@ -134,20 +139,20 @@ public class TeleopSortManager {
                 break;
 
             case INDEXING:
-                int target = inv.findNearestEmptySlot(slots, spindexer);
+                inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+                int target = inv.getModel().findNearestEmptyBucket(SpindexerModel.DIRECTION_CW);
+
                 if (target == -1) {
                     state = State.FULL_HOLD;
                     tMs = now();
                 } else {
                     if (!transfer.isLeverRaised()) transfer.raiseLever();
 
-                    // If we need to move, go to transit state first
                     if (target != spindexer.getCurrentSlot()) {
                         spindexer.setSlot(target);
-                        state = State.SPINDEX_TRANSIT; // NEW STATE
+                        state = State.SPINDEX_TRANSIT;
                         tMs = now();
                     } else {
-                        // Already there? Go straight to checking confirmation
                         if (since(tMs) >= TELEOP_SHIFT_CONFIRM_MS) {
                             state = State.RESET_LEVER;
                             tMs = now();
@@ -157,9 +162,7 @@ public class TeleopSortManager {
                 break;
 
             case SPINDEX_TRANSIT:
-                // Wait for physical servo to move (e.g., 250ms)
                 if (since(tMs) >= 250) {
-                    // Now verify/confirm
                     state = State.RESET_LEVER;
                     tMs = now();
                 }
@@ -177,7 +180,8 @@ public class TeleopSortManager {
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
 
-                if (inv.findNearestEmptySlot(slots, spindexer) != -1) {
+                inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+                if (inv.getModel().findEmptyBucket() != -1) {
                     state = State.INTAKING;
                     ballConfirmationCount = 0;
                     tMs = now();
@@ -188,15 +192,22 @@ public class TeleopSortManager {
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
                 if (since(tMs) >= TELEOP_SHOOT_SPINUP_MS) {
-                    transfer.flick();
-                    state = State.SHOOTING_FLICK;
+                    if (map.transferButtonHeld) {
+                        transfer.holdUp();
+                        state = State.SHOOTING_HOLD;
+                    } else {
+                        transfer.flick();
+                        state = State.SHOOTING_FLICK;
+                    }
                     tMs = now();
                 }
                 break;
 
             case SHOOTING_FLICK:
                 if (since(tMs) >= 250) {
+                    inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
                     inv.onShot();
+
                     state = State.SHOOTING_RESET;
                     tMs = now();
                 }
@@ -214,24 +225,18 @@ public class TeleopSortManager {
                 break;
 
             case SHOOTING_HOLD:
-                // Keep CR servo running forward
                 transfer.runTransfer(Transfer.CrState.FORWARD);
-                // Note: transfer.holdUp() was called during transition; the Transfer subsystem FSM handles the servo position.
 
                 boolean shotDetected = shooter.shotOccurred();
-                boolean buttonReleased = !map.transferButtonHeld; // Use the raw held state
+                boolean buttonReleased = !map.transferButtonHeld;
 
-                // Requirement: Keep raised UNTIL shot detected OR button released
                 if (shotDetected || buttonReleased) {
                     if (shotDetected) {
-                        // Requirement: Only count the shot if RPM drop occurred
+                        inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
                         inv.onShot();
                     }
-                    // Requirement: If either condition is true, then drop down.
                     transfer.releaseHold();
 
-                    // Transition back to standard operation.
-                    // The Transfer FSM (FLICK_DOWN -> IDLE) handles the physical downward motion.
                     state = State.INTAKING;
                     ballConfirmationCount = 0;
                     tMs = now();
@@ -251,7 +256,11 @@ public class TeleopSortManager {
                     break;
                 }
 
-                int idx = slots.findBallSlot(want);
+                inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+                SpindexerModel.BallColor modelColor = (want == SlotColorSensors.BallColor.PURPLE) ?
+                        SpindexerModel.BallColor.PURPLE : SpindexerModel.BallColor.GREEN;
+                int idx = inv.getModel().findBucketWithColor(modelColor);
+
                 if (idx >= 0) {
                     transfer.lowerLever();
                     spindexer.setSlot(idx);
@@ -261,7 +270,6 @@ public class TeleopSortManager {
     }
 
     public void setEnabled(boolean enabled) {
-        // If the status isn't changing, do nothing (Fixes the reset bug).
         if (this.enabled == enabled) {
             return;
         }
@@ -269,26 +277,34 @@ public class TeleopSortManager {
 
         if (!enabled) {
             state = State.DISABLED;
-            // Switch subsystems back to manual control (sets mode = MANUAL)
             intake.startTeleop();
             spindexer.startTeleop();
-            transfer.startTeleop(); // Fixes the double flick
+            transfer.startTeleop();
         } else {
-            // Switch subsystems to auto control (sets mode = AUTO)
             intake.startAuto();
             spindexer.startAuto();
-            transfer.startAuto(); // Fixes the double flick
+            transfer.startAuto();
 
-            // Initialize the manager's state machine
+            inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+            inv.syncFromSensors(slots, spindexer);
+
             state = State.INTAKING;
             ballConfirmationCount = 0;
             tMs = now();
         }
     }
 
-    public boolean getEnabled() { return enabled; }
-    private static long now() { return System.nanoTime() / 1_000_000L; }
-    private static long since(long startMs) { return now() - startMs; }
+    public boolean getEnabled() {
+        return enabled;
+    }
+
+    private static long now() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
+    private static long since(long startMs) {
+        return now() - startMs;
+    }
 
     private void addTelemetry() {
         tele.addLine("=== SYSTEM STATUS ===");
@@ -313,6 +329,12 @@ public class TeleopSortManager {
         tele.addData("Confirmation Count", "%d / 3", ballConfirmationCount);
 
         tele.addLine("\n=== INVENTORY ===");
-        tele.addData("Want Purple?", "%b", inv.findNearestEmptySlot(slots, spindexer));
+        tele.addData("Want Purple?", "%b", inv.wantPurpleThisShot());
+
+        SpindexerModel model = inv.getModel();
+        tele.addData("Model Balls", "%d", model.getBallCount());
+        tele.addData("Bucket0", "%s", model.getBucketContents(0));
+        tele.addData("Bucket1", "%s", model.getBucketContents(1));
+        tele.addData("Bucket2", "%s", model.getBucketContents(2));
     }
 }

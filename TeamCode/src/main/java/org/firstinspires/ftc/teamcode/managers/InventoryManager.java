@@ -9,37 +9,101 @@ import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 
 public class InventoryManager {
+    private final SpindexerModel model = new SpindexerModel();
 
-    // true=purple, false=green
-    private boolean[] pattern = null;
-    private int shotsTaken = 0;
+    // Intake set tracking (field positions to visit)
     private final boolean[] visitedSets = new boolean[]{false, false, false};
-    private boolean wantPurple = false;
-    private boolean wantPurpleSet = false;
+
+    public SpindexerModel getModel() {
+        return model;
+    }
+
+    // --- Pattern Management (delegates to model) ---
 
     public void setPatternFromTagId(int tagId) {
-        pattern = DecodeGameConfig.patternForTag(tagId);
+        boolean[] boolPattern = DecodeGameConfig.patternForTag(tagId);
+        if (boolPattern != null) {
+            SpindexerModel.BallColor[] colors = new SpindexerModel.BallColor[boolPattern.length];
+            for (int i = 0; i < boolPattern.length; i++) {
+                colors[i] = boolPattern[i] ? SpindexerModel.BallColor.PURPLE : SpindexerModel.BallColor.GREEN;
+            }
+            model.setPattern(colors);
+        }
     }
 
     public boolean isPatternKnown() {
-        return pattern != null;
+        return model.getNextPatternColor() != null || !model.isPatternComplete();
     }
 
     public boolean wantPurpleThisShot() {
-        if (wantPurpleSet) return wantPurple;
-        if (!isPatternKnown()) return false;
-        int idx = Math.min(shotsTaken, 2);
-        return pattern[idx];
+        SpindexerModel.BallColor next = model.getNextPatternColor();
+        return next == SpindexerModel.BallColor.PURPLE;
     }
 
     public void setWantPurple(boolean wantPurple) {
-        wantPurpleSet = true;
-        this.wantPurple = wantPurple;
+        // Override pattern - set a single-shot pattern
+        SpindexerModel.BallColor color = wantPurple ?
+                SpindexerModel.BallColor.PURPLE : SpindexerModel.BallColor.GREEN;
+        model.setPattern(color);
     }
 
     public void onShot() {
-        shotsTaken++;
+        model.onBallShot();
     }
+
+    // --- Bucket Decisions (uses model, not sensors) ---
+
+    public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
+        // Sync model with spindexer position
+        model.setBucketAtFront(spx.getCurrentSlot());
+
+        // If pattern known, find bucket with needed color
+        SpindexerModel.BallColor needed = model.getNextPatternColor();
+        if (needed != null) {
+            int bucket = model.findBucketWithColor(needed);
+            if (bucket >= 0) return bucket;
+        }
+
+        // No pattern or color not found - find any non-empty bucket
+        for (int i = 0; i < 3; i++) {
+            if (model.getBucketContents(i) != SpindexerModel.BallColor.EMPTY) {
+                return i;
+            }
+        }
+
+        return -1; // All empty
+    }
+
+    public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
+        model.setBucketAtFront(spx.getCurrentSlot());
+        int direction = PREFER_CLOCKWISE_ON_TIE ?
+                SpindexerModel.DIRECTION_CW : SpindexerModel.DIRECTION_CCW;
+        return model.findNearestEmptyBucket(direction);
+    }
+
+    // --- Ball Events (update model) ---
+
+    public void onBallIntaked(SlotColorSensors.BallColor color) {
+        model.onBallIntaked(color);
+    }
+
+    public void onBallIntaked(SpindexerModel.BallColor color) {
+        model.onBallIntaked(color);
+    }
+
+    // --- Sensor Verification ---
+
+    public void syncFromSensors(SlotColorSensors slots, Spindexer spx) {
+        model.setBucketAtFront(spx.getCurrentSlot());
+        model.rebuildFromSensors(slots);
+    }
+
+    public boolean verifyModel(SlotColorSensors slots, Spindexer spx) {
+        model.setBucketAtFront(spx.getCurrentSlot());
+        return model.verifyAllBuckets(slots);
+    }
+
+    // --- Intake Pose Management ---
 
     public Pose nextIntakePose(boolean isRed) {
         Pose[] sets = isRed ? DecodeGameConfig.INTAKE_SETS_RED : DecodeGameConfig.INTAKE_SETS_BLUE;
@@ -48,94 +112,24 @@ public class InventoryManager {
     }
 
     public void markOneIntakeSetVisited() {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) {
             if (!visitedSets[i]) {
                 visitedSets[i] = true;
                 break;
             }
+        }
     }
 
     public boolean setsRemain() {
         return !(visitedSets[0] && visitedSets[1] && visitedSets[2]);
     }
 
-    public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
-        int cur = spx.getCurrentSlot(); // Where the spindexer is currently rotated
-        int best = -1;
-        int bestDist = 999;
+    // --- Reset ---
 
-        // 1. Determine which color we want based on the Pattern (GPP, PGP, etc.)
-        boolean wantPurple = false;
-        boolean specificColorNeeded = false;
-
-        if (isPatternKnown()) {
-            wantPurple = wantPurpleThisShot();
-            specificColorNeeded = true;
-        }
-
-        // 2. Iterate through physical Buckets (0, 1, 2)
-        for (int targetBucket = 0; targetBucket < 3; targetBucket++) {
-
-            // RELATIVE MAPPING: Which sensor is currently looking at 'targetBucket'?
-            // Formula: (TargetBucket - CurrentPos + 3) % 3
-            int sensorIndex = (targetBucket - cur + 3) % 3;
-
-            SlotColorSensors.BallColor colorSeen = slots.getColor(sensorIndex);
-
-            // If the bucket is empty, we can't shoot from it. Skip.
-            if (colorSeen == SlotColorSensors.BallColor.NONE) continue;
-
-            // If we need a specific color, check it.
-            if (specificColorNeeded) {
-                if (wantPurple && colorSeen != SlotColorSensors.BallColor.PURPLE) continue;
-                if (!wantPurple && colorSeen != SlotColorSensors.BallColor.GREEN) continue;
-            }
-
-            // Calculate rotation distance
-            int d = modDist(cur, targetBucket, 3);
-
-            // Standard "Find Nearest" logic
-            if (d < bestDist || (d == bestDist && tiePrefers(targetBucket, best, cur))) {
-                best = targetBucket;
-                bestDist = d;
-            }
-        }
-
-        return best;
-    }
-
-    public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
-        int currentSlot = spx.getCurrentSlot();
-        int best = -1;
-        int bestDist = Integer.MAX_VALUE;
-
-        for (int i = 0; i < 3; i++) {
-            int sensorIndex = (i - currentSlot + 3) % 3;
-
-            // Check that specific sensor
-            if (slots.hasAnyBall(sensorIndex)) continue;
-
-            int d = modDist(currentSlot, i, 3);
-            if (d < bestDist || (d == bestDist && tiePrefers(i, best, currentSlot))) {
-                best = i;
-                bestDist = d;
-            }
-        }
-
-        return best;
-    }
-
-
-    private static int modDist(int a, int b, int mod) {
-        int diff = Math.abs(b - a) % mod;
-        return Math.min(diff, mod - diff);
-    }
-
-    private static boolean tiePrefers(int cand, int incumbent, int cur) {
-        if (incumbent < 0) return true;
-        int mod = 3;
-        int dI = (incumbent - cur + mod) % mod;
-        int dC = (cand - cur + mod) % mod;
-        return PREFER_CLOCKWISE_ON_TIE ? (dC < dI) : (dC > dI);
+    public void reset() {
+        model.reset();
+        visitedSets[0] = false;
+        visitedSets[1] = false;
+        visitedSets[2] = false;
     }
 }

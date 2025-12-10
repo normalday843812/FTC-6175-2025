@@ -46,7 +46,7 @@ public class SimpleAuto extends LinearOpMode {
         Intake intake = new Intake(hw.getIntakeMotor(), null, this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), null, this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), ll, null, drive.getFollower(), this);

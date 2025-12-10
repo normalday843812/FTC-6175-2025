@@ -34,6 +34,8 @@ public class AutoManager {
     public enum State {
         SEEK_PATTERN,
         SPINDEX_DECIDE,
+        SPINDEX_SETTLE,      // NEW: Wait for spindexer to physically move
+        ALIGN_EMPTY_SLOT,    // NEW: Rotate empty bucket to front before intake
         PATH_TO_GOAL,
         DEPOSIT,
         INTAKE_GOTO_SET,
@@ -91,6 +93,9 @@ public class AutoManager {
     private boolean pathToGoalIssued = false;
     private boolean intakePathIssued = false;
     private boolean finalPathIssued = false;
+
+    // NEW: Track what state to go to after spindexer settles
+    private State stateAfterSettle = State.DONE;
 
     public AutoManager(Mecanum drive,
                        MotionController motion,
@@ -156,6 +161,12 @@ public class AutoManager {
         shooterYaw.startAuto();
         transfer.startAuto();
         shooter.setAutoRpm(IDLE_RPM);
+
+        // Sync model from sensors at start
+        if (slots != null && options.useColorSensors) {
+            inv.syncFromSensors(slots, spindexer);
+        }
+
         boolean wantDeposit = depositRoute && options.enableDeposit;
         if (wantDeposit) {
             s = options.enablePatternSeek ? State.SEEK_PATTERN : State.SPINDEX_DECIDE;
@@ -188,6 +199,7 @@ public class AutoManager {
                         APRIL_TAG_PPG
                 }, PATTERN_STABLE_HOLD_MS);
                 shooterYaw.operate();
+                shooter.operate();
                 if (shooterYaw.isPatternChosen()) {
                     inv.setPatternFromTagId(shooterYaw.getChosenPatternId());
                     s = State.SPINDEX_DECIDE;
@@ -200,21 +212,57 @@ public class AutoManager {
 
             case SPINDEX_DECIDE: {
                 if (ui != null) ui.setBase(UiLightConfig.UiState.DECIDING);
-                int slot = 0;
+                shooter.operate();
+                shooterYaw.operate();
+
                 if (spindexer != null) {
-                    slot = inv.decideTargetSlot(slots, spindexer);
+                    int targetSlot = inv.decideTargetSlot(slots, spindexer);
+
+                    if (targetSlot >= 0) {
+                        if (targetSlot != spindexer.getCurrentSlot()) {
+                            spindexer.setSlot(targetSlot);
+                            stateAfterSettle = State.PATH_TO_GOAL;
+                            s = State.SPINDEX_SETTLE;
+                        } else if (options.enableDeposit) {
+                            s = State.PATH_TO_GOAL;
+                            pathToGoalIssued = false;
+                        } else {
+                            s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
+                        }
+                    } else if (options.enableIntake && inv.setsRemain()) {
+                        s = State.ALIGN_EMPTY_SLOT;
+                        intakePathIssued = false;
+                    } else {
+                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
+                        finalPathIssued = false;
+                    }
                 }
-                if (spindexer != null && slot >= 0 && slot != spindexer.getCurrentSlot())
-                    spindexer.setSlot(slot);
-                if (slot >= 0 && options.enableDeposit) {
-                    s = State.PATH_TO_GOAL;
-                    pathToGoalIssued = false;
-                } else if (options.enableIntake && inv.setsRemain()) {
-                    s = State.INTAKE_GOTO_SET;
-                    intakePathIssued = false;
-                } else {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    finalPathIssued = false;
+
+                t.resetTimer();
+                break;
+            }
+
+            case SPINDEX_SETTLE:
+                if (spindexer != null) {
+                    if (spindexer.isSettled()) {
+                        s = stateAfterSettle;
+                        t.resetTimer();
+                    }
+                }
+                break;
+
+            case ALIGN_EMPTY_SLOT: {
+                int emptySlot;
+                if (spindexer != null) {
+                    emptySlot = inv.findNearestEmptySlot(slots, spindexer);
+                    if (emptySlot >= 0 && emptySlot != spindexer.getCurrentSlot()) {
+                        spindexer.setSlot(emptySlot);
+                        stateAfterSettle = State.INTAKE_GOTO_SET;
+                        s = State.SPINDEX_SETTLE;
+                    } else {
+                        s = State.INTAKE_GOTO_SET;
+                        intakePathIssued = false;
+                    }
                 }
                 t.resetTimer();
                 break;
@@ -262,20 +310,24 @@ public class AutoManager {
                             : UiLightConfig.UiState.SPINUP);
                 }
 
+                shooterYaw.operate();
+
                 double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
 
                 DepositController.Result r = deposit.update(rpm);
                 if (r == DepositController.Result.SHOT) {
                     if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
-                    inv.onShot();
-                    boolean hasBall = slots != null && (slots.hasAnyBall(0) || slots.hasAnyBall(1) || slots.hasAnyBall(2));
-                    if (hasBall) {
+                    inv.onShot(); // Updates model
+
+                    // Check if more balls to shoot (using model)
+                    SpindexerModel model = inv.getModel();
+                    if (model.getBallCount() > 0) {
                         s = State.SPINDEX_DECIDE;
                         pathToGoalIssued = false;
                         intakePathIssued = false;
                         finalPathIssued = false;
                     } else if (options.enableIntake && inv.setsRemain()) {
-                        s = State.INTAKE_GOTO_SET;
+                        s = State.ALIGN_EMPTY_SLOT;
                         intakePathIssued = false;
                     } else {
                         s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
@@ -318,6 +370,7 @@ public class AutoManager {
 
             case INTAKE_FORWARD: {
                 if (!options.enableIntake) {
+                    drive.clearAutoCommand();
                     s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
                     t.resetTimer();
                     break;
@@ -327,27 +380,43 @@ public class AutoManager {
                 intake.setAutoMode(Intake.AutoMode.FORWARD);
                 intake.operate();
 
-                boolean gotBall = slots != null && slots.hasAnyBall(0);
+                boolean gotBall = false;
+                if (slots != null) {
+                    SlotColorSensors.BallColor detected = slots.getColor(0);
+                    if (detected != SlotColorSensors.BallColor.NONE) {
+                        gotBall = true;
+                        inv.onBallIntaked(detected);
+                    }
+                }
                 boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
 
                 if (gotBall) {
                     if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
-                    s = State.SPINDEX_DECIDE;
+                    intake.setAutoMode(Intake.AutoMode.OFF);
+                    drive.clearAutoCommand();
+                    if (options.enableDeposit) {
+                        s = State.SPINDEX_DECIDE;
+                    } else {
+                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
+                    }
                     pathToGoalIssued = false;
                     intakePathIssued = false;
                     finalPathIssued = false;
                     t.resetTimer();
-                } else if (timeout && !(slots != null && (slots.hasAnyBall(0) || slots.hasAnyBall(1) || slots.hasAnyBall(2)))) {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    finalPathIssued = false;
-                    t.resetTimer();
-                } else if (timeout && options.enableDeposit) {
-                    s = State.PATH_TO_GOAL;
-                    pathToGoalIssued = false;
-                    t.resetTimer();
                 } else if (timeout) {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    finalPathIssued = false;
+                    intake.setAutoMode(Intake.AutoMode.OFF);
+                    drive.clearAutoCommand();
+                    SpindexerModel model = inv.getModel();
+                    if (model.getBallCount() > 0 && options.enableDeposit) {
+                        s = State.SPINDEX_DECIDE;
+                        pathToGoalIssued = false;
+                    } else if (options.enableIntake && inv.setsRemain()) {
+                        s = State.ALIGN_EMPTY_SLOT;
+                        intakePathIssued = false;
+                    } else {
+                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
+                        finalPathIssued = false;
+                    }
                     t.resetTimer();
                 }
                 break;
@@ -381,6 +450,7 @@ public class AutoManager {
 
         tele.addLine("=== AUTO ===")
                 .addData("State", s::name)
-                .addData("t", "%.2f", t.getElapsedTimeSeconds());
+                .addData("t", "%.2f", t.getElapsedTimeSeconds())
+                .addData("Balls", "%d", inv.getModel().getBallCount());
     }
 }

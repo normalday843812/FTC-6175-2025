@@ -24,7 +24,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
-@TeleOp(name = "Color Sensor Tuning (6x)", group = "Tuning")
+// CHANGED: name just for clarity (optional)
+@TeleOp(name = "Color Sensor Tuning (7x)", group = "Tuning")
 public class ColorSensorTuning extends LinearOpMode {
 
     private static final int[] CLASS_ORDER = new int[]{
@@ -34,40 +35,36 @@ public class ColorSensorTuning extends LinearOpMode {
             "Purple HOLE", "Purple SOLID", "Green HOLE", "Green SOLID", "Blank"
     };
 
-    // 6 Sensors total now
-    private static final int SENSOR_COUNT = 6;
+    // CHANGED: 7 Sensors total now
+    private static final int SENSOR_COUNT = 7;
 
-    // Session buffers (resized for 6)
+    // Session buffers (resized for 7)
     private final float[] sessionGain = new float[SENSOR_COUNT];
     private final double[][][] sessionMu = new double[SENSOR_COUNT][5][4];
     private final double[][][] sessionSigma = new double[SENSOR_COUNT][5][4];
 
     @Override
     public void runOpMode() throws InterruptedException {
-        // Initialize 6 sensors
-        // Mapping: 0=Slot0_1, 1=Slot0_2, 2=Slot1_1, 3=Slot1_2, 4=Slot2_1, 5=Slot2_2
         NormalizedColorSensor[] sensors = new NormalizedColorSensor[]{
                 hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_1"),
                 hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_2"),
                 hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_1"),
                 hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_2"),
                 hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_1"),
-                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_2")
+                hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_2"),
+                hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor")
         };
 
-        // Load existing config (make sure ColorCal is updated to size 6!)
         System.arraycopy(SENSOR_GAIN, 0, sessionGain, 0, SENSOR_COUNT);
 
         waitForStart();
         TelemetryManager.TelemetryWrapper panels = PanelsTelemetry.INSTANCE.getFtcTelemetry();
         if (isStopRequested()) return;
 
-        // Tune each sensor sequentially
         for (int sIdx = 0; sIdx < SENSOR_COUNT && opModeIsActive(); sIdx++) {
             tuneSensor(sIdx, sensors[sIdx], panels);
         }
 
-        // Summary Screen
         telemetry.clearAll();
         panels.clearAll();
         telemetry.addData("Gain", Arrays.toString(sessionGain));

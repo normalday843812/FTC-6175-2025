@@ -39,8 +39,8 @@ public class DecodeGameConfig {
     }
 
     public static Pose shootPose(boolean isRed) {
-        return isRed ? new Pose(115, 120, Math.toRadians(45))
-                : new Pose(29, 120, Math.toRadians(135));
+        return isRed ? new Pose(78, 78, Math.toRadians(45))
+                : new Pose(63, 81, Math.toRadians(135));
     }
 
     public static Pose finalPose(boolean isRed) {

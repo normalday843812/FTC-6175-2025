@@ -21,7 +21,6 @@ public class ShooterTest extends LinearOpMode {
         Shooter shooter = new Shooter(
                 hw.getShooterMotor(),
                 hw.getShooterMotor1(),
-                map,
                 this
         );
 

@@ -16,7 +16,7 @@ public class ShooterConfig {
     public static double TRIGGER_SCALE_DOWN = 50;
     public static double TRIGGER_SCALE_UP = 50;
     public static double IDLE_RPM = 800.0;
-    public static double MAX_RPM = 4000;
+    public static double MAX_RPM = 4500;
     public static DcMotorSimple.Direction SHOOTER_MOTOR_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static DcMotorSimple.Direction SHOOTER_MOTOR_DIRECTION_1 = DcMotorSimple.Direction.REVERSE;
     public static double SHOT_ARM_AT_RPM = 3500;

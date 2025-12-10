@@ -44,8 +44,8 @@ public class AutoUnifiedConfig {
     public static double JIGGLE_DWELL_S = 0.12;
 
     // Fallback heading if no tag seen (deg)
-    public static double FALLBACK_HEADING_RED_DEG = 0.0;
-    public static double FALLBACK_HEADING_BLUE_DEG = 180.0;
+    public static double FALLBACK_HEADING_RED_DEG = 45.0;
+    public static double FALLBACK_HEADING_BLUE_DEG = 135.0;
 
     // Teleop sort manager timings
     public static double TELEOP_FEED_DWELL_S = 1.00;

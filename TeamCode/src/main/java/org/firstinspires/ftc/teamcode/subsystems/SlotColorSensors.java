@@ -6,6 +6,7 @@ import static org.firstinspires.ftc.teamcode.config.ColorCal.GREEN_HOLE;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.GREEN_SOLID;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.H;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.HOLE_LEAK;
+import static org.firstinspires.ftc.teamcode.config.ColorCal.INTAKE_SENSOR_IDX;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.K_SCALE;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.MU;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.MIN_BALL_CONF;
@@ -57,10 +58,10 @@ public class SlotColorSensors {
 
     private boolean enabled = true;
 
-    private final double[] ewmaPurple = new double[6];
-    private final double[] ewmaGreen = new double[6];
-    private final double[] ewmaBall = new double[6];
-    private final boolean[] ewmaInit = new boolean[6];
+    private final double[] ewmaPurple = new double[7];
+    private final double[] ewmaGreen = new double[7];
+    private final double[] ewmaBall = new double[7];
+    private final boolean[] ewmaInit = new boolean[7];
 
     public SlotColorSensors(NormalizedColorSensor[] sensors, OpMode opmode) {
         this.devices = sensors;
@@ -74,10 +75,16 @@ public class SlotColorSensors {
     public void update() {
         if (!enabled) return;
 
-        // FIX #3: Show telemetry for each SLOT with both sensors' data
+        // Show telemetry for each SLOT with both sensors' data
         for (int slot = 0; slot < 3; slot++) {
             Observation obs = classifySlot(slot);
             addSlotTelemetry(slot, obs);
+        }
+
+        // Show intake sensor separately for debugging
+        if (devices.length > INTAKE_SENSOR_IDX) {
+            Observation intakeObs = classifySensor(INTAKE_SENSOR_IDX);
+            addIntakeSensorTelemetry(intakeObs);
         }
     }
 
@@ -116,6 +123,18 @@ public class SlotColorSensors {
      * Slot 2 = sensors 4 & 5
      */
     private Observation classifySlot(int slotIdx) {
+        // Special handling for slot 0 - check intake sensor first as override
+        if (slotIdx == 0 && devices.length > INTAKE_SENSOR_IDX) {
+            Observation intakeObs = classifySensor(INTAKE_SENSOR_IDX);
+
+            // If intake sensor detects a ball, use it immediately (early detection override)
+            if (intakeObs.valid && intakeObs.ballConfidence >= MIN_BALL_CONF &&
+                    intakeObs.color != BallColor.NONE) {
+                return intakeObs;
+            }
+        }
+
+        // Normal slot processing with sensor pairs
         int sensorA = slotIdx * 2;
         int sensorB = slotIdx * 2 + 1;
 
@@ -129,6 +148,7 @@ public class SlotColorSensors {
         if (aHasBall && !bHasBall) return obsA;
         if (!aHasBall && bHasBall) return obsB;
         if (aHasBall && bHasBall) {
+            // Both detect - use higher confidence
             return (obsA.ballConfidence > obsB.ballConfidence) ? obsA : obsB;
         }
 
@@ -268,6 +288,15 @@ public class SlotColorSensors {
             }
         }
     }
+    private void addIntakeSensorTelemetry(Observation obs) {
+        tele.addLine("--- INTAKE SENSOR (early detect) ---")
+                .addData("Color", "%s", obs.color.name())
+                .addData("BallConf", "%.2f", obs.ballConfidence)
+                .addData("PurpleConf", "%.2f", obs.purpleConfidence)
+                .addData("GreenConf", "%.2f", obs.greenConfidence)
+                .addData("Valid", "%b", obs.valid);
+    }
+
 
     private static int clamp255(int v) {
         return Math.max(0, Math.min(255, v));

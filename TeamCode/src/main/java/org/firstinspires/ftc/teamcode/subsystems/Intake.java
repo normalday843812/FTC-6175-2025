@@ -25,11 +25,7 @@ public class Intake {
     private enum JamState {IDLE, OUT, IN}
 
     private final DcMotorEx motor;
-    private final GamepadMap map;
     private final TelemetryHelper tele;
-
-    private SubsystemMode mode = SubsystemMode.MANUAL;
-
     private boolean running = false;
     private boolean reverse = false;
 
@@ -38,27 +34,15 @@ public class Intake {
 
     private JamState jamState = JamState.IDLE;
     private final Timer jamTimer = new Timer();
-
     private AutoMode autoMode = AutoMode.OFF;
-
     private boolean fwdArmed = false;
     private boolean revArmed = false;
     private int lastDir = 0;
     private long lastDirChangeMs = 0;
 
-    public Intake(DcMotorEx motor, GamepadMap map, OpMode opmode) {
+    public Intake(DcMotorEx motor, OpMode opmode) {
         this.motor = motor;
-        this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-    }
-
-    public void startTeleop() {
-        mode = SubsystemMode.MANUAL;
-    }
-
-    public void startAuto() {
-        mode = SubsystemMode.AUTO;
-        autoMode = AutoMode.OFF;
     }
 
     public void setAutoMode(AutoMode m) {
@@ -71,24 +55,8 @@ public class Intake {
             return;
         }
 
-        if (mode == SubsystemMode.MANUAL) {
-            operateManual();
-        } else {
-            operateAuto();
-        }
-
         detectAndClearJamIfNeeded();
         addTelemetry();
-    }
-
-    private void operateManual() {
-        if (map != null) {
-            if (map.intakeToggle) running = !running;
-            if (map.intakeReverseToggle) reverse = !reverse;
-            if (map.intakeClearJam) clearJam();
-        }
-        commandedPower = running ? (reverse ? REVERSE_PWR : FORWARD_PWR) : 0.0;
-        motor.setPower(commandedPower);
     }
 
     public void clearJam() {
@@ -101,7 +69,7 @@ public class Intake {
     }
 
     public boolean isRunning() {
-        return running;
+        return this.autoMode != AutoMode.OFF;
     }
 
     private void operateAuto() {
@@ -140,8 +108,6 @@ public class Intake {
                 if (jamTimer.getElapsedTimeSeconds() >= JAM_IN_TIME_S) {
                     motor.setPower(motorBefore);
                     jamState = JamState.IDLE;
-                    running = true;
-                    reverse = false;
                 }
                 return true;
         }
@@ -202,7 +168,6 @@ public class Intake {
 
     private void addTelemetry() {
         tele.addLine("=== INTAKE ===")
-                .addData("Mode", mode::name)
                 .addData("AutoMode", autoMode::name)
                 .addData("CmdPower", "%.2f", commandedPower)
                 .addData("RPM", "%.0f", getMotorRPM())

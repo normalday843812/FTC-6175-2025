@@ -29,9 +29,9 @@ public class ShooterManager {
         if (this.enabled == on) return;
         this.enabled = on;
         if (on) {
-            shooter.startAuto();
+            shooter.start();
         } else {
-            shooter.startTeleop();
+            shooter.start();
             shooter.setAutoRpm(idleRpm);
         }
     }
