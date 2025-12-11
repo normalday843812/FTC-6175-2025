@@ -6,11 +6,9 @@ import static org.firstinspires.ftc.teamcode.config.ColorCal.GREEN_HOLE;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.GREEN_SOLID;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.H;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.HOLE_LEAK;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.INTAKE_SENSOR_IDX;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.K_SCALE;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.MU;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.MIN_BALL_CONF;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.COLOR_MARGIN;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.S;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.SENSOR_GAIN;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.SIGMA;
@@ -31,24 +29,16 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 public class SlotColorSensors {
 
-    public enum BallColor {NONE, PURPLE, GREEN}
+    public enum BallColor {NONE, BALL}
 
     public static final class Observation {
         public final BallColor color;
         public final double ballConfidence;
-        public final double purpleConfidence;
-        public final double greenConfidence;
         public final boolean valid;
 
-        public Observation(BallColor color,
-                           double ballConfidence,
-                           double purpleConfidence,
-                           double greenConfidence,
-                           boolean valid) {
+        public Observation(BallColor color, double ballConfidence, boolean valid) {
             this.color = color;
             this.ballConfidence = ballConfidence;
-            this.purpleConfidence = purpleConfidence;
-            this.greenConfidence = greenConfidence;
             this.valid = valid;
         }
     }
@@ -58,10 +48,8 @@ public class SlotColorSensors {
 
     private boolean enabled = true;
 
-    private final double[] ewmaPurple = new double[7];
-    private final double[] ewmaGreen = new double[7];
-    private final double[] ewmaBall = new double[7];
-    private final boolean[] ewmaInit = new boolean[7];
+    private final double[] ewmaBall = new double[3];
+    private final boolean[] ewmaInit = new boolean[3];
 
     public SlotColorSensors(NormalizedColorSensor[] sensors, OpMode opmode) {
         this.devices = sensors;
@@ -76,97 +64,66 @@ public class SlotColorSensors {
         if (!enabled) return;
 
         // Show telemetry for each SLOT with both sensors' data
-        for (int slot = 0; slot < 3; slot++) {
-            Observation obs = classifySlot(slot);
-            addSlotTelemetry(slot, obs);
-        }
-
-        // Show intake sensor separately for debugging
-        if (devices.length > INTAKE_SENSOR_IDX) {
-            Observation intakeObs = classifySensor(INTAKE_SENSOR_IDX);
-            addIntakeSensorTelemetry(intakeObs);
-        }
+        Observation obs = hasBallObservation();
+        addBallTelemetry(obs);
+    }
+    public boolean hasBall() {
+        return hasBallObservation().color == BallColor.BALL;
     }
 
-    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
+    @Deprecated
     public Observation getObservation(int slot) {
-        return classifySlot(slot);
+        return hasBallObservation();
     }
 
-    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
+    @Deprecated
     public BallColor getColor(int slot) {
-        return classifySlot(slot).color;
+        return hasBallObservation().color;
     }
 
-    // FIX #2: Public API now calls classifySlot() instead of classifySensor()
+    @Deprecated
     public boolean hasAnyBall(int slot) {
-        Observation o = classifySlot(slot);
-        return o.valid && o.ballConfidence >= MIN_BALL_CONF && o.color != BallColor.NONE;
+        return hasBall();
     }
 
+    @Deprecated
     public boolean isFull() {
-        return hasAnyBall(0) && hasAnyBall(1) && hasAnyBall(2);
-    }
-
-    public int findBallSlot(BallColor target) {
-        if (target == BallColor.NONE) return -1;
-        for (int i = 0; i < 3; i++) {
-            if (getColor(i) == target) return i;
-        }
-        return -1;
+        return false;
     }
 
     /**
-     * Classifies a SLOT (0-2) by merging data from both sensors in that slot.
-     * Slot 0 = sensors 0 & 1
-     * Slot 1 = sensors 2 & 3
-     * Slot 2 = sensors 4 & 5
+     * Detects ball presence using all 3 sensors with fusion.
+     * Ball = max(purple, green) confidence from any sensor.
      */
-    private Observation classifySlot(int slotIdx) {
-        // Special handling for slot 0 - check intake sensor first as override
-        if (slotIdx == 0 && devices.length > INTAKE_SENSOR_IDX) {
-            Observation intakeObs = classifySensor(INTAKE_SENSOR_IDX);
+    private Observation hasBallObservation() {
+        double maxConf = 0.0;
+        boolean anyValid = false;
 
-            // If intake sensor detects a ball, use it immediately (early detection override)
-            if (intakeObs.valid && intakeObs.ballConfidence >= MIN_BALL_CONF &&
-                    intakeObs.color != BallColor.NONE) {
-                return intakeObs;
+        // Check all 3 sensors and take max confidence
+        for (int idx = 0; idx < devices.length && idx < 3; idx++) {
+            double conf = classifySensor(idx);
+            if (conf >= 0) {
+                anyValid = true;
+                maxConf = Math.max(maxConf, conf);
             }
         }
 
-        // Normal slot processing with sensor pairs
-        int sensorA = slotIdx * 2;
-        int sensorB = slotIdx * 2 + 1;
-
-        Observation obsA = classifySensor(sensorA);
-        Observation obsB = classifySensor(sensorB);
-
-        // Merge logic: pick the sensor with stronger ball detection
-        boolean aHasBall = obsA.valid && obsA.color != BallColor.NONE;
-        boolean bHasBall = obsB.valid && obsB.color != BallColor.NONE;
-
-        if (aHasBall && !bHasBall) return obsA;
-        if (!aHasBall && bHasBall) return obsB;
-        if (aHasBall && bHasBall) {
-            // Both detect - use higher confidence
-            return (obsA.ballConfidence > obsB.ballConfidence) ? obsA : obsB;
-        }
-
-        // Neither has ball - return higher confidence (noise floor)
-        return (obsA.ballConfidence > obsB.ballConfidence) ? obsA : obsB;
+        BallColor color = (maxConf >= MIN_BALL_CONF) ? BallColor.BALL : BallColor.NONE;
+        return new Observation(color, maxConf, anyValid);
     }
 
     /**
-     * Classifies a single SENSOR (0-5) - internal use only.
+     * Classifies a single sensor and returns ball confidence.
+     * Ball confidence = max(purple, green) since we don't care about color.
+     * @return Ball confidence (0.0-1.0), or -1 if invalid
      */
-    private Observation classifySensor(int idx) {
+    private double classifySensor(int idx) {
         if (idx < 0 || idx >= devices.length) {
-            return new Observation(BallColor.NONE, 0, 0, 0, false);
+            return -1;
         }
 
         NormalizedColorSensor sensor = devices[idx];
         float gain = SENSOR_GAIN[idx];
-        boolean valid = true;
 
         double[] sample = new double[4]; // H,S,V,A
 
@@ -184,17 +141,11 @@ public class SlotColorSensors {
             sample[V] = hsv[2];
             sample[A] = clamp01(rgba.alpha);
         } catch (Throwable t) {
-            valid = false;
-        }
-
-        if (!valid) {
             if (!ewmaInit[idx]) {
-                ewmaPurple[idx] = 0.0;
-                ewmaGreen[idx] = 0.0;
                 ewmaBall[idx] = 0.0;
                 ewmaInit[idx] = true;
             }
-            return new Observation(BallColor.NONE, ewmaBall[idx], ewmaPurple[idx], ewmaGreen[idx], false);
+            return ewmaBall[idx];
         }
 
         double purpleSolid = classConfidence(idx, PURPLE_SOLID, sample);
@@ -207,25 +158,13 @@ public class SlotColorSensors {
         double ball = Math.max(purple, green);
 
         if (!ewmaInit[idx]) {
-            ewmaPurple[idx] = purple;
-            ewmaGreen[idx] = green;
             ewmaBall[idx] = ball;
             ewmaInit[idx] = true;
         } else {
-            ewmaPurple[idx] = EWMA_ALPHA * purple + (1.0 - EWMA_ALPHA) * ewmaPurple[idx];
-            ewmaGreen[idx] = EWMA_ALPHA * green + (1.0 - EWMA_ALPHA) * ewmaGreen[idx];
             ewmaBall[idx] = EWMA_ALPHA * ball + (1.0 - EWMA_ALPHA) * ewmaBall[idx];
         }
 
-        BallColor color = BallColor.NONE;
-        if (ewmaBall[idx] >= MIN_BALL_CONF) {
-            double diff = Math.abs(ewmaPurple[idx] - ewmaGreen[idx]);
-            if (diff >= COLOR_MARGIN) {
-                color = ewmaPurple[idx] > ewmaGreen[idx] ? BallColor.PURPLE : BallColor.GREEN;
-            }
-        }
-
-        return new Observation(color, ewmaBall[idx], ewmaPurple[idx], ewmaGreen[idx], true);
+        return ewmaBall[idx];
     }
 
     private static double classConfidence(int sensorIndex, int cls, double[] x) {
@@ -251,50 +190,18 @@ public class SlotColorSensors {
         return (d > 180.0) ? 360.0 - d : d;
     }
 
-    // FIX #3: New telemetry method that shows slot-level data with both sensors
-    private void addSlotTelemetry(int slot, Observation obs) {
-        int sensorA = slot * 2;
-        int sensorB = slot * 2 + 1;
-
-        tele.addLine("--- SLOT " + slot + " (sensors " + sensorA + "," + sensorB + ") ---")
-                .addData("Color", "%s", obs.color.name())
-                .addData("BallConf", "%.2f", obs.ballConfidence)
-                .addData("PurpleConf", "%.2f", obs.purpleConfidence)
-                .addData("GreenConf", "%.2f", obs.greenConfidence)
+    private void addBallTelemetry(Observation obs) {
+        tele.addLine("=== BALL SENSOR ===")
+                .addData("Ball", "%s", obs.color == BallColor.BALL ? "YES" : "no")
+                .addData("Confidence", "%.2f", obs.ballConfidence)
                 .addData("Valid", "%b", obs.valid);
 
-        // Show raw HSV from both sensors for debugging
-        if (TELEMETRY_ENABLED && devices[sensorA] != null && devices[sensorB] != null) {
-            try {
-                NormalizedRGBA rgbaA = devices[sensorA].getNormalizedColors();
-                NormalizedRGBA rgbaB = devices[sensorB].getNormalizedColors();
-
-                int rA = clamp255(Math.round(rgbaA.red * 255f));
-                int gA = clamp255(Math.round(rgbaA.green * 255f));
-                int bA = clamp255(Math.round(rgbaA.blue * 255f));
-                float[] hsvA = new float[3];
-                Color.RGBToHSV(rA, gA, bA, hsvA);
-
-                int rB = clamp255(Math.round(rgbaB.red * 255f));
-                int gB = clamp255(Math.round(rgbaB.green * 255f));
-                int bB = clamp255(Math.round(rgbaB.blue * 255f));
-                float[] hsvB = new float[3];
-                Color.RGBToHSV(rB, gB, bB, hsvB);
-
-                tele.addData("Sensor" + sensorA + " H/S/V", "%.0f/%.2f/%.2f", hsvA[0], hsvA[1], hsvA[2])
-                        .addData("Sensor" + sensorB + " H/S/V", "%.0f/%.2f/%.2f", hsvB[0], hsvB[1], hsvB[2]);
-            } catch (Throwable t) {
-                // Ignore telemetry errors
+        // Show individual sensor confidences for debugging
+        if (TELEMETRY_ENABLED) {
+            for (int i = 0; i < Math.min(devices.length, 3); i++) {
+                tele.addData("Sensor" + i, "%.2f", ewmaBall[i]);
             }
         }
-    }
-    private void addIntakeSensorTelemetry(Observation obs) {
-        tele.addLine("--- INTAKE SENSOR (early detect) ---")
-                .addData("Color", "%s", obs.color.name())
-                .addData("BallConf", "%.2f", obs.ballConfidence)
-                .addData("PurpleConf", "%.2f", obs.purpleConfidence)
-                .addData("GreenConf", "%.2f", obs.greenConfidence)
-                .addData("Valid", "%b", obs.valid);
     }
 
 

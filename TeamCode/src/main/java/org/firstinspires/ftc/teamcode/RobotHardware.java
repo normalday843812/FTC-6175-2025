@@ -168,14 +168,10 @@ public class RobotHardware {
     }
 
     public void initSpindexColorSensors() {
-        spindexSensors = new NormalizedColorSensor[7];
+        spindexSensors = new NormalizedColorSensor[3];
         spindexSensors[0] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_1");
         spindexSensors[1] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_0_2");
-        spindexSensors[2] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_1");
-        spindexSensors[3] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_1_2");
-        spindexSensors[4] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_1");
-        spindexSensors[5] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "spindex_color_2_2");
-        spindexSensors[6] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor");
+        spindexSensors[2] = inputOpMode.hardwareMap.get(NormalizedColorSensor.class, "intake_color_sensor");
     }
 
     // Getters

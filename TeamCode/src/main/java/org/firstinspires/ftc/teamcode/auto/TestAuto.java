@@ -90,11 +90,9 @@ public class TestAuto extends LinearOpMode {
         drive.startAuto();
 
         AutoManager.Options options = new AutoManager.Options(
-                TestAutoConfig.ENABLE_PATTERN_SEEK,
                 TestAutoConfig.ENABLE_INTAKE,
                 TestAutoConfig.ENABLE_DEPOSIT,
-                TestAutoConfig.ENABLE_FINAL_MOVE,
-                TestAutoConfig.USE_COLOR_SENSORS
+                TestAutoConfig.ENABLE_FINAL_MOVE
         );
 
         AutoManager auto = new AutoManager(

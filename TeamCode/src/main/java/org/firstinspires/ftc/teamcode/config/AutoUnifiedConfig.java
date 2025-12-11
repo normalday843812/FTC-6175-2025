@@ -17,10 +17,6 @@ public class AutoUnifiedConfig {
     public static double PATH_TIMEOUT_TO_GOAL_S = 4.5;
     public static double PATH_TIMEOUT_TO_INTAKE_S = 5.0;
 
-    // Pattern seek
-    public static long PATTERN_STABLE_HOLD_MS = ShooterYawConfig.STABLE_HOLD_MS_DEFAULT;
-    public static double PATTERN_SEEK_TIMEOUT_S = 2.5;
-
     // Spindex decisions
     public static boolean PREFER_CLOCKWISE_ON_TIE = true;
 

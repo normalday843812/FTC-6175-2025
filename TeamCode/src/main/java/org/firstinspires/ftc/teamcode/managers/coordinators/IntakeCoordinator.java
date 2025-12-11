@@ -1,8 +1,5 @@
 package org.firstinspires.ftc.teamcode.managers.coordinators;
 
-import static org.firstinspires.ftc.teamcode.config.ColorCal.COLOR_MARGIN;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.MIN_BALL_CONF;
-
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
@@ -23,10 +20,10 @@ public class IntakeCoordinator {
         this.sensors = sensors;
     }
 
-    public SlotColorSensors.BallColor update(GamepadMap map) {
+    public boolean update(GamepadMap map) {
         handleInputs(map);
         applyState();
-        return running ? checkForBall() : null;
+        return running && checkForBall();
     }
 
     public void forceStart() {
@@ -68,23 +65,19 @@ public class IntakeCoordinator {
         }
     }
 
-    private SlotColorSensors.BallColor checkForBall() {
-        SlotColorSensors.Observation obs = sensors.getObservation(0);
-
-        boolean detected = obs.valid
-                && obs.ballConfidence >= MIN_BALL_CONF
-                && Math.abs(obs.purpleConfidence - obs.greenConfidence) >= COLOR_MARGIN;
+    private boolean checkForBall() {
+        boolean detected = sensors.hasBall();
 
         if (detected) {
             confirmationCount++;
             if (confirmationCount >= CONFIRMATION_THRESHOLD) {
                 confirmationCount = 0;
-                return obs.color;
+                return true;
             }
         } else {
             confirmationCount = 0;
         }
 
-        return null;
+        return false;
     }
 }

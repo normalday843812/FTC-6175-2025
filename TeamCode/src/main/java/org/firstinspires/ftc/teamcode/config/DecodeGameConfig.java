@@ -1,25 +1,10 @@
 package org.firstinspires.ftc.teamcode.config;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_GPP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PGP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PPG;
-
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.geometry.Pose;
 
 @Configurable
 public class DecodeGameConfig {
-    // Motif patterns: true = PURPLE, false = GREEN
-    public static boolean[] PATTERN_GPP = new boolean[]{false, true, true};
-    public static boolean[] PATTERN_PGP = new boolean[]{true, false, true};
-    public static boolean[] PATTERN_PPG = new boolean[]{true, true, false};
-
-    public static boolean[] patternForTag(int tagId) {
-        if (tagId == APRIL_TAG_GPP) return PATTERN_GPP;
-        if (tagId == APRIL_TAG_PGP) return PATTERN_PGP;
-        if (tagId == APRIL_TAG_PPG) return PATTERN_PPG;
-        return null;
-    }
 
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
             new Pose(103, 84, Math.toRadians(0)),

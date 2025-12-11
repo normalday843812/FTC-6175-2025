@@ -1,16 +1,11 @@
 package org.firstinspires.ftc.teamcode.managers;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_GPP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PGP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PPG;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_TARGET_RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEFAULT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FORWARD_SPEED;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FORWARD_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_GOAL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_INTAKE_S;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATTERN_SEEK_TIMEOUT_S;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATTERN_STABLE_HOLD_MS;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
@@ -32,42 +27,34 @@ import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class AutoManager {
     public enum State {
-        SEEK_PATTERN,
-        SPINDEX_DECIDE,
-        SPINDEX_SETTLE,      // NEW: Wait for spindexer to physically move
-        ALIGN_EMPTY_SLOT,    // NEW: Rotate empty bucket to front before intake
-        PATH_TO_GOAL,
-        DEPOSIT,
-        INTAKE_GOTO_SET,
-        INTAKE_FORWARD,
-        FINAL_MOVE,
+        PATH_TO_SHOOT,
+        SHOOTING,
+        ROTATE_NEXT_BALL,
+        PATH_TO_INTAKE,
+        ALIGN_EMPTY_SLOT,
+        INTAKING,
+        STORE_BALL,
+        FINAL_PARK,
         DONE
     }
 
     public static final class Options {
-        public final boolean enablePatternSeek;
         public final boolean enableIntake;
         public final boolean enableDeposit;
         public final boolean enableFinalMove;
-        public final boolean useColorSensors;
 
-        public Options(boolean enablePatternSeek,
-                       boolean enableIntake,
-                       boolean enableDeposit,
-                       boolean enableFinalMove,
-                       boolean useColorSensors) {
-            this.enablePatternSeek = enablePatternSeek;
+        public Options(boolean enableIntake, boolean enableDeposit, boolean enableFinalMove) {
             this.enableIntake = enableIntake;
             this.enableDeposit = enableDeposit;
             this.enableFinalMove = enableFinalMove;
-            this.useColorSensors = useColorSensors;
         }
 
         public static Options defaults() {
-            return new Options(true, true, true, true, true);
+            return new Options(true, true, true);
         }
     }
 
+    // Dependencies
     private final TelemetryHelper tele;
     private final Mecanum drive;
     private final MotionController motion;
@@ -78,24 +65,18 @@ public class AutoManager {
     private final SlotColorSensors slots;
     private final InventoryManager inv;
     private final Transfer transfer;
-
     private final HeadingTarget heading;
     private final boolean isRed;
     private final Pose shootPose, finalPose;
-
     private final DepositController deposit;
-    private final Timer t = new Timer();
-    private State s;
-
     private final UiLight ui;
     private final Options options;
 
-    private boolean pathToGoalIssued = false;
-    private boolean intakePathIssued = false;
-    private boolean finalPathIssued = false;
-
-    // NEW: Track what state to go to after spindexer settles
-    private State stateAfterSettle = State.DONE;
+    // State
+    private final Timer t = new Timer();
+    private State s;
+    private int shotsRemaining = 3;  // Assume 3 balls at start
+    private boolean pathIssued = false;
 
     public AutoManager(Mecanum drive,
                        MotionController motion,
@@ -149,9 +130,6 @@ public class AutoManager {
         this.tele = tele;
         this.deposit = new DepositController(shooter, transfer, spindexer, tele);
         this.options = options == null ? Options.defaults() : options;
-        if (this.slots != null) {
-            this.slots.setEnabled(this.options.useColorSensors);
-        }
     }
 
     public void start(boolean depositRoute) {
@@ -160,20 +138,20 @@ public class AutoManager {
         shooterYaw.start();
         shooter.setAutoRpm(IDLE_RPM);
 
-        // Sync model from sensors at start
-        if (slots != null && options.useColorSensors) {
-            inv.syncFromSensors(slots, spindexer);
-        }
+        shotsRemaining = 3;
 
-        boolean wantDeposit = depositRoute && options.enableDeposit;
-        if (wantDeposit) {
-            s = options.enablePatternSeek ? State.SEEK_PATTERN : State.SPINDEX_DECIDE;
+        inv.reset();
+        SpindexerModel model = inv.getModel();
+        model.setBucketContents(0, SpindexerModel.BallColor.BALL);
+        model.setBucketContents(1, SpindexerModel.BallColor.BALL);
+        model.setBucketContents(2, SpindexerModel.BallColor.BALL);
+
+        if (depositRoute && options.enableDeposit) {
+            s = State.PATH_TO_SHOOT;
         } else {
-            s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
+            s = options.enableFinalMove ? State.FINAL_PARK : State.DONE;
         }
-        pathToGoalIssued = false;
-        intakePathIssued = false;
-        finalPathIssued = false;
+        pathIssued = false;
         t.resetTimer();
     }
 
@@ -184,271 +162,263 @@ public class AutoManager {
         if (transfer != null) transfer.operate();
 
         switch (s) {
-            case SEEK_PATTERN:
-                if (!options.enablePatternSeek) {
-                    s = State.SPINDEX_DECIDE;
-                    t.resetTimer();
-                    break;
-                }
-                if (ui != null) ui.setBase(UiLightConfig.UiState.SEEKING);
-                shooterYaw.seekPattern(new int[]{
-                        APRIL_TAG_GPP,
-                        APRIL_TAG_PGP,
-                        APRIL_TAG_PPG
-                }, PATTERN_STABLE_HOLD_MS);
-                shooterYaw.operate();
-                shooter.operate();
-                if (shooterYaw.isPatternChosen()) {
-                    inv.setPatternFromTagId(shooterYaw.getChosenPatternId());
-                    s = State.SPINDEX_DECIDE;
-                    t.resetTimer();
-                } else if (t.getElapsedTimeSeconds() >= PATTERN_SEEK_TIMEOUT_S) {
-                    s = State.SPINDEX_DECIDE;
-                    t.resetTimer();
-                }
+            case PATH_TO_SHOOT:
+                handlePathToShoot();
                 break;
 
-            case SPINDEX_DECIDE: {
-                if (ui != null) ui.setBase(UiLightConfig.UiState.DECIDING);
-                shooter.operate();
-                shooterYaw.operate();
-
-                if (spindexer != null) {
-                    int targetSlot = inv.decideTargetSlot(slots, spindexer);
-
-                    if (targetSlot >= 0) {
-                        if (targetSlot != spindexer.getCurrentSlot()) {
-                            spindexer.setSlot(targetSlot);
-                            stateAfterSettle = State.PATH_TO_GOAL;
-                            s = State.SPINDEX_SETTLE;
-                        } else if (options.enableDeposit) {
-                            s = State.PATH_TO_GOAL;
-                            pathToGoalIssued = false;
-                        } else {
-                            s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                        }
-                    } else if (options.enableIntake && inv.setsRemain()) {
-                        s = State.ALIGN_EMPTY_SLOT;
-                        intakePathIssued = false;
-                    } else {
-                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                        finalPathIssued = false;
-                    }
-                }
-
-                t.resetTimer();
-                break;
-            }
-
-            case SPINDEX_SETTLE:
-                if (spindexer != null) {
-                    if (spindexer.isSettled()) {
-                        s = stateAfterSettle;
-                        t.resetTimer();
-                    }
-                }
+            case SHOOTING:
+                handleShooting();
                 break;
 
-            case ALIGN_EMPTY_SLOT: {
-                int emptySlot;
-                if (spindexer != null) {
-                    emptySlot = inv.findNearestEmptySlot(slots, spindexer);
-                    if (emptySlot >= 0 && emptySlot != spindexer.getCurrentSlot()) {
-                        spindexer.setSlot(emptySlot);
-                        stateAfterSettle = State.INTAKE_GOTO_SET;
-                        s = State.SPINDEX_SETTLE;
-                    } else {
-                        s = State.INTAKE_GOTO_SET;
-                        intakePathIssued = false;
-                    }
-                }
-                t.resetTimer();
+            case ROTATE_NEXT_BALL:
+                handleRotateNextBall();
                 break;
-            }
 
-            case PATH_TO_GOAL: {
-                if (!options.enableDeposit) {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    t.resetTimer();
-                    finalPathIssued = false;
-                    break;
-                }
-                if (ui != null) ui.setBase(UiLightConfig.UiState.NAVIGATING);
-                shooterYaw.lockAllianceGoal();
-                shooterYaw.operate();
-
-                if (!pathToGoalIssued) {
-                    double headDeg = heading.getTargetHeadingDeg(shootPose);
-                    motion.followToPose(shootPose, headDeg);
-                    pathToGoalIssued = true;
-                }
-
-                double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
-                shooter.setAutoRpm(rpm);
-                shooter.operate();
-
-                if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_GOAL_S) {
-                    deposit.reset();
-                    s = State.DEPOSIT;
-                    t.resetTimer();
-                }
+            case PATH_TO_INTAKE:
+                handlePathToIntake();
                 break;
-            }
 
-            case DEPOSIT: {
-                if (!options.enableDeposit) {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    t.resetTimer();
-                    break;
-                }
-
-                if (ui != null) {
-                    ui.setBase(shooter.isAtTarget(TARGET_RPM_BAND)
-                            ? UiLightConfig.UiState.READY
-                            : UiLightConfig.UiState.SPINUP);
-                }
-
-                shooterYaw.operate();
-
-                double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
-
-                DepositController.Result r = deposit.update(rpm);
-                if (r == DepositController.Result.SHOT) {
-                    if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
-                    inv.onShot(); // Updates model
-
-                    // Check if more balls to shoot (using model)
-                    SpindexerModel model = inv.getModel();
-                    if (model.getBallCount() > 0) {
-                        s = State.SPINDEX_DECIDE;
-                        pathToGoalIssued = false;
-                        intakePathIssued = false;
-                        finalPathIssued = false;
-                    } else if (options.enableIntake && inv.setsRemain()) {
-                        s = State.ALIGN_EMPTY_SLOT;
-                        intakePathIssued = false;
-                    } else {
-                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                        finalPathIssued = false;
-                    }
-                    t.resetTimer();
-                } else if (r == DepositController.Result.FAIL) {
-                    if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 500);
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    finalPathIssued = false;
-                    t.resetTimer();
-                }
+            case ALIGN_EMPTY_SLOT:
+                handleAlignEmptySlot();
                 break;
-            }
 
-            case INTAKE_GOTO_SET: {
-                if (!options.enableIntake) {
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    t.resetTimer();
-                    finalPathIssued = false;
-                    break;
-                }
-                if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
-                if (!intakePathIssued) {
-                    Pose target = inv.nextIntakePose(isRed);
-                    double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
-                    motion.followToPose(target, headDeg);
-                    intakePathIssued = true;
-                }
-
-                if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_INTAKE_S) {
-                    inv.markOneIntakeSetVisited();
-                    intake.setAutoMode(Intake.AutoMode.FORWARD);
-                    s = State.INTAKE_FORWARD;
-                    pathToGoalIssued = false;
-                    t.resetTimer();
-                }
+            case INTAKING:
+                handleIntaking();
                 break;
-            }
 
-            case INTAKE_FORWARD: {
-                if (!options.enableIntake) {
-                    drive.clearAutoCommand();
-                    s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    t.resetTimer();
-                    break;
-                }
-                if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
-                motion.translateFacing(0, INTAKE_FORWARD_SPEED, heading);
-                intake.setAutoMode(Intake.AutoMode.FORWARD);
-                intake.operate();
-
-                boolean gotBall = false;
-                if (slots != null) {
-                    SlotColorSensors.BallColor detected = slots.getColor(0);
-                    if (detected != SlotColorSensors.BallColor.NONE) {
-                        gotBall = true;
-                        inv.onBallIntaked(detected);
-                    }
-                }
-                boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
-
-                if (gotBall) {
-                    if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
-                    intake.setAutoMode(Intake.AutoMode.OFF);
-                    drive.clearAutoCommand();
-                    if (options.enableDeposit) {
-                        s = State.SPINDEX_DECIDE;
-                    } else {
-                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                    }
-                    pathToGoalIssued = false;
-                    intakePathIssued = false;
-                    finalPathIssued = false;
-                    t.resetTimer();
-                } else if (timeout) {
-                    intake.setAutoMode(Intake.AutoMode.OFF);
-                    drive.clearAutoCommand();
-                    SpindexerModel model = inv.getModel();
-                    if (model.getBallCount() > 0 && options.enableDeposit) {
-                        s = State.SPINDEX_DECIDE;
-                        pathToGoalIssued = false;
-                    } else if (options.enableIntake && inv.setsRemain()) {
-                        s = State.ALIGN_EMPTY_SLOT;
-                        intakePathIssued = false;
-                    } else {
-                        s = options.enableFinalMove ? State.FINAL_MOVE : State.DONE;
-                        finalPathIssued = false;
-                    }
-                    t.resetTimer();
-                }
+            case STORE_BALL:
+                handleStoreBall();
                 break;
-            }
 
-            case FINAL_MOVE: {
-                if (!options.enableFinalMove) {
-                    s = State.DONE;
-                    break;
-                }
-                if (ui != null) ui.setBase(UiLightConfig.UiState.PARK);
-                if (!finalPathIssued) {
-                    double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
-                    motion.followToPose(finalPose, headDeg);
-                    finalPathIssued = true;
-                }
-
-                if (!motion.isBusy() || t.getElapsedTimeSeconds() >= DEFAULT_TIMEOUT_S) {
-                    s = State.DONE;
-                }
+            case FINAL_PARK:
+                handleFinalPark();
                 break;
-            }
 
             case DONE:
-                if (ui != null) ui.setBase(UiLightConfig.UiState.DONE);
-                drive.setAutoDrive(0, 0, 0, true, 0);
-                shooter.setAutoRpm(0);
-                shooter.operate();
+                handleDone();
                 break;
         }
 
+        addTelemetry();
+    }
+
+    private void handlePathToShoot() {
+        if (!options.enableDeposit) {
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            return;
+        }
+
+        if (ui != null) ui.setBase(UiLightConfig.UiState.NAVIGATING);
+        shooterYaw.lockAllianceGoal();
+        shooterYaw.operate();
+
+        if (!pathIssued) {
+            double headDeg = heading.getTargetHeadingDeg(shootPose);
+            motion.followToPose(shootPose, headDeg);
+            pathIssued = true;
+        }
+
+        // Spin up shooter while moving
+        double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
+        shooter.setAutoRpm(rpm);
+        shooter.operate();
+
+        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_GOAL_S) {
+            deposit.reset();
+            transitionTo(State.SHOOTING);
+        }
+    }
+
+    private void handleShooting() {
+        if (!options.enableDeposit) {
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            return;
+        }
+
+        if (ui != null) {
+            ui.setBase(shooter.isAtTarget(TARGET_RPM_BAND)
+                    ? UiLightConfig.UiState.READY
+                    : UiLightConfig.UiState.SPINUP);
+        }
+
+        shooterYaw.operate();
+        double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
+
+        DepositController.Result r = deposit.update(rpm);
+        if (r == DepositController.Result.SHOT) {
+            if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
+            inv.onShot();
+            shotsRemaining--;
+
+            if (shotsRemaining > 0) {
+                // More balls to shoot
+                transitionTo(State.ROTATE_NEXT_BALL);
+            } else if (options.enableIntake && inv.setsRemain()) {
+                // All shot, go intake more
+                transitionTo(State.PATH_TO_INTAKE);
+            } else {
+                // Done shooting, no intake available
+                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            }
+        } else if (r == DepositController.Result.FAIL) {
+            if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 500);
+            // Even on failure, decrement and continue
+            shotsRemaining--;
+            if (shotsRemaining > 0) {
+                transitionTo(State.ROTATE_NEXT_BALL);
+            } else if (options.enableIntake && inv.setsRemain()) {
+                transitionTo(State.PATH_TO_INTAKE);
+            } else {
+                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            }
+        }
+    }
+
+    private void handleRotateNextBall() {
+        // Find next ball and rotate to it
+        int nextBall = inv.decideTargetSlot(slots, spindexer);
+        if (nextBall >= 0 && nextBall != spindexer.getCurrentSlot()) {
+            spindexer.setSlot(nextBall);
+        }
+
+        // Wait for spindexer to settle
+        if (spindexer.isSettled()) {
+            deposit.reset();
+            transitionTo(State.SHOOTING);
+        }
+    }
+
+    private void handlePathToIntake() {
+        if (!options.enableIntake) {
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            return;
+        }
+
+        if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
+
+        if (!pathIssued) {
+            Pose target = inv.nextIntakePose(isRed);
+            double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
+            motion.followToPose(target, headDeg);
+            pathIssued = true;
+        }
+
+        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_INTAKE_S) {
+            inv.markOneIntakeSetVisited();
+            transitionTo(State.ALIGN_EMPTY_SLOT);
+        }
+    }
+
+    private void handleAlignEmptySlot() {
+        int emptySlot = inv.findNearestEmptySlot(slots, spindexer);
+        if (emptySlot >= 0 && emptySlot != spindexer.getCurrentSlot()) {
+            spindexer.setSlot(emptySlot);
+        }
+
+        if (spindexer.isSettled()) {
+            intake.setAutoMode(Intake.AutoMode.FORWARD);
+            transitionTo(State.INTAKING);
+        }
+    }
+
+    private void handleIntaking() {
+        if (!options.enableIntake) {
+            drive.clearAutoCommand();
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            return;
+        }
+
+        if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
+
+        // Creep forward while intaking
+        motion.translateFacing(0, INTAKE_FORWARD_SPEED, heading);
+        intake.setAutoMode(Intake.AutoMode.FORWARD);
+        intake.operate();
+
+        // Check for ball
+        boolean gotBall = slots != null && slots.hasBall();
+        boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
+
+        if (gotBall) {
+            if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
+            intake.setAutoMode(Intake.AutoMode.OFF);
+            drive.clearAutoCommand();
+            inv.onBallIntaked();
+            transitionTo(State.STORE_BALL);
+        } else if (timeout) {
+            // Timeout
+            intake.setAutoMode(Intake.AutoMode.OFF);
+            drive.clearAutoCommand();
+
+            if (inv.hasBalls() && options.enableDeposit) {
+                // Have some balls, go shoot them
+                shotsRemaining = inv.getBallCount();
+                transitionTo(State.PATH_TO_SHOOT);
+            } else if (inv.setsRemain()) {
+                // Try next intake spot
+                transitionTo(State.PATH_TO_INTAKE);
+            } else {
+                // No more spots, go park
+                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            }
+        }
+    }
+
+    private void handleStoreBall() {
+        // Raise transfer lever to secure ball
+        transfer.raiseLever();
+
+        // Check if we have more empty slots and intake spots
+        if (inv.hasEmptySlots() && inv.setsRemain()) {
+            // Rotate to next empty and continue intaking
+            transitionTo(State.ALIGN_EMPTY_SLOT);
+        } else if (inv.hasBalls() && options.enableDeposit) {
+            // Full or no more spots - go shoot
+            shotsRemaining = inv.getBallCount();
+            transitionTo(State.PATH_TO_SHOOT);
+        } else {
+            // Nothing to do
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+        }
+    }
+
+    private void handleFinalPark() {
+        if (!options.enableFinalMove) {
+            transitionTo(State.DONE);
+            return;
+        }
+
+        if (ui != null) ui.setBase(UiLightConfig.UiState.PARK);
+
+        if (!pathIssued) {
+            double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
+            motion.followToPose(finalPose, headDeg);
+            pathIssued = true;
+        }
+
+        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= DEFAULT_TIMEOUT_S) {
+            transitionTo(State.DONE);
+        }
+    }
+
+    private void handleDone() {
+        if (ui != null) ui.setBase(UiLightConfig.UiState.DONE);
+        drive.setAutoDrive(0, 0, 0, true, 0);
+        shooter.setAutoRpm(0);
+        shooter.operate();
+    }
+
+    private void transitionTo(State newState) {
+        s = newState;
+        pathIssued = false;
+        t.resetTimer();
+    }
+
+    private void addTelemetry() {
         tele.addLine("=== AUTO ===")
                 .addData("State", s::name)
                 .addData("t", "%.2f", t.getElapsedTimeSeconds())
-                .addData("Balls", "%d", inv.getModel().getBallCount());
+                .addData("ShotsLeft", "%d", shotsRemaining)
+                .addData("Balls", "%d", inv.getBallCount());
     }
 }

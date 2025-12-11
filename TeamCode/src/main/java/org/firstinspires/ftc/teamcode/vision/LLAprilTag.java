@@ -1,9 +1,6 @@
 package org.firstinspires.ftc.teamcode.vision;
 
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_BLUE;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_GPP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PGP;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_PPG;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MAX_TAG_DIST_M;
 import static org.firstinspires.ftc.teamcode.config.LLAprilTagConfig.MIN_TAG_AREA;
@@ -26,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 public class LLAprilTag {
-    public static Integer SELECTED_PATTERN_TAG_ID = null;
 
     public static final class YawInfo {
         public final double rawDeg;
@@ -73,8 +69,6 @@ public class LLAprilTag {
     private final Limelight3A limelight;
     private final TelemetryHelper tele;
 
-    private double selectedPatternConfidence = 0.0;
-
     private final Map<Integer, TagState> states = new HashMap<>();
     private LLResult result;
 
@@ -107,14 +101,6 @@ public class LLAprilTag {
                     states.computeIfAbsent(id, k -> new TagState())
                             .push(yaw, area, dist, now);
                 }
-
-                if (id == APRIL_TAG_GPP || id == APRIL_TAG_PGP || id == APRIL_TAG_PPG) {
-                    double conf = confidenceFromDistance(f);
-                    if (conf > selectedPatternConfidence) {
-                        selectedPatternConfidence = conf;
-                        SELECTED_PATTERN_TAG_ID = id;
-                    }
-                }
             }
         }
 
@@ -123,12 +109,6 @@ public class LLAprilTag {
 
     public Pose3D getBotPose() {
         return (result != null && result.isValid()) ? result.getBotpose() : null;
-    }
-
-    private static double confidenceFromDistance(LLResultTypes.FiducialResult f) {
-        double meters = distanceMeters(f);
-        if (!Double.isFinite(meters)) return 0.0;
-        return 1.0 / (1.0 + meters);
     }
 
     public YawInfo getYawInfoForTag(int tagId) {
@@ -175,8 +155,6 @@ public class LLAprilTag {
         boolean poseAvailable = result != null && result.getBotpose() != null;
 
         tele.addLine("=== LL APRILTAG ===")
-                .addData("Pattern ID", () -> String.valueOf(SELECTED_PATTERN_TAG_ID))
-                .addData("Pattern Confidence", "%.3f", selectedPatternConfidence)
                 .addData("Pose Set", poseAvailable ? "yes" : "no");
 
         if (poseAvailable) {

@@ -17,10 +17,7 @@ public class AutoConfig {
     public static Pose START_RED_DEPOT = new Pose(117.5,131.2,Math.toRadians(-142));
     public static Pose START_BLUE_DEPOT = new Pose(27.29,131.2, Math.toRadians(-36));
 
-    // Vision
+    // Vision (alliance goal tags)
     public static int APRIL_TAG_BLUE = 20;
     public static int APRIL_TAG_RED = 24;
-    public static int APRIL_TAG_GPP = 21;
-    public static int APRIL_TAG_PGP = 22;
-    public static int APRIL_TAG_PPG = 23;
 }

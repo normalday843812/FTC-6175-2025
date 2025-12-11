@@ -107,7 +107,7 @@ public class TeleopManager {
         sensors.update();
 
         // Coordinators process their gamepad inputs
-        SlotColorSensors.BallColor detected = intakeCoord.update(map);
+        boolean ballDetected = intakeCoord.update(map);
         boolean shotOccurred = shootCoord.update(map);
         spindexCoord.update(map);
 
@@ -117,7 +117,7 @@ public class TeleopManager {
         }
 
         if (enabled) {
-            runStateMachine(map, detected, shotOccurred);
+            runStateMachine(map, ballDetected, shotOccurred);
             updateLights();
         }
 
@@ -132,11 +132,11 @@ public class TeleopManager {
     }
 
     private void runStateMachine(GamepadMap map,
-                                 SlotColorSensors.BallColor detected,
+                                 boolean ballDetected,
                                  boolean shotOccurred) {
         switch (state) {
             case INTAKING:
-                handleIntaking(map, detected);
+                handleIntaking(map, ballDetected);
                 break;
             case LOADING:
                 handleLoading();
@@ -153,7 +153,7 @@ public class TeleopManager {
         }
     }
 
-    private void handleIntaking(GamepadMap map, SlotColorSensors.BallColor detected) {
+    private void handleIntaking(GamepadMap map, boolean ballDetected) {
         // Ensure correct state
         if (!intakeCoord.isRunning()) {
             intakeCoord.forceStart();
@@ -163,8 +163,8 @@ public class TeleopManager {
         transfer.runTransfer(Transfer.CrState.REVERSE);
 
         // Ball detected - start loading
-        if (detected != null) {
-            spindexCoord.onBallIntaked(detected);
+        if (ballDetected) {
+            spindexCoord.onBallIntaked();
             intakeCoord.forceStop();
             enterState(State.LOADING);
             return;

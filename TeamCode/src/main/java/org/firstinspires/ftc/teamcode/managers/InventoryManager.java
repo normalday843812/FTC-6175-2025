@@ -18,60 +18,15 @@ public class InventoryManager {
         return model;
     }
 
-    // --- Pattern Management (delegates to model) ---
-
-    public void setPatternFromTagId(int tagId) {
-        boolean[] boolPattern = DecodeGameConfig.patternForTag(tagId);
-        if (boolPattern != null) {
-            SpindexerModel.BallColor[] colors = new SpindexerModel.BallColor[boolPattern.length];
-            for (int i = 0; i < boolPattern.length; i++) {
-                colors[i] = boolPattern[i] ? SpindexerModel.BallColor.PURPLE : SpindexerModel.BallColor.GREEN;
-            }
-            model.setPattern(colors);
-        }
-    }
-
-    public boolean isPatternKnown() {
-        return model.getNextPatternColor() != null || !model.isPatternComplete();
-    }
-
-    public boolean wantPurpleThisShot() {
-        SpindexerModel.BallColor next = model.getNextPatternColor();
-        return next == SpindexerModel.BallColor.PURPLE;
-    }
-
-    public void setWantPurple(boolean wantPurple) {
-        // Override pattern - set a single-shot pattern
-        SpindexerModel.BallColor color = wantPurple ?
-                SpindexerModel.BallColor.PURPLE : SpindexerModel.BallColor.GREEN;
-        model.setPattern(color);
-    }
 
     public void onShot() {
         model.onBallShot();
     }
 
-    // --- Bucket Decisions (uses model, not sensors) ---
 
     public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
-        // Sync model with spindexer position
         model.setBucketAtFront(spx.getCurrentSlot());
-
-        // If pattern known, find bucket with needed color
-        SpindexerModel.BallColor needed = model.getNextPatternColor();
-        if (needed != null) {
-            int bucket = model.findBucketWithColor(needed);
-            if (bucket >= 0) return bucket;
-        }
-
-        // No pattern or color not found - find any non-empty bucket
-        for (int i = 0; i < 3; i++) {
-            if (model.getBucketContents(i) != SpindexerModel.BallColor.EMPTY) {
-                return i;
-            }
-        }
-
-        return -1; // All empty
+        return model.findBallBucket();
     }
 
     public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
@@ -83,12 +38,18 @@ public class InventoryManager {
 
     // --- Ball Events (update model) ---
 
-    public void onBallIntaked(SlotColorSensors.BallColor color) {
-        model.onBallIntaked(color);
+    public void onBallIntaked() {
+        model.onBallIntaked();
     }
 
+    @Deprecated
+    public void onBallIntaked(SlotColorSensors.BallColor color) {
+        model.onBallIntaked();
+    }
+
+    @Deprecated
     public void onBallIntaked(SpindexerModel.BallColor color) {
-        model.onBallIntaked(color);
+        model.onBallIntaked();
     }
 
     // --- Sensor Verification ---
@@ -122,6 +83,20 @@ public class InventoryManager {
 
     public boolean setsRemain() {
         return !(visitedSets[0] && visitedSets[1] && visitedSets[2]);
+    }
+
+    // --- Convenience methods ---
+
+    public int getBallCount() {
+        return model.getBallCount();
+    }
+
+    public boolean hasBalls() {
+        return model.getBallCount() > 0;
+    }
+
+    public boolean hasEmptySlots() {
+        return model.getBallCount() < SpindexerModel.NUM_BUCKETS;
     }
 
     // --- Reset ---

@@ -7,11 +7,9 @@ public final class TestAutoConfig {
     private TestAutoConfig() {
     }
 
-    public static boolean ENABLE_PATTERN_SEEK = true;
     public static boolean ENABLE_INTAKE = true;
     public static boolean ENABLE_DEPOSIT = true;
     public static boolean ENABLE_FINAL_MOVE = true;
-    public static boolean USE_COLOR_SENSORS = true;
     public static boolean RUN_DEPOSIT_ROUTE = true;
     public static boolean USE_UI_LIGHT = true;
 

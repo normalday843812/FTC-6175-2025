@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_BLUE;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.CENTER_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_MAX;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_ZONE_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KD;
@@ -14,9 +13,6 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POWER;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MIN_TICKS;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SCAN_AMPLITUDE_DEG;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SCAN_PERIOD_MS;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.SEEK_TIMEOUT_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TAG_STALE_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TICKS_PER_DEG;
@@ -27,15 +23,13 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.util.Timer;
 import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 public class ShooterYaw {
 
     private enum Mode {
         IDLE,
-        TRACK_TAG,
-        SEEK_PATTERN
+        TRACK_TAG
     }
 
     private final DcMotorEx motor;
@@ -55,15 +49,6 @@ public class ShooterYaw {
     private double integral = 0.0;
     private double lastError = 0.0;
     private long lastUpdateMs = 0;
-
-    // Pattern seeking state
-    private int[] patternIds = null;
-    private int patternIndex = 0;
-    private int chosenPatternId = -1;
-    private long stableStartMs = 0;
-    private long stableRequiredMs = 0;
-    private long seekStartMs = 0;
-    private final Timer seekTimer = new Timer();
 
     public ShooterYaw(DcMotorEx motor, LLAprilTag limelight, Follower follower, OpMode opmode) {
         this.motor = motor;
@@ -96,40 +81,10 @@ public class ShooterYaw {
             case TRACK_TAG:
                 operateTrackTag(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
                 break;
-
-            case SEEK_PATTERN:
-                operateSeekPattern(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
-                break;
         }
 
         lastUpdateMs = nowMs;
         addTelemetry(robotHeadingDeg);
-    }
-
-    // --- Pattern Seeking ---
-
-    public void seekPattern(int[] ids, long stableHoldMs) {
-        if (ids == null || ids.length == 0) {
-            mode = Mode.TRACK_TAG;
-            return;
-        }
-
-        patternIds = ids.clone();
-        patternIndex = 0;
-        chosenPatternId = -1;
-        stableRequiredMs = stableHoldMs;
-        stableStartMs = 0;
-        seekStartMs = now();
-        seekTimer.resetTimer();
-        mode = Mode.SEEK_PATTERN;
-    }
-
-    public boolean isPatternChosen() {
-        return chosenPatternId >= 0;
-    }
-
-    public int getChosenPatternId() {
-        return chosenPatternId;
     }
 
     // --- Tracking ---
@@ -166,7 +121,6 @@ public class ShooterYaw {
         motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         targetInitialized = false;
-        chosenPatternId = -1;
         mode = Mode.IDLE;
         resetPID();
     }
@@ -194,53 +148,6 @@ public class ShooterYaw {
 
         double power = calculatePID(desiredTicks, currentTicks, nowMs) + feedforward;
         motor.setPower(clampPower(power));
-    }
-
-    // --- Internal: Seek Pattern Mode ---
-
-    private void operateSeekPattern(long nowMs, double robotHeadingDeg, double robotOmegaDegPerSec) {
-        int currentTagId = patternIds[patternIndex];
-
-        // Scan back and forth
-        double scanOffset = SCAN_AMPLITUDE_DEG * Math.sin(2.0 * Math.PI * (nowMs - seekStartMs) / SCAN_PERIOD_MS);
-        double baseTargetDeg = robotHeadingDeg + scanOffset;
-
-        int desiredTicks = clampTicks(degToTicks(normalizeDeg(baseTargetDeg - robotHeadingDeg) + scanOffset));
-        int currentTicks = motor.getCurrentPosition();
-
-        double power = calculatePID(desiredTicks, currentTicks, nowMs);
-        motor.setPower(clampPower(power));
-
-        // Check if current tag is visible
-        LLAprilTag.YawInfo info = limelight.getYawInfoForTag(currentTagId);
-        boolean tagVisible = info != null && info.fresh && !Double.isNaN(info.rawDeg);
-
-        if (tagVisible) {
-            if (stableStartMs == 0) {
-                stableStartMs = nowMs;
-            } else if (nowMs - stableStartMs >= stableRequiredMs) {
-                // Tag stable long enough - choose it
-                chosenPatternId = currentTagId;
-                targetId = currentTagId;
-                mode = Mode.TRACK_TAG;
-
-                // Initialize tracking from current tag position
-                double currentWorldDeg = robotHeadingDeg + ticksToDeg(currentTicks);
-                targetWorldDeg = normalizeDeg(currentWorldDeg + info.rawDeg);
-                targetInitialized = true;
-                lastTagSeenMs = nowMs;
-                return;
-            }
-        } else {
-            stableStartMs = 0;
-        }
-
-        // Timeout - try next tag
-        if (nowMs - seekStartMs > SEEK_TIMEOUT_MS) {
-            patternIndex = (patternIndex + 1) % patternIds.length;
-            seekStartMs = nowMs;
-            stableStartMs = 0;
-        }
     }
 
     // --- Internal: Vision Update ---
@@ -332,11 +239,5 @@ public class ShooterYaw {
                 .addData("CurrentTicks", "%d", currentTicks)
                 .addData("TagLocked", "%b", isLockedOnTarget())
                 .addData("TargetId", "%d", targetId);
-
-        if (mode == Mode.SEEK_PATTERN) {
-            tele.addData("SeekIndex", "%d", patternIndex)
-                    .addData("ChosenId", "%d", chosenPatternId)
-                    .addData("StableMs", "%d", stableStartMs > 0 ? now() - stableStartMs : 0);
-        }
     }
 }

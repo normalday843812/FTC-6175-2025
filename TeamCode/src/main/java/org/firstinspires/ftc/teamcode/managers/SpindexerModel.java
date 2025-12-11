@@ -77,18 +77,15 @@ public class SpindexerModel {
     public static final int DIRECTION_CCW = -1;
 
     // -------------------------------------------------------------------------
-    // Ball Color Enum (mirrors SlotColorSensors.BallColor for independence)
+    // Ball State Enum (simplified - no color sorting)
     // -------------------------------------------------------------------------
 
     /**
      * Represents the contents of a bucket.
-     * Uses same values as SlotColorSensors.BallColor for compatibility.
      */
     public enum BallColor {
         EMPTY,
-        PURPLE,
-        GREEN,
-        UNKNOWN
+        BALL
     }
 
     // -------------------------------------------------------------------------
@@ -105,15 +102,7 @@ public class SpindexerModel {
      */
     private int bucketAtFront = 0;
 
-    /**
-     * The shooting pattern (order of colors to shoot)
-     */
-    private BallColor[] pattern = null;
-
-    /**
-     * How many balls have been shot in current pattern
-     */
-    private int patternIndex = 0;
+    // Pattern tracking removed - no longer doing color sorting
 
     /**
      * Flag indicating if model may be out of sync with reality
@@ -145,8 +134,6 @@ public class SpindexerModel {
             bucketContents[i] = BallColor.EMPTY;
         }
         bucketAtFront = 0;
-        pattern = null;
-        patternIndex = 0;
         needsVerification = true;
         lastVerification = null;
     }
@@ -213,21 +200,20 @@ public class SpindexerModel {
     /**
      * Updates model when a ball is intaked.
      * Ball always enters at position 0 (front), into whichever bucket is there.
-     *
-     * @param color The color of the ball that was intaked
      */
-    public void onBallIntaked(BallColor color) {
-        bucketContents[bucketAtFront] = color;
+    public void onBallIntaked() {
+        bucketContents[bucketAtFront] = BallColor.BALL;
     }
 
-    /**
-     * Updates model when a ball is intaked (using sensor color type).
-     * Converts from SlotColorSensors.BallColor to internal enum.
-     *
-     * @param sensorColor The color detected by sensors
-     */
+    @Deprecated
+    public void onBallIntaked(BallColor color) {
+        onBallIntaked();
+    }
+
+
+    @Deprecated
     public void onBallIntaked(SlotColorSensors.BallColor sensorColor) {
-        onBallIntaked(fromSensorColor(sensorColor));
+        onBallIntaked();
     }
 
     /**
@@ -236,9 +222,6 @@ public class SpindexerModel {
      */
     public void onBallShot() {
         bucketContents[bucketAtFront] = BallColor.EMPTY;
-        if (pattern != null && patternIndex < pattern.length) {
-            patternIndex++;
-        }
     }
 
     /**
@@ -264,7 +247,7 @@ public class SpindexerModel {
         if (bucket >= 0 && bucket < NUM_BUCKETS) {
             return bucketContents[bucket];
         }
-        return BallColor.UNKNOWN;
+        return BallColor.EMPTY;
     }
 
     /**
@@ -281,28 +264,33 @@ public class SpindexerModel {
     // -------------------------------------------------------------------------
 
     /**
-     * Finds a bucket containing a specific color.
+     * Finds any bucket containing a ball.
      *
-     * @param color The color to find
-     * @return Bucket index (0-2) containing that color, or -1 if not found
+     * @return Bucket index (0-2) containing a ball, or -1 if all empty
      */
-    public int findBucketWithColor(BallColor color) {
+    public int findBallBucket() {
         for (int i = 0; i < NUM_BUCKETS; i++) {
-            if (bucketContents[i] == color) {
+            if (bucketContents[i] == BallColor.BALL) {
                 return i;
             }
         }
         return -1;
     }
 
-    /**
-     * Finds a bucket containing a specific color (using sensor color type).
-     *
-     * @param sensorColor The color to find
-     * @return Bucket index (0-2) containing that color, or -1 if not found
-     */
+    @Deprecated
+    public int findBucketWithColor(BallColor color) {
+        if (color == BallColor.BALL) {
+            return findBallBucket();
+        }
+        return findEmptyBucket();
+    }
+
+    @Deprecated
     public int findBucketWithColor(SlotColorSensors.BallColor sensorColor) {
-        return findBucketWithColor(fromSensorColor(sensorColor));
+        if (sensorColor == SlotColorSensors.BallColor.BALL) {
+            return findBallBucket();
+        }
+        return findEmptyBucket();
     }
 
     /**
@@ -311,7 +299,12 @@ public class SpindexerModel {
      * @return Bucket index (0-2) that is empty, or -1 if all full
      */
     public int findEmptyBucket() {
-        return findBucketWithColor(BallColor.EMPTY);
+        for (int i = 0; i < NUM_BUCKETS; i++) {
+            if (bucketContents[i] == BallColor.EMPTY) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -353,7 +346,7 @@ public class SpindexerModel {
     public int getBallCount() {
         int count = 0;
         for (BallColor c : bucketContents) {
-            if (c != BallColor.EMPTY && c != BallColor.UNKNOWN) {
+            if (c == BallColor.BALL) {
                 count++;
             }
         }
@@ -425,94 +418,6 @@ public class SpindexerModel {
         int ccwDist = rotationsToFront(targetBucket, DIRECTION_CCW);
 
         return (cwDist <= ccwDist) ? DIRECTION_CW : DIRECTION_CCW;
-    }
-
-    // -------------------------------------------------------------------------
-    // Pattern Operations
-    // -------------------------------------------------------------------------
-
-    /**
-     * Sets the shooting pattern.
-     *
-     * @param colors Array of colors in order to shoot (e.g., [PURPLE, GREEN, PURPLE])
-     */
-    public void setPattern(BallColor... colors) {
-        pattern = colors.clone();
-        patternIndex = 0;
-    }
-
-    /**
-     * Sets the shooting pattern from sensor color types.
-     *
-     * @param colors Array of colors in order to shoot
-     */
-    public void setPattern(SlotColorSensors.BallColor... colors) {
-        pattern = new BallColor[colors.length];
-        for (int i = 0; i < colors.length; i++) {
-            pattern[i] = fromSensorColor(colors[i]);
-        }
-        patternIndex = 0;
-    }
-
-    /**
-     * Gets the next color to shoot according to the pattern.
-     *
-     * @return Next color needed, or null if no pattern or pattern complete
-     */
-    public BallColor getNextPatternColor() {
-        if (pattern == null || patternIndex >= pattern.length) {
-            return null;
-        }
-        return pattern[patternIndex];
-    }
-
-    /**
-     * Gets how many shots remain in the pattern.
-     *
-     * @return Number of remaining shots, or 0 if no pattern
-     */
-    public int getRemainingPatternShots() {
-        if (pattern == null) {
-            return 0;
-        }
-        return Math.max(0, pattern.length - patternIndex);
-    }
-
-    /**
-     * Checks if the pattern is complete.
-     *
-     * @return true if no pattern or all shots taken
-     */
-    public boolean isPatternComplete() {
-        return pattern == null || patternIndex >= pattern.length;
-    }
-
-    /**
-     * Finds the bucket containing the next pattern color.
-     *
-     * @return Bucket index (0-2) or -1 if not found or no pattern
-     */
-    public int findNextPatternBucket() {
-        BallColor needed = getNextPatternColor();
-        if (needed == null) {
-            return -1;
-        }
-        return findBucketWithColor(needed);
-    }
-
-    /**
-     * Resets pattern progress without clearing the pattern itself.
-     */
-    public void resetPatternProgress() {
-        patternIndex = 0;
-    }
-
-    /**
-     * Clears the pattern entirely.
-     */
-    public void clearPattern() {
-        pattern = null;
-        patternIndex = 0;
     }
 
     // -------------------------------------------------------------------------
@@ -635,17 +540,6 @@ public class SpindexerModel {
         }
         telemetry.addData("Buckets", contents.toString().trim());
 
-        // Show pattern if set
-        if (pattern != null) {
-            StringBuilder pat = new StringBuilder();
-            for (int i = 0; i < pattern.length; i++) {
-                String marker = (i == patternIndex) ? ">" : " ";
-                pat.append(String.format(Locale.US, "%s%s ", marker, shortColor(pattern[i])));
-            }
-            telemetry.addData("Pattern", pat.toString().trim());
-            telemetry.addData("Next shot", getNextPatternColor());
-        }
-
         // Show verification status
         if (needsVerification) {
             telemetry.addData("Status", "NEEDS VERIFICATION");
@@ -666,60 +560,39 @@ public class SpindexerModel {
      * Converts from SlotColorSensors.BallColor to internal BallColor.
      */
     private BallColor fromSensorColor(SlotColorSensors.BallColor sensorColor) {
-        if (sensorColor == null) {
-            return BallColor.UNKNOWN;
+        if (sensorColor == SlotColorSensors.BallColor.BALL) {
+            return BallColor.BALL;
         }
-        switch (sensorColor) {
-            case PURPLE:
-                return BallColor.PURPLE;
-            case GREEN:
-                return BallColor.GREEN;
-            case NONE:
-                return BallColor.EMPTY;
-            default:
-                return BallColor.UNKNOWN;
-        }
+        return BallColor.EMPTY;
     }
 
     /**
      * Converts from internal BallColor to SlotColorSensors.BallColor.
      */
     public SlotColorSensors.BallColor toSensorColor(BallColor color) {
-        if (color == null) {
-            return SlotColorSensors.BallColor.NONE;
+        if (color == BallColor.BALL) {
+            return SlotColorSensors.BallColor.BALL;
         }
-        switch (color) {
-            case PURPLE:
-                return SlotColorSensors.BallColor.PURPLE;
-            case GREEN:
-                return SlotColorSensors.BallColor.GREEN;
-            default:
-                return SlotColorSensors.BallColor.NONE;
-        }
+        return SlotColorSensors.BallColor.NONE;
     }
 
     /**
-     * Checks if two colors match (EMPTY matches NONE, UNKNOWN matches anything).
+     * Checks if two states match.
      */
     private boolean colorsMatch(BallColor expected, BallColor actual) {
-        if (expected == BallColor.UNKNOWN || actual == BallColor.UNKNOWN) {
-            return true;
-        }
         return expected == actual;
     }
 
     /**
-     * Gets a short string representation of a color for telemetry.
+     * Gets a short string representation of a state for telemetry.
      */
     private String shortColor(BallColor color) {
         if (color == null) return "?";
         switch (color) {
             case EMPTY:
                 return "---";
-            case PURPLE:
-                return "PUR";
-            case GREEN:
-                return "GRN";
+            case BALL:
+                return "BAL";
             default:
                 return "???";
         }
@@ -744,9 +617,6 @@ public class SpindexerModel {
             sb.append(shortColor(bucketContents[i]));
         }
         sb.append("]");
-        if (pattern != null) {
-            sb.append(", pattern=").append(patternIndex).append("/").append(pattern.length);
-        }
         sb.append("}");
         return sb.toString();
     }
