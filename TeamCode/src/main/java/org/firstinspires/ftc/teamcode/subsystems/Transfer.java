@@ -5,14 +5,12 @@ import static org.firstinspires.ftc.teamcode.config.TransferConfig.RESET_TIME_S;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MAX;
 import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN;
-import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_MIN_SHOOTING;
+import static org.firstinspires.ftc.teamcode.config.TransferConfig.TRANSFER_1_LEVER_UP;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
@@ -23,84 +21,35 @@ public class Transfer {
 
     private final Servo transferServo1;
     private final CRServo transferCrServo;
-    private final GamepadMap map;
     private final TelemetryHelper tele;
-
-    private SubsystemMode mode = SubsystemMode.MANUAL;
 
     private FlickState state = FlickState.IDLE;
     private CrState crState = CrState.OFF;
     private final Timer flickTimer = new Timer();
-    private boolean shootingMode = false;
+    private boolean leverRaised = false;
 
-    public Transfer(Servo transferServo1, CRServo transferCrServo, GamepadMap map, OpMode opmode) {
+    public Transfer(Servo transferServo1, CRServo transferCrServo, OpMode opmode) {
         this.transferServo1 = transferServo1;
         this.transferCrServo = transferCrServo;
-//        this.slotColor0 = slotColor0;
-        this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-//        this.colorClassifier = new ColorClassifier();
 
-        // configure color sensor
-//        if (slotColor0 != null) {
-//            slotColor0.setGain(GAIN);
-//        }
-
-        // start retracted
         this.transferServo1.setPosition(TRANSFER_1_MIN);
-        // make sure CR servo is stopped
         this.transferCrServo.setPower(0.0);
     }
 
-    public void startTeleop() {
-        mode = SubsystemMode.MANUAL;
-    }
-
-    public void startAuto() {
-        mode = SubsystemMode.AUTO;
+    public void start() {
+        state = FlickState.IDLE;
+        crState = CrState.OFF;
+        leverRaised = false;
+        transferServo1.setPosition(TRANSFER_1_MIN);
+        transferCrServo.setPower(0.0);
     }
 
     public void operate() {
-        // driver inputs
-        if (mode == SubsystemMode.MANUAL && map != null) {
-            // toggle shooting mode with A button
-            if (map.shootingModeToggle) {
-                // if already in shooting mode, reverse the intake CR servo
-                if (shootingMode) {
-                    crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
-                }
+        double minPosition = leverRaised ? TRANSFER_1_LEVER_UP : TRANSFER_1_MIN;
 
-                shootingMode = !shootingMode;
-                // immediately move to the new position when toggling modes and idle
-                if (state == FlickState.IDLE) {
-                    double newPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
-                    transferServo1.setPosition(newPosition);
-                }
-            }
-
-            // flick is the old behavior
-            if (map.transferButton) {
-                flick();
-            }
-
-            // new CR servo controls on dpad right/left
-            if (map.transferCrForward) {
-                // tap to toggle forward
-                crState = (crState == CrState.FORWARD) ? CrState.OFF : CrState.FORWARD;
-            }
-            if (map.transferCrReverse) {
-                // tap to toggle reverse
-                crState = (crState == CrState.REVERSE) ? CrState.OFF : CrState.REVERSE;
-            }
-        }
-
-        // determine the min position based on shooting mode
-        double minPosition = shootingMode ? TRANSFER_1_MIN_SHOOTING : TRANSFER_1_MIN;
-
-        // flick FSM (positional servo)
         switch (state) {
             case IDLE:
-                // maintain the correct position while idle
                 transferServo1.setPosition(minPosition);
                 break;
             case FLICK_UP:
@@ -118,7 +67,6 @@ public class Transfer {
                 break;
             case HOLD_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
-                // Stays here until releaseHold() is called by the manager
                 break;
         }
 
@@ -146,12 +94,12 @@ public class Transfer {
 
     public void raiseLever() {
         if (state == FlickState.IDLE) {
-            shootingMode = true;
+            leverRaised = true;
         }
     }
 
     public void lowerLever() {
-        shootingMode = false;
+        leverRaised = false;
     }
 
     public void runTransfer(CrState state) {
@@ -159,7 +107,7 @@ public class Transfer {
     }
 
     public boolean isLeverRaised() {
-        return shootingMode || (state != FlickState.IDLE);
+        return leverRaised || (state != FlickState.IDLE);
     }
 
     public boolean isIdle() {
@@ -167,25 +115,19 @@ public class Transfer {
     }
 
     public void holdUp() {
-        // Only allow if controlled by the manager (AUTO mode)
-        if (mode == SubsystemMode.AUTO) {
-            state = FlickState.HOLD_UP;
-        }
+        state = FlickState.HOLD_UP;
     }
 
     public void releaseHold() {
-        // If we were holding, transition to the downward movement
-        if (mode == SubsystemMode.AUTO && state == FlickState.HOLD_UP) {
-            state = FlickState.FLICK_DOWN;
-            flickTimer.resetTimer();
-        }
+        state = FlickState.FLICK_DOWN;
+        flickTimer.resetTimer();
+
     }
 
     private void addTelemetry() {
         tele.addLine("=== TRANSFER ===")
-                .addData("Mode", mode::name)
                 .addData("Flick State", state::name)
                 .addData("CR State", crState::name)
-                .addData("Shooting Mode", () -> shootingMode);
+                .addData("Lever Up", () -> leverRaised);
     }
 }

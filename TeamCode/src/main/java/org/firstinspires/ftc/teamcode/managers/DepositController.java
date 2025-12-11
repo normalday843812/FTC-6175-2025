@@ -113,9 +113,7 @@ public class DepositController {
         tele.addLine("--- DEPOSIT ---")
                 .addData("S", s::name)
                 .addData("Refires", "%d", refires)
-                .addData("Jiggles", "%d", jiggles)
-                .addData("OutRPM", "%.0f", shooter.getOutputRPM())
-                .addData("MotorRPM", "%.0f", shooter.getMotorRPM());
+                .addData("Jiggles", "%d", jiggles);
         return Result.BUSY;
     }
 }

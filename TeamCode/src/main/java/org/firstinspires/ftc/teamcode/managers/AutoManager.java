@@ -156,10 +156,8 @@ public class AutoManager {
 
     public void start(boolean depositRoute) {
         spindexer.setSlot(0);
-        shooter.startAuto();
-        intake.startAuto();
-        shooterYaw.startAuto();
-        transfer.startAuto();
+        shooter.start();
+        shooterYaw.start();
         shooter.setAutoRpm(IDLE_RPM);
 
         // Sync model from sensors at start

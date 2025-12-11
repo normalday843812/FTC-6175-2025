@@ -1,23 +1,15 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
-
-import com.pedropathing.geometry.Pose;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
-import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.LightController;
-import org.firstinspires.ftc.teamcode.managers.ShooterManager;
-import org.firstinspires.ftc.teamcode.managers.TeleopSortManager;
+import org.firstinspires.ftc.teamcode.managers.SpindexerModel;
+import org.firstinspires.ftc.teamcode.managers.TeleopManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
-import org.firstinspires.ftc.teamcode.shooting.PolynomialRpmModel;
-import org.firstinspires.ftc.teamcode.shooting.RpmModel;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -53,76 +45,61 @@ public class InitialTeleop extends LinearOpMode {
 
         // Subsystems
         hw.initIntake();
-        Intake intake = new Intake(hw.getIntakeMotor(), map, this);
+        Intake intake = new Intake(hw.getIntakeMotor(), this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map, this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), this);
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
-                aprilTag, map, drive.getFollower(), this);
+                aprilTag, drive.getFollower(), this);
 
         hw.initHood();
         Hood hood = new Hood(hw.getHoodServo(), map, this);
 
         hw.initSpindexer();
-        Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), map, this);
+        Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), this);
 
         hw.initSpindexColorSensors();
         SlotColorSensors slots = new SlotColorSensors(hw.getSpindexSensors(), this);
 
-        // link slots to spindexer for color-based positioning
-        spindexer.setColorSlots(slots);
-
         hw.initTransfer();
         Transfer transfer = new Transfer(hw.getTransferServo1(),
-                hw.getTransferServo2(), map, this);
+                hw.getTransferServo2(), this);
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
         UiLight ui = new UiLight(rgbIndicator);
         LightController light = new LightController(ui, shooter, shooterYaw, intake);
 
-        InventoryManager inv = new InventoryManager();
-        TeleopSortManager teleopSortManager =
-                new TeleopSortManager(map, intake, spindexer, transfer, slots, inv, shooter,  this);
+        InventoryManager inventoryManager = new InventoryManager();
+        TeleopManager teleopManager =
+                new TeleopManager(intake, shooter, shooterYaw, spindexer, transfer, slots,  inventoryManager, ui, this);
 
         if (isStopRequested()) return;
         waitForStart();
 
         drive.startTeleop();
-        intake.startTeleop();
-        shooter.startTeleop();
+        shooter.start();
         hood.startTeleop();
-        spindexer.startTeleop();
-        transfer.startTeleop();
-        shooterYaw.startTeleop();
 
-        RpmModel model = new PolynomialRpmModel();
-        ShooterManager shooterManager = new ShooterManager(shooter, model, this);
-        shooterManager.setLimits(ShooterConfig.IDLE_RPM,
-                ShooterConfig.MAX_RPM);
-
-        Pose goal = DecodeGameConfig.shootPose(isRed);
-        Limelight3A limelight = hw.getLimelight();
+        spindexer.start();
+        transfer.start();
+        shooterYaw.start();
 
         while (opModeIsActive()) {
             map.update();
 
-            shooterManager.setEnabled(false);
             boolean prevManagerEnabled = managerEnabled;
             if (map.teleopSortManagerToggle) {
                 managerEnabled = !managerEnabled;
             }
 
             if (managerEnabled != prevManagerEnabled) {
-                teleopSortManager.setEnabled(managerEnabled);
+                teleopManager.setEnabled(managerEnabled);
             }
 
             light.update(true);
-
-            Pose current = drive.getFollower().getPose();
-            shooterManager.update(current, goal, limelight);
 
             transfer.operate();
             slots.update();
@@ -134,7 +111,7 @@ public class InitialTeleop extends LinearOpMode {
             spindexer.operate();
             shooterYaw.operate();
 
-            teleopSortManager.update();
+            teleopManager.update(map);
 
             TelemetryHelper.update();
         }

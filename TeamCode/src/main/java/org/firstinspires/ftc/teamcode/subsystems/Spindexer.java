@@ -8,8 +8,6 @@ import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.TELEMETRY_EN
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.GamepadMap;
-import org.firstinspires.ftc.teamcode.util.SubsystemMode;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
@@ -17,11 +15,7 @@ public class Spindexer {
     private static final long SETTLE_TIME_MS = 300;
 
     private final Servo spindexerServo;
-    private final GamepadMap map;
     private final TelemetryHelper tele;
-    private SlotColorSensors slots;
-
-    private SubsystemMode mode = SubsystemMode.MANUAL;
     private int commandedSlot = 0;
     private long lastCommandMs = 0;
 
@@ -32,48 +26,17 @@ public class Spindexer {
     private final Timer jTimer = new Timer();
     private double lastJiggleBase = 0.0;
 
-    public Spindexer(Servo spindexerServo, GamepadMap map, OpMode opmode) {
+    public Spindexer(Servo spindexerServo, OpMode opmode) {
         this.spindexerServo = spindexerServo;
-        this.map = map;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
-        spindexerServo.setPosition(BIAS);
     }
 
-    public void startTeleop() {
-        mode = SubsystemMode.MANUAL;
+    public void start() {
         spindexerServo.setPosition(BIAS);
         commandedSlot = 0;
-    }
-
-    public void startAuto() {
-        mode = SubsystemMode.AUTO;
-        spindexerServo.setPosition(BIAS);
-        commandedSlot = 0;
-    }
-
-    public void setColorSlots(SlotColorSensors slots) {
-        this.slots = slots;
     }
 
     public void operate() {
-        if (mode == SubsystemMode.MANUAL && map != null) {
-            if (map.spindexerForward) stepForward();
-            if (map.spindexerBackward) stepBackward();
-
-            if (map.findGreenBall && slots != null) {
-                int slot = slots.findBallSlot(SlotColorSensors.BallColor.GREEN);
-                if (slot >= 0) {
-                    setSlot(slot);
-                }
-            }
-            if (map.findPurpleBall && slots != null) {
-                int slot = slots.findBallSlot(SlotColorSensors.BallColor.PURPLE);
-                if (slot >= 0) {
-                    setSlot(slot);
-                }
-            }
-        }
-
         if (jiggleActive) {
             switch (jPhase) {
                 case 0:
@@ -113,10 +76,6 @@ public class Spindexer {
         return ((slot % getSlots()) + getSlots()) % getSlots();
     }
 
-    public int getCommandedSlot() {
-        return commandedSlot;
-    }
-
     public boolean isMoving() {
         return jiggleActive || (System.currentTimeMillis() - lastCommandMs < SETTLE_TIME_MS);
     }
@@ -136,6 +95,10 @@ public class Spindexer {
         while (target > 1.0) target -= 1.0;
         while (target < 0.0) target += 1.0;
         setAbsolute(target);
+    }
+
+    public int getCommandedSlot() {
+        return commandedSlot;
     }
 
     public void stepSlots(int delta) {
@@ -181,7 +144,6 @@ public class Spindexer {
 
     private void addTelemetry() {
         tele.addLine("=== SPINDEXER ===")
-                .addData("Mode", mode::name)
                 .addData("Pos", "%.2f", spindexerServo.getPosition())
                 .addData("Slot", "%d", getCurrentSlot())
                 .addData("CmdSlot", "%d", commandedSlot)

@@ -43,22 +43,22 @@ public class SimpleAuto extends LinearOpMode {
         LLAprilTag ll = new LLAprilTag(hw.getLimelight(), this);
 
         hw.initIntake();
-        Intake intake = new Intake(hw.getIntakeMotor(), null, this);
+        Intake intake = new Intake(hw.getIntakeMotor(), this);
 
         hw.initShooter();
-        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), map,this);
+        Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(),this);
 
         hw.initShooterYaw();
-        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), ll, null, drive.getFollower(), this);
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), ll, drive.getFollower(), this);
 
         hw.initSpindexer();
-        Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), null, this);
+        Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), this);
 
         hw.initSpindexColorSensors();
         SlotColorSensors slots = new SlotColorSensors(hw.getSpindexSensors(), this);
 
         hw.initTransfer();
-        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), null, this);
+        Transfer transfer = new Transfer(hw.getTransferServo1(), hw.getTransferServo2(), this);
 
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
