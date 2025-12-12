@@ -205,17 +205,6 @@ public class SpindexerModel {
         bucketContents[bucketAtFront] = BallColor.BALL;
     }
 
-    @Deprecated
-    public void onBallIntaked(BallColor color) {
-        onBallIntaked();
-    }
-
-
-    @Deprecated
-    public void onBallIntaked(SlotColorSensors.BallColor sensorColor) {
-        onBallIntaked();
-    }
-
     /**
      * Updates model when a ball is shot.
      * Ball always exits from position 0 (front), from whichever bucket is there.
@@ -275,22 +264,6 @@ public class SpindexerModel {
             }
         }
         return -1;
-    }
-
-    @Deprecated
-    public int findBucketWithColor(BallColor color) {
-        if (color == BallColor.BALL) {
-            return findBallBucket();
-        }
-        return findEmptyBucket();
-    }
-
-    @Deprecated
-    public int findBucketWithColor(SlotColorSensors.BallColor sensorColor) {
-        if (sensorColor == SlotColorSensors.BallColor.BALL) {
-            return findBallBucket();
-        }
-        return findEmptyBucket();
     }
 
     /**

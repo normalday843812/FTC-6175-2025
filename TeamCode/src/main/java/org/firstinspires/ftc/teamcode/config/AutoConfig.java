@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.config;
 
 import com.bylazar.configurables.annotations.Configurable;
-import com.pedropathing.geometry.Pose;
 
 @Configurable
 public class AutoConfig {

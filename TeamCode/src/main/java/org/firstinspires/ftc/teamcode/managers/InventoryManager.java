@@ -24,12 +24,12 @@ public class InventoryManager {
     }
 
 
-    public int decideTargetSlot(SlotColorSensors slots, Spindexer spx) {
+    public int decideTargetSlot(Spindexer spx) {
         model.setBucketAtFront(spx.getCurrentSlot());
         return model.findBallBucket();
     }
 
-    public int findNearestEmptySlot(SlotColorSensors slots, Spindexer spx) {
+    public int findNearestEmptySlot(Spindexer spx) {
         model.setBucketAtFront(spx.getCurrentSlot());
         int direction = PREFER_CLOCKWISE_ON_TIE ?
                 SpindexerModel.DIRECTION_CW : SpindexerModel.DIRECTION_CCW;
@@ -39,16 +39,6 @@ public class InventoryManager {
     // --- Ball Events (update model) ---
 
     public void onBallIntaked() {
-        model.onBallIntaked();
-    }
-
-    @Deprecated
-    public void onBallIntaked(SlotColorSensors.BallColor color) {
-        model.onBallIntaked();
-    }
-
-    @Deprecated
-    public void onBallIntaked(SpindexerModel.BallColor color) {
         model.onBallIntaked();
     }
 

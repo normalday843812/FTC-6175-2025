@@ -1,9 +1,9 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_BLUE_X;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_BLUE_Y;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_RED_X;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_RED_Y;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_Y;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_Y;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_MAX;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_ZONE_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KD;

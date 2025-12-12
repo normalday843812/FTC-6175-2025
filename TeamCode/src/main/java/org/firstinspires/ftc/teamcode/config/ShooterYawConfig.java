@@ -1,13 +1,6 @@
 package org.firstinspires.ftc.teamcode.config;
 
 import com.bylazar.configurables.annotations.Configurable;
-import com.pedropathing.geometry.Pose;
-import com.pedropathing.ftc.FTCCoordinates;
-import com.pedropathing.geometry.PedroCoordinates;
-
-import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
-import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
-import org.firstinspires.ftc.vision.apriltag.AprilTagMetadata;
 
 @Configurable
 public class ShooterYawConfig {
@@ -28,14 +21,6 @@ public class ShooterYawConfig {
 
     // Output limits
     public static double MAX_POWER = 0.6;
-
-    private static final Pose GOAL_BLUE_PEDRO = new Pose(0, 144, 45, FTCCoordinates.INSTANCE);
-    private static final Pose GOAL_RED_PEDRO = new Pose(144, 144, 0, FTCCoordinates.INSTANCE);
-
-    public static double GOAL_BLUE_X = GOAL_BLUE_PEDRO.getX();
-    public static double GOAL_BLUE_Y = GOAL_BLUE_PEDRO.getY();
-    public static double GOAL_RED_X = GOAL_RED_PEDRO.getX();
-    public static double GOAL_RED_Y = GOAL_RED_PEDRO.getY();
 
     // Anti-windup
     public static double INTEGRAL_ZONE_TICKS = 50;

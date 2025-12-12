@@ -7,14 +7,18 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FOR
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_GOAL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_INTAKE_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_Y;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_X;
+import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_Y;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.IDLE_RPM;
 import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
 
-import org.firstinspires.ftc.teamcode.auto.motion.FixedFieldHeading;
-import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
-import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -58,7 +62,7 @@ public class AutoManager {
     // Dependencies
     private final TelemetryHelper tele;
     private final Mecanum drive;
-    private final MotionController motion;
+    private final Follower follower;
     private final Shooter shooter;
     private final ShooterYaw shooterYaw;
     private final Spindexer spindexer;
@@ -66,8 +70,8 @@ public class AutoManager {
     private final SlotColorSensors slots;
     private final InventoryManager inv;
     private final Transfer transfer;
-    private final HeadingTarget heading;
     private final boolean isRed;
+    private final double goalX, goalY;
     private final Pose shootPose, finalPose;
     private final DepositController deposit;
     private final UiLight ui;
@@ -76,12 +80,11 @@ public class AutoManager {
     // State
     private final Timer t = new Timer();
     private State s;
-    private int shotsRemaining = 3;  // Assume 3 balls at start
+    private int shotsRemaining = 3;
     private boolean pathIssued = false;
-    private HeadingTarget intakeHeading;  // Used during intake to face the correct direction
+    private double intakeHeadingDeg;
 
     public AutoManager(Mecanum drive,
-                       MotionController motion,
                        Shooter shooter,
                        ShooterYaw shooterYaw,
                        Spindexer spindexer,
@@ -89,18 +92,16 @@ public class AutoManager {
                        Transfer transfer,
                        SlotColorSensors slots,
                        InventoryManager inv,
-                       HeadingTarget heading,
                        boolean isRed,
                        Pose shootPose,
                        Pose finalPose,
                        UiLight ui,
                        TelemetryHelper tele) {
-        this(drive, motion, shooter, shooterYaw, spindexer, intake, transfer, slots, inv,
-                heading, isRed, shootPose, finalPose, ui, tele, Options.defaults());
+        this(drive, shooter, shooterYaw, spindexer, intake, transfer, slots, inv,
+                isRed, shootPose, finalPose, ui, tele, Options.defaults());
     }
 
     public AutoManager(Mecanum drive,
-                       MotionController motion,
                        Shooter shooter,
                        ShooterYaw shooterYaw,
                        Spindexer spindexer,
@@ -108,7 +109,6 @@ public class AutoManager {
                        Transfer transfer,
                        SlotColorSensors slots,
                        InventoryManager inv,
-                       HeadingTarget heading,
                        boolean isRed,
                        Pose shootPose,
                        Pose finalPose,
@@ -116,7 +116,7 @@ public class AutoManager {
                        TelemetryHelper tele,
                        Options options) {
         this.drive = drive;
-        this.motion = motion;
+        this.follower = drive.getFollower();
         this.shooter = shooter;
         this.shooterYaw = shooterYaw;
         this.spindexer = spindexer;
@@ -124,8 +124,9 @@ public class AutoManager {
         this.intake = intake;
         this.slots = slots;
         this.inv = inv;
-        this.heading = heading;
         this.isRed = isRed;
+        this.goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
+        this.goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
         this.shootPose = shootPose;
         this.finalPose = finalPose;
         this.ui = ui;
@@ -222,8 +223,8 @@ public class AutoManager {
         shooterYaw.operate();
 
         if (!pathIssued) {
-            double headDeg = heading.getTargetHeadingDeg(shootPose);
-            motion.followToPose(shootPose, headDeg);
+            double headDeg = getHeadingToGoal(shootPose);
+            followToPose(shootPose, headDeg);
             pathIssued = true;
         }
 
@@ -232,7 +233,7 @@ public class AutoManager {
         shooter.setAutoRpm(rpm);
         shooter.operate();
 
-        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_GOAL_S) {
+        if (!drive.isPathBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_GOAL_S) {
             deposit.reset();
             transitionTo(State.SHOOTING);
         }
@@ -260,18 +261,14 @@ public class AutoManager {
             shotsRemaining--;
 
             if (shotsRemaining > 0) {
-                // More balls to shoot
                 transitionTo(State.ROTATE_NEXT_BALL);
             } else if (options.enableIntake && inv.setsRemain()) {
-                // All shot, go intake more
                 transitionTo(State.PATH_TO_INTAKE);
             } else {
-                // Done shooting, no intake available
                 transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             }
         } else if (r == DepositController.Result.FAIL) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 500);
-            // Even on failure, decrement and continue
             shotsRemaining--;
             if (shotsRemaining > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
@@ -285,13 +282,11 @@ public class AutoManager {
 
     private void handleRotateNextBall() {
         transfer.raiseLever();
-        // Find next ball and rotate to it
-        int nextBall = inv.decideTargetSlot(slots, spindexer);
+        int nextBall = inv.decideTargetSlot(spindexer);
         if (nextBall >= 0 && nextBall != spindexer.getCurrentSlot()) {
             spindexer.setSlot(nextBall);
         }
 
-        // Wait for spindexer to settle
         if (spindexer.isSettled()) {
             deposit.reset();
             transitionTo(State.SHOOTING);
@@ -309,21 +304,19 @@ public class AutoManager {
 
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
-            // Use the intake pose's heading, not the goal heading
-            double headDeg = Math.toDegrees(target.getHeading());
-            intakeHeading = new FixedFieldHeading(headDeg, "IntakeHeading");
-            motion.followToPose(target, headDeg);
+            intakeHeadingDeg = Math.toDegrees(target.getHeading());
+            followToPose(target, intakeHeadingDeg);
             pathIssued = true;
         }
 
-        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_INTAKE_S) {
+        if (!drive.isPathBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_INTAKE_S) {
             inv.markOneIntakeSetVisited();
             transitionTo(State.ALIGN_EMPTY_SLOT);
         }
     }
 
     private void handleAlignEmptySlot() {
-        int emptySlot = inv.findNearestEmptySlot(slots, spindexer);
+        int emptySlot = inv.findNearestEmptySlot(spindexer);
         if (emptySlot >= 0 && emptySlot != spindexer.getCurrentSlot()) {
             spindexer.setSlot(emptySlot);
         }
@@ -345,12 +338,11 @@ public class AutoManager {
         if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
         if (transfer != null) transfer.runTransfer(Transfer.CrState.REVERSE);
 
-        // Creep forward while intaking, facing the intake direction
-        motion.translateFacing(0, INTAKE_FORWARD_SPEED, intakeHeading);
+        // Creep forward while intaking (no facing target, just straight)
+        drive.setAutoDrive(-INTAKE_FORWARD_SPEED, 0, 0, true, 0);
         intake.setAutoMode(Intake.AutoMode.FORWARD);
         intake.operate();
 
-        // Check for ball
         boolean gotBall = slots != null && slots.hasBall();
         boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
 
@@ -361,39 +353,30 @@ public class AutoManager {
             inv.onBallIntaked();
             transitionTo(State.STORE_BALL);
         } else if (timeout) {
-            // Timeout
             intake.setAutoMode(Intake.AutoMode.OFF);
             drive.clearAutoCommand();
 
             if (inv.hasBalls() && options.enableDeposit) {
-                // Have some balls, go shoot them
                 shotsRemaining = inv.getBallCount();
                 transitionTo(State.PATH_TO_SHOOT);
             } else if (inv.setsRemain()) {
-                // Try next intake spot
                 transitionTo(State.PATH_TO_INTAKE);
             } else {
-                // No more spots, go park
                 transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             }
         }
     }
 
     private void handleStoreBall() {
-        // Raise transfer lever to secure ball
         transfer.raiseLever();
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
-        // Check if we have more empty slots and intake spots
         if (inv.hasEmptySlots() && inv.setsRemain()) {
-            // Rotate to next empty and continue intaking
             transitionTo(State.ALIGN_EMPTY_SLOT);
         } else if (inv.hasBalls() && options.enableDeposit) {
-            // Full or no more spots - go shoot
             shotsRemaining = inv.getBallCount();
             transitionTo(State.PATH_TO_SHOOT);
         } else {
-            // Nothing to do
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
         }
     }
@@ -409,12 +392,12 @@ public class AutoManager {
         if (ui != null) ui.setBase(UiLightConfig.UiState.PARK);
 
         if (!pathIssued) {
-            double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
-            motion.followToPose(finalPose, headDeg);
+            double headDeg = Math.toDegrees(finalPose.getHeading());
+            followToPose(finalPose, headDeg);
             pathIssued = true;
         }
 
-        if (!motion.isBusy() || t.getElapsedTimeSeconds() >= DEFAULT_TIMEOUT_S) {
+        if (!drive.isPathBusy() || t.getElapsedTimeSeconds() >= DEFAULT_TIMEOUT_S) {
             transitionTo(State.DONE);
         }
     }
@@ -432,6 +415,36 @@ public class AutoManager {
         s = newState;
         pathIssued = false;
         t.resetTimer();
+    }
+
+    // --- Path Helpers (using Pedro directly) ---
+
+    private void followToPose(Pose target, double headDeg) {
+        Pose current = follower.getPose();
+        Pose control = midpointControl(current, target);
+
+        PathChain chain = follower.pathBuilder()
+                .addPath(new BezierCurve(follower::getPose, control, target))
+                .setLinearHeadingInterpolation(
+                        current.getHeading(),
+                        Math.toRadians(headDeg),
+                        0.8
+                )
+                .build();
+
+        drive.followPath(chain);
+    }
+
+    private static Pose midpointControl(Pose start, Pose target) {
+        double midX = (start.getX() + target.getX()) / 2.0;
+        double midY = (start.getY() + target.getY()) / 2.0;
+        return new Pose(midX, midY, target.getHeading());
+    }
+
+    private double getHeadingToGoal(Pose fromPose) {
+        double dx = goalX - fromPose.getX();
+        double dy = goalY - fromPose.getY();
+        return Math.toDegrees(Math.atan2(dy, dx));
     }
 
     private void addTelemetry() {

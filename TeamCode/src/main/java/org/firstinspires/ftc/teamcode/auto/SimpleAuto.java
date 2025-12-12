@@ -9,8 +9,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.auto.motion.AllianceGoalHeadingTarget;
-import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
 import org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig;
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
@@ -58,7 +56,7 @@ public class SimpleAuto extends LinearOpMode {
 
         UiLight uiLight = new UiLight(rgbIndicator);
 
-        // Managers and motion helpers
+        // Managers
         InventoryManager inv = new InventoryManager();
         TelemetryHelper tele = new TelemetryHelper(this, AutoUnifiedConfig.TELEMETRY_ENABLED);
 
@@ -77,9 +75,6 @@ public class SimpleAuto extends LinearOpMode {
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), drive.getFollower(), isRed, this);
 
-        MotionController motion = new MotionController(drive, tele);
-        AllianceGoalHeadingTarget heading = new AllianceGoalHeadingTarget(isRed);
-
         Pose startPose = DecodeGameConfig.startPose(isRed, isAudienceSide);
         Pose shootPose = DecodeGameConfig.shootPose(isRed);
         Pose finalPose = DecodeGameConfig.finalPose(isRed);
@@ -88,9 +83,8 @@ public class SimpleAuto extends LinearOpMode {
         drive.startAuto();
 
         AutoManager auto = new AutoManager(
-                drive, motion, shooter, shooterYaw, spindexer, intake, transfer,
-                slots, inv, heading, isRed,
-                shootPose, finalPose, uiLight, tele
+                drive, shooter, shooterYaw, spindexer, intake, transfer,
+                slots, inv, isRed, shootPose, finalPose, uiLight, tele
         );
         auto.start(depositRoute);
 

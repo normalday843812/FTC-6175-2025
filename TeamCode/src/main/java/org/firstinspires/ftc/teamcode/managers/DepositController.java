@@ -7,7 +7,6 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DEL
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_MAX;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.REFIRE_MAX;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.RPM_VERIFY_DROP;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.VERIFY_WINDOW_S;
 

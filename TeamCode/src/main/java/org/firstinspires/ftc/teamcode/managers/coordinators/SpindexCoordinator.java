@@ -39,7 +39,7 @@ public class SpindexCoordinator {
 
     public boolean goToEmpty() {
         syncModel();
-        int slot = inventory.findNearestEmptySlot(sensors, spindexer);
+        int slot = inventory.findNearestEmptySlot(spindexer);
         if (slot >= 0) {
             spindexer.setSlot(slot);
             return true;
@@ -49,7 +49,7 @@ public class SpindexCoordinator {
 
     public int decideTargetSlot() {
         syncModel();
-        return inventory.decideTargetSlot(sensors, spindexer);
+        return inventory.decideTargetSlot(spindexer);
     }
 
     // --- Ball Events ---

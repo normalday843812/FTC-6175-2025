@@ -25,18 +25,6 @@ public class SlotColorSensors {
 
     public enum BallColor {NONE, BALL}
 
-    public static final class Observation {
-        public final BallColor color;
-        public final double ballConfidence;
-        public final boolean valid;
-
-        public Observation(BallColor color, double ballConfidence, boolean valid) {
-            this.color = color;
-            this.ballConfidence = ballConfidence;
-            this.valid = valid;
-        }
-    }
-
     private final NormalizedColorSensor[] devices;
     private final TelemetryHelper tele;
 
@@ -57,62 +45,59 @@ public class SlotColorSensors {
     public void update() {
         if (!enabled) return;
 
-        Observation obs = hasBallObservation();
-        addBallTelemetry(obs);
-    }
-
-    public boolean hasBall() {
-        return hasBallObservation().color == BallColor.BALL;
-    }
-
-    @Deprecated
-    public Observation getObservation(int slot) {
-        return hasBallObservation();
-    }
-
-    @Deprecated
-    public BallColor getColor(int slot) {
-        return hasBallObservation().color;
-    }
-
-    @Deprecated
-    public boolean hasAnyBall(int slot) {
-        return hasBall();
-    }
-
-    @Deprecated
-    public boolean isFull() {
-        return false;
-    }
-
-    /**
-     * Detects ball using V and A thresholds.
-     */
-    private Observation hasBallObservation() {
-        double maxConf = 0.0;
-        boolean anyValid = false;
-        boolean ballDetected = false;
-
+        // Read all sensors and update telemetry
+        boolean anyBall = false;
         for (int idx = 0; idx < devices.length && idx < 3; idx++) {
             double[] sample = readSensor(idx);
             if (sample != null) {
-                anyValid = true;
                 lastHSVA[idx] = sample;
-
-                boolean vPass = sample[V] > V_THRESHOLD[idx];
-                boolean aPass = sample[A] > A_THRESHOLD[idx];
-
-                boolean sensorDetected = REQUIRE_BOTH_VA ? (vPass && aPass) : (vPass || aPass);
-
-                if (sensorDetected) {
-                    ballDetected = true;
-                    maxConf = Math.max(maxConf, Math.max(sample[V], sample[A]));
+                if (hasBallAt(idx, sample)) {
+                    anyBall = true;
                 }
             }
         }
 
-        BallColor color = ballDetected ? BallColor.BALL : BallColor.NONE;
-        return new Observation(color, maxConf, anyValid);
+        addBallTelemetry(anyBall);
+    }
+
+    /**
+     * Returns true if ANY sensor detects a ball.
+     */
+    public boolean hasBall() {
+        for (int idx = 0; idx < devices.length && idx < 3; idx++) {
+            double[] sample = readSensor(idx);
+            if (sample != null && hasBallAt(idx, sample)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gets the color (BALL or NONE) at a specific sensor position.
+     * Used by SpindexerModel for verification.
+     */
+    public BallColor getColor(int slot) {
+        if (slot < 0 || slot >= devices.length) {
+            return BallColor.NONE;
+        }
+        double[] sample = readSensor(slot);
+        if (sample != null && hasBallAt(slot, sample)) {
+            return BallColor.BALL;
+        }
+        return BallColor.NONE;
+    }
+
+    /**
+     * Checks if a specific sensor has a ball based on V/A thresholds.
+     */
+    private boolean hasBallAt(int idx, double[] sample) {
+        if (idx < 0 || idx >= V_THRESHOLD.length || sample == null) {
+            return false;
+        }
+        boolean vPass = sample[V] > V_THRESHOLD[idx];
+        boolean aPass = sample[A] > A_THRESHOLD[idx];
+        return REQUIRE_BOTH_VA ? (vPass && aPass) : (vPass || aPass);
     }
 
     /**
@@ -145,9 +130,9 @@ public class SlotColorSensors {
         }
     }
 
-    private void addBallTelemetry(Observation obs) {
+    private void addBallTelemetry(boolean anyBall) {
         tele.addLine("=== BALL SENSOR ===")
-                .addData("Ball", "%s", obs.color == BallColor.BALL ? "YES" : "no");
+                .addData("Ball", "%s", anyBall ? "YES" : "no");
 
         for (int i = 0; i < Math.min(devices.length, 3); i++) {
             double[] hsva = lastHSVA[i];

@@ -1,10 +1,19 @@
 package org.firstinspires.ftc.teamcode.config;
 
 import com.bylazar.configurables.annotations.Configurable;
+import com.pedropathing.ftc.FTCCoordinates;
 import com.pedropathing.geometry.Pose;
 
 @Configurable
 public class DecodeGameConfig {
+
+    private static final Pose GOAL_BLUE_PEDRO = new Pose(0, 144, 45);
+    private static final Pose GOAL_RED_PEDRO = new Pose(144, 144, 0);
+
+    public static double GOAL_BLUE_X = GOAL_BLUE_PEDRO.getX();
+    public static double GOAL_BLUE_Y = GOAL_BLUE_PEDRO.getY();
+    public static double GOAL_RED_X = GOAL_RED_PEDRO.getX();
+    public static double GOAL_RED_Y = GOAL_RED_PEDRO.getY();
 
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
             new Pose(103, 84, Math.toRadians(0)),

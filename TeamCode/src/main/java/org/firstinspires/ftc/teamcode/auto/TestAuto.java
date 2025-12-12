@@ -9,8 +9,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
-import org.firstinspires.ftc.teamcode.auto.motion.AllianceGoalHeadingTarget;
-import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
 import org.firstinspires.ftc.teamcode.config.AutoConfig;
 import org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig;
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
@@ -75,9 +73,6 @@ public class TestAuto extends LinearOpMode {
         if (isStopRequested()) return;
         waitForStart();
 
-        MotionController motion = new MotionController(drive, tele);
-        AllianceGoalHeadingTarget heading = new AllianceGoalHeadingTarget(isRed);
-
         Pose startPose = DecodeGameConfig.startPose(isRed, isAudienceSide);
         Pose shootPose = DecodeGameConfig.shootPose(isRed);
         Pose finalPose = DecodeGameConfig.finalPose(isRed);
@@ -92,8 +87,8 @@ public class TestAuto extends LinearOpMode {
         );
 
         AutoManager auto = new AutoManager(
-                drive, motion, shooter, shooterYaw, spindexer, intake, transfer,
-                slots, inv, heading, isRed, shootPose, finalPose, uiLight, tele, options
+                drive, shooter, shooterYaw, spindexer, intake, transfer,
+                slots, inv, isRed, shootPose, finalPose, uiLight, tele, options
         );
 
         boolean depositRoute = TestAutoConfig.RUN_DEPOSIT_ROUTE && TestAutoConfig.ENABLE_DEPOSIT;

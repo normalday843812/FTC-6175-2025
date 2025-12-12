@@ -6,12 +6,6 @@ import com.bylazar.configurables.annotations.Configurable;
 public class AutoUnifiedConfig {
     public static boolean TELEMETRY_ENABLED = true;
 
-    // Heading PD
-    public static double HEADING_KP = 1.0;
-    public static double HEADING_KD = 0.02;
-    public static double HEADING_MAX_ROT = 0.7;
-    public static double HEADING_DEADBAND_DEG = 0.5;
-
     // Timeouts
     public static double DEFAULT_TIMEOUT_S = 2.5;
     public static double PATH_TIMEOUT_TO_GOAL_S = 3.0;
@@ -39,12 +33,6 @@ public class AutoUnifiedConfig {
     public static double JIGGLE_DELTA_DOWN = 0.20;
     public static double JIGGLE_DWELL_S = 0.08;
 
-    // Fallback heading if no tag seen (deg)
-    public static double FALLBACK_HEADING_RED_DEG = 45.0;
-    public static double FALLBACK_HEADING_BLUE_DEG = 135.0;
-
-    // Teleop sort manager timings
+    // Teleop manager timings
     public static double TELEOP_FEED_DWELL_S = 1.00;
-    public static long TELEOP_SHIFT_CONFIRM_MS = 500;
-    public static long TELEOP_SHOOT_SPINUP_MS = 500;
 }
