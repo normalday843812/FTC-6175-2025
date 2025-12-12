@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
-    boolean managerEnabled = false;
+    boolean managerEnabled = true;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -106,22 +106,6 @@ public class InitialTeleop extends LinearOpMode {
             }
 
             light.update(true);
-            // Allow direct trigger control when manager is disabled: map triggers
-            // (right_trigger / left_trigger) map to shooter RPM so players can
-            // manually spin the shooter in simple teleop mode.
-            if (!managerEnabled) {
-                double up = map.shooterUp;   // 0.0 - 1.0
-                double down = map.shooterDown; // 0.0 - 1.0
-                if (up > 0.01) {
-                    double rpm = ShooterConfig.IDLE_RPM + (ShooterConfig.MAX_RPM - ShooterConfig.IDLE_RPM) * up;
-                    shooter.setAutoRpm(rpm);
-                } else if (down > 0.01) {
-                    double rpm = Math.max(0.0, ShooterConfig.IDLE_RPM * (1.0 - down));
-                    shooter.setAutoRpm(rpm);
-                } else {
-                    shooter.setAutoRpm(ShooterConfig.IDLE_RPM);
-                }
-            }
 
             transfer.operate();
             slots.update();
