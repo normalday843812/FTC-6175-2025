@@ -55,11 +55,8 @@ public class DepositController {
 
         switch (s) {
             case SPINUP:
+                transfer.raiseLever();
                 if (shooter.isAtTarget(TARGET_RPM_BAND) || tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S) {
-                    if (transfer.isLeverRaised()) {
-                        transfer.lowerLever();
-                        break;
-                    }
                     tState.resetTimer();
                     s = S.WAIT_INDEX;
                 }
@@ -81,6 +78,7 @@ public class DepositController {
 
             case VERIFY:
                 if (shooter.shotOccurred()) {
+                    shooter.acknowledgeShotOccurred();
                     s = S.DONE;
                 } else if (tVerify.getElapsedTimeSeconds() >= VERIFY_WINDOW_S) {
                     if (refires < REFIRE_MAX) {

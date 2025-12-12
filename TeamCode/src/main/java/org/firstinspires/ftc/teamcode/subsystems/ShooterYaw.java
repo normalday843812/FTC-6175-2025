@@ -1,8 +1,9 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_BLUE;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.APRIL_TAG_RED;
-import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_BLUE_X;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_BLUE_Y;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_RED_X;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.GOAL_RED_Y;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_MAX;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_ZONE_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KD;
@@ -13,48 +14,53 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POWER;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MIN_TICKS;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TAG_STALE_MS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TICKS_PER_DEG;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 public class ShooterYaw {
 
     private enum Mode {
         IDLE,
-        TRACK_TAG
+        TRACK_GOAL
     }
 
     private final DcMotorEx motor;
-    private final LLAprilTag limelight;
     private final Follower follower;
     private final TelemetryHelper tele;
+
+    // Goal position for current alliance
+    private double goalX;
+    private double goalY;
+    private final boolean isRed;
 
     private Mode mode = Mode.IDLE;
 
     // Tracking state
     private double targetWorldDeg = 0.0;
     private boolean targetInitialized = false;
-    private int targetId = -1;
-    private long lastTagSeenMs = 0;
 
     // PID state
     private double integral = 0.0;
     private double lastError = 0.0;
     private long lastUpdateMs = 0;
 
-    public ShooterYaw(DcMotorEx motor, LLAprilTag limelight, Follower follower, OpMode opmode) {
+    public ShooterYaw(DcMotorEx motor, Follower follower, boolean isRed, OpMode opmode) {
         this.motor = motor;
-        this.limelight = limelight;
         this.follower = follower;
+        this.isRed = isRed;
         this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+
+        // Set goal position based on alliance
+        this.goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
+        this.goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
 
         motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -62,9 +68,8 @@ public class ShooterYaw {
     }
 
     public void start() {
-        targetId = isRed ? APRIL_TAG_RED : APRIL_TAG_BLUE;
         targetInitialized = false;
-        mode = Mode.TRACK_TAG;
+        mode = Mode.TRACK_GOAL;
         resetPID();
     }
 
@@ -78,8 +83,8 @@ public class ShooterYaw {
                 motor.setPower(0);
                 break;
 
-            case TRACK_TAG:
-                operateTrackTag(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
+            case TRACK_GOAL:
+                operateTrackGoal(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
                 break;
         }
 
@@ -90,18 +95,19 @@ public class ShooterYaw {
     // --- Tracking ---
 
     public void lockAllianceGoal() {
-        targetId = isRed ? APRIL_TAG_RED : APRIL_TAG_BLUE;
-        mode = Mode.TRACK_TAG;
+        goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
+        goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
+        mode = Mode.TRACK_GOAL;
     }
 
-    public void setTargetTag(int tagId) {
-        this.targetId = tagId;
-        mode = Mode.TRACK_TAG;
+    public void setGoalPosition(double x, double y) {
+        this.goalX = x;
+        this.goalY = y;
+        mode = Mode.TRACK_GOAL;
     }
 
     public boolean isLockedOnTarget() {
-        if (mode != Mode.TRACK_TAG || !targetInitialized) return false;
-        return (now() - lastTagSeenMs) < TAG_STALE_MS;
+        return mode == Mode.TRACK_GOAL && targetInitialized;
     }
 
     // --- Manual Control ---
@@ -129,39 +135,27 @@ public class ShooterYaw {
         return motor.getCurrentPosition();
     }
 
-    // --- Internal: Track Tag Mode ---
+    // --- Internal: Track Goal Mode ---
 
-    private void operateTrackTag(long nowMs, double robotHeadingDeg, double robotOmegaDegPerSec) {
-        updateTargetFromVision(nowMs, robotHeadingDeg, targetId);
+    private void operateTrackGoal(long nowMs, double robotHeadingDeg, double robotOmegaDegPerSec) {
+        // Calculate angle from robot to goal
+        Pose robotPose = follower.getPose();
+        double dx = goalX - robotPose.getX();
+        double dy = goalY - robotPose.getY();
 
-        if (!targetInitialized) {
-            targetWorldDeg = robotHeadingDeg + ticksToDeg(motor.getCurrentPosition());
-            targetInitialized = true;
-        }
+        // atan2 gives us the world angle to the goal
+        targetWorldDeg = Math.toDegrees(Math.atan2(dy, dx));
+        targetInitialized = true;
 
         double desiredRelativeDeg = normalizeDeg(targetWorldDeg - robotHeadingDeg);
         int desiredTicks = clampTicks(degToTicks(desiredRelativeDeg));
         int currentTicks = motor.getCurrentPosition();
 
-        boolean tagFresh = (nowMs - lastTagSeenMs) < TAG_STALE_MS;
-        double feedforward = tagFresh ? 0.0 : -robotOmegaDegPerSec * KF;
+        // Feedforward for robot rotation compensation
+        double feedforward = -robotOmegaDegPerSec * KF;
 
         double power = calculatePID(desiredTicks, currentTicks, nowMs) + feedforward;
         motor.setPower(clampPower(power));
-    }
-
-    // --- Internal: Vision Update ---
-
-    private void updateTargetFromVision(long nowMs, double robotHeadingDeg, int tagId) {
-        if (limelight == null || tagId < 0) return;
-
-        LLAprilTag.YawInfo info = limelight.getYawInfoForTag(tagId);
-
-        if (info != null && info.fresh && !Double.isNaN(info.rawDeg)) {
-            double currentWorldDeg = robotHeadingDeg + ticksToDeg(motor.getCurrentPosition());
-            targetWorldDeg = normalizeDeg(currentWorldDeg + info.rawDeg);
-            lastTagSeenMs = nowMs;
-        }
     }
 
     // --- Internal: PID ---
@@ -231,13 +225,18 @@ public class ShooterYaw {
     }
 
     private void addTelemetry(double robotHeadingDeg) {
+        Pose robotPose = follower.getPose();
         int currentTicks = motor.getCurrentPosition();
         tele.addLine("=== SHOOTER YAW ===")
                 .addData("Mode", mode::name)
                 .addData("TargetWorld", "%.1f°", targetWorldDeg)
                 .addData("RobotHeading", "%.1f°", robotHeadingDeg)
                 .addData("CurrentTicks", "%d", currentTicks)
-                .addData("TagLocked", "%b", isLockedOnTarget())
-                .addData("TargetId", "%d", targetId);
+                .addData("GoalPos", "(%.0f, %.0f)", goalX, goalY)
+                .addData("GOAL_BLUE_X", "%.1f", GOAL_BLUE_X)
+                .addData("GOAL_BLUE_Y", "%.1f", GOAL_BLUE_Y)
+                .addData("GOAL_RED_X", "%.1f", GOAL_RED_X)
+                .addData("GOAL_RED_Y", "%.1f", GOAL_RED_Y)
+                .addData("RobotPos", "(%.1f, %.1f)", robotPose.getX(), robotPose.getY());
     }
 }

@@ -39,7 +39,6 @@ public class Shooter {
     }
 
     public void operate() {
-        shotPulse = false;
         updateShotLogic();
 
         setShooterMotorRpm(targetRpm);
@@ -62,6 +61,10 @@ public class Shooter {
 
     public boolean shotOccurred() {
         return shotPulse;
+    }
+
+    public void acknowledgeShotOccurred() {
+        shotPulse = false;
     }
 
     private void setShooterMotorRpm(double motorRpm) {
@@ -116,10 +119,15 @@ public class Shooter {
     private void addTelemetry() {
         double tps0 = motor.getVelocity();
         double tps1 = motor1.getVelocity();
+        double avgRpm = getMotorRPM();
         tele.addLine("=== SHOOTER ===")
                 .addData("Target RPM", "%.0f", targetRpm)
+                .addData("Avg RPM", "%.0f", avgRpm)
                 .addData("Motor RPM (0)", "%.0f", tps0 * 60.0 / TPR_MOTOR)
                 .addData("Motor RPM (1)", "%.0f", tps1 * 60.0 / TPR_MOTOR)
+                .addData("Armed", "%b", armed)
+                .addData("MaxSinceArm", "%.0f", rpmMaxSinceArm)
+                .addData("ShotPulse", "%b", shotPulse)
                 .addData("Shot Count", "%d", shotCount);
     }
 }

@@ -12,6 +12,7 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 
 import com.pedropathing.geometry.Pose;
 
+import org.firstinspires.ftc.teamcode.auto.motion.FixedFieldHeading;
 import org.firstinspires.ftc.teamcode.auto.motion.HeadingTarget;
 import org.firstinspires.ftc.teamcode.auto.motion.MotionController;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
@@ -77,6 +78,7 @@ public class AutoManager {
     private State s;
     private int shotsRemaining = 3;  // Assume 3 balls at start
     private boolean pathIssued = false;
+    private HeadingTarget intakeHeading;  // Used during intake to face the correct direction
 
     public AutoManager(Mecanum drive,
                        MotionController motion,
@@ -161,6 +163,12 @@ public class AutoManager {
         if (spindexer != null) spindexer.operate();
         if (transfer != null) transfer.operate();
 
+        boolean shooterHandledByState = (s == State.PATH_TO_SHOOT || s == State.SHOOTING);
+        if (!shooterHandledByState) {
+            shooter.setAutoRpm(IDLE_RPM);
+            shooter.operate();
+        }
+
         switch (s) {
             case PATH_TO_SHOOT:
                 handlePathToShoot();
@@ -203,6 +211,7 @@ public class AutoManager {
     }
 
     private void handlePathToShoot() {
+        transfer.raiseLever();
         if (!options.enableDeposit) {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
@@ -275,6 +284,7 @@ public class AutoManager {
     }
 
     private void handleRotateNextBall() {
+        transfer.raiseLever();
         // Find next ball and rotate to it
         int nextBall = inv.decideTargetSlot(slots, spindexer);
         if (nextBall >= 0 && nextBall != spindexer.getCurrentSlot()) {
@@ -289,6 +299,7 @@ public class AutoManager {
     }
 
     private void handlePathToIntake() {
+        transfer.lowerLever();
         if (!options.enableIntake) {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
@@ -298,7 +309,9 @@ public class AutoManager {
 
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
-            double headDeg = heading.getTargetHeadingDeg(drive.getFollower().getPose());
+            // Use the intake pose's heading, not the goal heading
+            double headDeg = Math.toDegrees(target.getHeading());
+            intakeHeading = new FixedFieldHeading(headDeg, "IntakeHeading");
             motion.followToPose(target, headDeg);
             pathIssued = true;
         }
@@ -322,6 +335,7 @@ public class AutoManager {
     }
 
     private void handleIntaking() {
+        if (transfer != null) transfer.lowerLever();
         if (!options.enableIntake) {
             drive.clearAutoCommand();
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
@@ -329,9 +343,10 @@ public class AutoManager {
         }
 
         if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
+        if (transfer != null) transfer.runTransfer(Transfer.CrState.REVERSE);
 
-        // Creep forward while intaking
-        motion.translateFacing(0, INTAKE_FORWARD_SPEED, heading);
+        // Creep forward while intaking, facing the intake direction
+        motion.translateFacing(0, INTAKE_FORWARD_SPEED, intakeHeading);
         intake.setAutoMode(Intake.AutoMode.FORWARD);
         intake.operate();
 
@@ -367,6 +382,7 @@ public class AutoManager {
     private void handleStoreBall() {
         // Raise transfer lever to secure ball
         transfer.raiseLever();
+        transfer.runTransfer(Transfer.CrState.FORWARD);
 
         // Check if we have more empty slots and intake spots
         if (inv.hasEmptySlots() && inv.setsRemain()) {
@@ -383,10 +399,12 @@ public class AutoManager {
     }
 
     private void handleFinalPark() {
+        transfer.raiseLever();
         if (!options.enableFinalMove) {
             transitionTo(State.DONE);
             return;
         }
+        transfer.runTransfer(Transfer.CrState.OFF);
 
         if (ui != null) ui.setBase(UiLightConfig.UiState.PARK);
 
@@ -402,7 +420,9 @@ public class AutoManager {
     }
 
     private void handleDone() {
+        transfer.raiseLever();
         if (ui != null) ui.setBase(UiLightConfig.UiState.DONE);
+        transfer.runTransfer(Transfer.CrState.OFF);
         drive.setAutoDrive(0, 0, 0, true, 0);
         shooter.setAutoRpm(0);
         shooter.operate();

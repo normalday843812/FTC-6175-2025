@@ -181,7 +181,6 @@ public class Mecanum {
     private void handleToggles() {
         if (map.slowModeToggle) slowMode = !slowMode;
         if (map.fieldCentricToggle) fieldCentricEnabled = !fieldCentricEnabled;
-        if (map.angleLockToggle) toggleHeadingLock();
     }
 
     private void addTelemetry() {

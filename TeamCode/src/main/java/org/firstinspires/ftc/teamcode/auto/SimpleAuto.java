@@ -26,7 +26,6 @@ import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.Menu;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @Autonomous(name = "Full Auto", group = "Pedro")
 public class SimpleAuto extends LinearOpMode {
@@ -39,17 +38,11 @@ public class SimpleAuto extends LinearOpMode {
         Mecanum drive = new Mecanum(this, map);
         drive.init();
 
-        hw.initLimeLight(100);
-        LLAprilTag ll = new LLAprilTag(hw.getLimelight(), this);
-
         hw.initIntake();
         Intake intake = new Intake(hw.getIntakeMotor(), this);
 
         hw.initShooter();
         Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(),this);
-
-        hw.initShooterYaw();
-        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), ll, drive.getFollower(), this);
 
         hw.initSpindexer();
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), this);
@@ -81,9 +74,11 @@ public class SimpleAuto extends LinearOpMode {
 
         if (isStopRequested()) return;
         waitForStart();
+        hw.initShooterYaw();
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), drive.getFollower(), isRed, this);
 
         MotionController motion = new MotionController(drive, tele);
-        AllianceGoalHeadingTarget heading = new AllianceGoalHeadingTarget(ll, isRed);
+        AllianceGoalHeadingTarget heading = new AllianceGoalHeadingTarget(isRed);
 
         Pose startPose = DecodeGameConfig.startPose(isRed, isAudienceSide);
         Pose shootPose = DecodeGameConfig.shootPose(isRed);
@@ -100,7 +95,6 @@ public class SimpleAuto extends LinearOpMode {
         auto.start(depositRoute);
 
         while (opModeIsActive()) {
-            ll.update();
             auto.update();
             drive.operate();
             TelemetryHelper.update();

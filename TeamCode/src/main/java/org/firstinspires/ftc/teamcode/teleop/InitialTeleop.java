@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -7,7 +9,6 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.LightController;
-import org.firstinspires.ftc.teamcode.managers.SpindexerModel;
 import org.firstinspires.ftc.teamcode.managers.TeleopManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
@@ -20,7 +21,6 @@ import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
-import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @TeleOp
 public class InitialTeleop extends LinearOpMode {
@@ -38,11 +38,6 @@ public class InitialTeleop extends LinearOpMode {
         Mecanum drive = new Mecanum(this, map);
         drive.init();
 
-        // Limelight
-        hw.initLimeLight(100);
-        hw.setLimelightPipeline(0);
-        LLAprilTag aprilTag = new LLAprilTag(hw.getLimelight(), this);
-
         // Subsystems
         hw.initIntake();
         Intake intake = new Intake(hw.getIntakeMotor(), this);
@@ -51,8 +46,7 @@ public class InitialTeleop extends LinearOpMode {
         Shooter shooter = new Shooter(hw.getShooterMotor(), hw.getShooterMotor1(), this);
 
         hw.initShooterYaw();
-        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(),
-                aprilTag, drive.getFollower(), this);
+        ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), drive.getFollower(), isRed, this);
 
         hw.initHood();
         Hood hood = new Hood(hw.getHoodServo(), map, this);
@@ -103,7 +97,6 @@ public class InitialTeleop extends LinearOpMode {
 
             transfer.operate();
             slots.update();
-            aprilTag.update();
             drive.operate();
             intake.operate();
             shooter.operate();

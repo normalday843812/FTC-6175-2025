@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.util;
 
 import static org.firstinspires.ftc.teamcode.config.GlobalConfig.ENABLE_TELEMETRY;
 
-import com.bylazar.telemetry.JoinedTelemetry;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -13,11 +12,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Multiplexed telemetry for FTC Driver Station and Panels.
+ * Telemetry helper that sends only to Panels (not Driver Station).
  *
- * <p>Creates a process-wide {@link Telemetry} that fans out to both targets via {@link JoinedTelemetry}.
- * Construct per-subsystem helpers to guard writes with a local flag. Flush once per loop with {@link #update()}.
- * Call {@link #reset()} when an OpMode ends.</p>
+ * <p>DS has a 255 item limit and causes duplication issues with JoinedTelemetry.
+ * This version sends all detailed telemetry to Panels only.</p>
  *
  * <h3>Usage</h3>
  * <pre>{@code
@@ -37,21 +35,18 @@ public final class TelemetryHelper {
     /**
      * Creates or reuses the shared telemetry and sets per-helper enable state.
      *
-     * <p>The first constructed helper builds a {@link JoinedTelemetry} from the OpMode's
-     * {@code opMode.telemetry} and Panels' {@link PanelsTelemetry#INSTANCE}, then enables auto-clear
-     * and sets a 50 ms transmission interval.</p>
+     * <p>Sends telemetry to Panels only to avoid DS 255 item limit and duplication.</p>
      *
-     * @param opMode    current OpMode; used only on first construction to seed the shared telemetry
+     * @param opMode    current OpMode; used only on first construction
      * @param isEnabled per-helper gate for all add calls
      */
     public TelemetryHelper(OpMode opMode, boolean isEnabled) {
         this.isEnabled = isEnabled;
         if (SHARED == null) {
-            Telemetry ftc = opMode.telemetry;
-            Telemetry panels = PanelsTelemetry.INSTANCE.getFtcTelemetry();
-            SHARED = new JoinedTelemetry(panels, ftc);
+            // Only use Panels telemetry - DS has 255 item limit and causes duplication
+            SHARED = PanelsTelemetry.INSTANCE.getFtcTelemetry();
             SHARED.setAutoClear(true);
-            SHARED.setMsTransmissionInterval(250);
+            SHARED.setMsTransmissionInterval(100);
         }
     }
 

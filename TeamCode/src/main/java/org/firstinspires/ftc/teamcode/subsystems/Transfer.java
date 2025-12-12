@@ -25,6 +25,7 @@ public class Transfer {
 
     private FlickState state = FlickState.IDLE;
     private CrState crState = CrState.OFF;
+    private CrState crStateBefore = CrState.OFF;
     private final Timer flickTimer = new Timer();
     private boolean leverRaised = false;
 
@@ -51,9 +52,11 @@ public class Transfer {
         switch (state) {
             case IDLE:
                 transferServo1.setPosition(minPosition);
+                crState = crStateBefore;
                 break;
             case FLICK_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
+                crState = CrState.FORWARD;
                 if (flickTimer.getElapsedTimeSeconds() >= FLICK_TIME_S) {
                     state = FlickState.FLICK_DOWN;
                     flickTimer.resetTimer();
@@ -87,6 +90,7 @@ public class Transfer {
 
     public void flick() {
         if (state == FlickState.IDLE) {
+            crStateBefore = crState;
             state = FlickState.FLICK_UP;
             flickTimer.resetTimer();
         }

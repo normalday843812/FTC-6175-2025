@@ -4,93 +4,25 @@ import com.bylazar.configurables.annotations.Configurable;
 
 @Configurable
 public class ColorCal {
-
-    public static final int BLANK = 0;
-    public static final int PURPLE_HOLE = 1;
-    public static final int PURPLE_SOLID = 2;
-    public static final int GREEN_HOLE = 3;
-    public static final int GREEN_SOLID = 4;
-    public static int INTAKE_SENSOR_IDX = 2;
-
     public static final int H = 0;
     public static final int S = 1;
     public static final int V = 2;
     public static final int A = 3;
 
-    public static float[] SENSOR_GAIN = {45f, 45f, 45f};
-    public static double[][][] MU = {
-            // Sensor 0 (spindex_color_0_1)
-            {
-                    {155.2327391570821, 0.4404446095373928, 0.04416319227852565, 0.03917423223571118}, // BLANK
-                    {202.92586727174717, 0.4061861379492667, 0.06554479362579071, 0.08549662537758945}, // PURPLE_HOLE
-                    {225.76257140516248, 0.42875685608413905, 0.27691468965343463, 0.5765507898221256}, // PURPLE_SOLID
-                    {155.47543737755058, 0.6868185497835803, 0.08683067673574323, 0.10372444069086272}, // GREEN_HOLE
-                    {157.6652527061808, 0.7111956734081795, 0.23348314939992423, 0.42670287061394513} // GREEN_SOLID
-            },
-            // Sensor 1 (spindex_color_0_2)
-            {
-                    {155.2327391570821, 0.4404446095373928, 0.04416319227852565, 0.03917423223571118}, // BLANK
-                    {202.92586727174717, 0.4061861379492667, 0.06554479362579071, 0.08549662537758945}, // PURPLE_HOLE
-                    {225.76257140516248, 0.42875685608413905, 0.27691468965343463, 0.5765507898221256}, // PURPLE_SOLID
-                    {155.47543737755058, 0.6868185497835803, 0.08683067673574323, 0.10372444069086272}, // GREEN_HOLE
-                    {157.6652527061808, 0.7111956734081795, 0.23348314939992423, 0.42670287061394513} // GREEN_SOLID
-            },
-            // Sensor 2 (intake_color_sensor)
-            {
-                    {159.06762849413886, 0.37558082931207254, 0.04988065660604493, 0.053955360434149925}, // BLANK
-                    {204.66823970559648, 0.406223514322986, 0.1465867519025554, 0.21850184851736537}, // PURPLE_HOLE
-                    {199.83975144217132, 0.35360485411806936, 0.7412873733606774, 0.8718168837782043}, // PURPLE_SOLID
-                    {159.53372614178622, 0.5997782145686159, 0.14458821267525537, 0.18577033512230695}, // GREEN_HOLE
-                    {179.67635313846773, 0.44383087991543885, 1.0, 0.983704707654966} // GREEN_SOLID
-            }
+    public static float[] SENSOR_GAIN = {40f, 40f, 45f};
+    public static double[] V_THRESHOLD = {
+            0.10,  // Sensor 0
+            0.15,  // Sensor 1
+            0.035  // Sensor 2 (intake)
     };
 
-    public static double[][][] SIGMA = {
-            // Sensor 0
-            {
-                    {6.453140784943912, 0.05, 0.05, 0.05}, // BLANK
-                    {6.979467192371765, 0.05, 0.05, 0.05}, // PURPLE_HOLE
-                    {2.0855778334469024, 0.05, 0.05, 0.06302177613881384}, // PURPLE_SOLID
-                    {2.0731015317787365, 0.05, 0.05, 0.07050690180006546}, // GREEN_HOLE
-                    {1.0827675195310507, 0.05, 0.08130630157367175, 0.15917132854024008} // GREEN_SOLID
-            },
-            // Sensor 1
-            {
-                    {6.453140784943912, 0.05, 0.05, 0.05}, // BLANK
-                    {6.979467192371765, 0.05, 0.05, 0.05}, // PURPLE_HOLE
-                    {2.0855778334469024, 0.05, 0.05, 0.06302177613881384}, // PURPLE_SOLID
-                    {2.0731015317787365, 0.05, 0.05, 0.07050690180006546}, // GREEN_HOLE
-                    {1.0827675195310507, 0.05, 0.08130630157367175, 0.15917132854024008} // GREEN_SOLID
-            },
-            // Sensor 2
-            {
-                    {6.84392322245491, 0.05, 0.05, 0.05}, // BLANK
-                    {33.69537846962115, 0.07827818485430187, 0.18978209834566873, 0.24001361117354988}, // PURPLE_HOLE
-                    {55.655507281105784, 0.167256725557194, 0.2613458414578483, 0.13032692082323738}, // PURPLE_SOLID
-                    {5.730184734918701, 0.07069378816511583, 0.20899455949559578, 0.2431687987958528}, // GREEN_HOLE
-                    {1.9264340305611918, 0.1396189483602163, 0.05, 0.05} // GREEN_SOLID
-            }
+    public static double[] A_THRESHOLD = {
+            0.15,  // Sensor 0
+            0.15,  // Sensor 1
+            0.025  // Sensor 2 (intake)
     };
 
-    public static double[] W = {1.0, 0.6, 0.25, 0.4};
-    public static double SIGMA_MIN = 1e-3;
-    public static double K_SCALE = 3.0;
-    public static double HOLE_LEAK = 0.7;
-
-    public static double MIN_BALL_CONF = 0.30;
-    public static double COLOR_MARGIN = 0.15;
-    public static double EWMA_ALPHA = 0.6;
+    public static boolean REQUIRE_BOTH_VA = false;
 
     public static boolean TELEMETRY_ENABLED = true;
-
-    public static void applyGain(int sensorIndex, float gain) {
-        SENSOR_GAIN[sensorIndex] = gain;
-    }
-
-    public static void applyClassStats(int sensorIndex, int classIndex, double[] muHSVA, double[] sigmaHSVA) {
-        for (int c = 0; c < 4; c++) {
-            MU[sensorIndex][classIndex][c] = muHSVA[c];
-            SIGMA[sensorIndex][classIndex][c] = Math.max(SIGMA_MIN, sigmaHSVA[c]);
-        }
-    }
 }
