@@ -15,13 +15,37 @@ public class IntakeCoordinator {
     private boolean reversing = false;
     private int confirmationCount = 0;
 
+    // Desired state set by manager
+    private boolean desiredRunning = false;
+    private boolean desiredReversing = false;
+
     public IntakeCoordinator(Intake intake, SlotColorSensors sensors) {
         this.intake = intake;
         this.sensors = sensors;
     }
 
-    public boolean update(GamepadMap map) {
-        handleInputs(map);
+    /**
+     * Set the desired intake state (used by manager when it has control).
+     */
+    public void setDesiredState(boolean running, boolean reversing) {
+        this.desiredRunning = running;
+        this.desiredReversing = reversing;
+    }
+
+    /**
+     * Update coordinator state.
+     * @param map gamepad inputs
+     * @param managerControlsIntake if true, use manager's desired state instead of gamepad
+     * @return true if ball was detected while running
+     */
+    public boolean update(GamepadMap map, boolean managerControlsIntake) {
+        if (managerControlsIntake) {
+            // Use manager's desired state
+            this.running = desiredRunning;
+            this.reversing = desiredReversing;
+        } else {
+            handleInputs(map);
+        }
         applyState();
         return running && checkForBall();
     }
@@ -50,9 +74,7 @@ public class IntakeCoordinator {
         if (map.intakeReverseToggle) {
             reversing = !reversing;
         }
-        if (map.intakeClearJam) {
-            intake.clearJam();
-        }
+        // Jam clearing is automatic via Intake.detectAndClearJamIfNeeded()
     }
 
     private void applyState() {

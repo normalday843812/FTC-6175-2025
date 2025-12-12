@@ -15,6 +15,7 @@ import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.config.TestAutoConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
+import org.firstinspires.ftc.teamcode.managers.PersistentBallState;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -97,6 +98,10 @@ public class TestAuto extends LinearOpMode {
         while (opModeIsActive()) {
             auto.update();
             drive.operate();
+
+            // Save ball state so teleop can pick it up
+            PersistentBallState.saveFromModel(inv.getModel());
+
             TelemetryHelper.update();
             sleep(20);
         }

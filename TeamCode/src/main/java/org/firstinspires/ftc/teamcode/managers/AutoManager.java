@@ -2,8 +2,9 @@ package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_TARGET_RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEFAULT_TIMEOUT_S;
-import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FORWARD_SPEED;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_CREEP_DISTANCE;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FORWARD_TIMEOUT_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEED_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_GOAL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.PATH_TIMEOUT_TO_INTAKE_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
@@ -330,7 +331,6 @@ public class AutoManager {
     private void handleIntaking() {
         if (transfer != null) transfer.lowerLever();
         if (!options.enableIntake) {
-            drive.clearAutoCommand();
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
         }
@@ -338,23 +338,30 @@ public class AutoManager {
         if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
         if (transfer != null) transfer.runTransfer(Transfer.CrState.REVERSE);
 
-        // Creep forward while intaking (no facing target, just straight)
-        drive.setAutoDrive(-INTAKE_FORWARD_SPEED, 0, 0, true, 0);
+        // Start path to creep forward on first entry
+        if (!pathIssued) {
+            Pose current = follower.getPose();
+            // Creep in X direction: red = +X, blue = -X
+            double targetX = current.getX() + (isRed ? INTAKE_CREEP_DISTANCE : -INTAKE_CREEP_DISTANCE);
+            Pose creepTarget = new Pose(targetX, current.getY(), current.getHeading());
+            followToPose(creepTarget, Math.toDegrees(current.getHeading()));
+            pathIssued = true;
+        }
+
         intake.setAutoMode(Intake.AutoMode.FORWARD);
         intake.operate();
 
         boolean gotBall = slots != null && slots.hasBall();
         boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
+        boolean pathDone = !drive.isPathBusy();
 
         if (gotBall) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
             intake.setAutoMode(Intake.AutoMode.OFF);
-            drive.clearAutoCommand();
             inv.onBallIntaked();
             transitionTo(State.STORE_BALL);
-        } else if (timeout) {
+        } else if (timeout || pathDone) {
             intake.setAutoMode(Intake.AutoMode.OFF);
-            drive.clearAutoCommand();
 
             if (inv.hasBalls() && options.enableDeposit) {
                 shotsRemaining = inv.getBallCount();
@@ -371,9 +378,16 @@ public class AutoManager {
         transfer.raiseLever();
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
-        if (inv.hasEmptySlots() && inv.setsRemain()) {
+        // Wait for ball to be pushed into bucket before deciding next action
+        if (t.getElapsedTimeSeconds() < TELEOP_FEED_DWELL_S) {
+            return;
+        }
+
+        // Continue intaking at current position if we have empty slots
+        if (inv.hasEmptySlots()) {
             transitionTo(State.ALIGN_EMPTY_SLOT);
         } else if (inv.hasBalls() && options.enableDeposit) {
+            // Full - go shoot
             shotsRemaining = inv.getBallCount();
             transitionTo(State.PATH_TO_SHOOT);
         } else {

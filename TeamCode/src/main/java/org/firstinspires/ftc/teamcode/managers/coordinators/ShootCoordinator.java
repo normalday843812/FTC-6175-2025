@@ -20,10 +20,23 @@ public class ShootCoordinator {
         this.transfer = transfer;
     }
 
-    public boolean update(GamepadMap map) {
-        handleShootingInputs(map);
+    /**
+     * Update coordinator state.
+     * @param map gamepad inputs
+     * @param managerControlsTransfer if true, don't issue transfer commands (manager owns them)
+     * @return true if a shot occurred
+     */
+    public boolean update(GamepadMap map, boolean managerControlsTransfer) {
+        handleShootingInputs(map, managerControlsTransfer);
         handleAimInputs(map);
-        applyState();
+
+        // Always apply shooter RPM - manager doesn't control shooter
+        shooter.setAutoRpm(targetRpm);
+
+        // Only control transfer when manager doesn't own it
+        if (!managerControlsTransfer) {
+            applyTransferState();
+        }
         return shooter.shotOccurred();
     }
 
@@ -73,23 +86,27 @@ public class ShootCoordinator {
         return transfer.isIdle();
     }
 
-    private void handleShootingInputs(GamepadMap map) {
-        if (map.shootingModeToggle) {
+    private void handleShootingInputs(GamepadMap map, boolean managerControlsTransfer) {
+        // Shooting mode toggle always allowed
+        if (map.leverToggle) {
             shootingMode = !shootingMode;
         }
 
-        if (shootingMode) {
-            if (map.transferButtonHeld) {
-                transfer.holdUp();
-            } else if (map.transferButton) {
-                transfer.flick();
+        // Transfer commands only when manager doesn't own them
+        if (!managerControlsTransfer) {
+            if (shootingMode) {
+                if (map.transferButtonHeld) {
+                    transfer.holdUp();
+                } else if (map.transferButton) {
+                    transfer.flick();
+                }
             }
-        }
 
-        if (map.transferCrForward) {
-            transfer.runTransfer(Transfer.CrState.FORWARD);
-        } else if (map.transferCrReverse) {
-            transfer.runTransfer(Transfer.CrState.REVERSE);
+            if (map.transferCrForward) {
+                transfer.runTransfer(Transfer.CrState.FORWARD);
+            } else if (map.transferCrReverse) {
+                transfer.runTransfer(Transfer.CrState.REVERSE);
+            }
         }
     }
 
@@ -107,9 +124,7 @@ public class ShootCoordinator {
         }
     }
 
-    private void applyState() {
-        shooter.setAutoRpm(targetRpm);
-
+    private void applyTransferState() {
         if (shootingMode) {
             transfer.raiseLever();
         } else {

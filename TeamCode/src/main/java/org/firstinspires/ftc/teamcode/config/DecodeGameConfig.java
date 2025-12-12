@@ -1,8 +1,12 @@
 package org.firstinspires.ftc.teamcode.config;
 
+import com.arcrobotics.ftclib.hardware.motors.Motor;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.ftc.FTCCoordinates;
 import com.pedropathing.geometry.Pose;
+
+import org.firstinspires.ftc.teamcode.managers.SpindexerModel;
+import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 
 @Configurable
 public class DecodeGameConfig {
@@ -16,14 +20,14 @@ public class DecodeGameConfig {
     public static double GOAL_RED_Y = GOAL_RED_PEDRO.getY();
 
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
-            new Pose(103, 84, Math.toRadians(0)),
-            new Pose(103, 60, Math.toRadians(0)),
-            new Pose(103, 35, Math.toRadians(0))
+            new Pose(100, 84, Math.toRadians(0)),
+            new Pose(100, 60, Math.toRadians(0)),
+            new Pose(100, 35, Math.toRadians(0))
     };
     public static Pose[] INTAKE_SETS_BLUE = new Pose[]{
-            new Pose(40, 84, Math.toRadians(180)),
-            new Pose(40, 60, Math.toRadians(180)),
-            new Pose(40, 35, Math.toRadians(180))
+            new Pose(43, 84, Math.toRadians(180)),
+            new Pose(43, 60, Math.toRadians(180)),
+            new Pose(43, 35, Math.toRadians(180))
     };
 
     public static Pose startPose(boolean isRed, boolean audienceSide) {

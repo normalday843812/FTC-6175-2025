@@ -14,9 +14,9 @@ public class AutoUnifiedConfig {
     // Spindex decisions
     public static boolean PREFER_CLOCKWISE_ON_TIE = true;
 
-    // Intake forward phase
-    public static double INTAKE_FORWARD_SPEED = 0.35;
-    public static double INTAKE_FORWARD_TIMEOUT_S = 1.2;
+    // Intake creep phase
+    public static double INTAKE_CREEP_DISTANCE = 6.0;  // X offset in Pedro coordinates
+    public static double INTAKE_FORWARD_TIMEOUT_S = 2.0;
 
     // Shooter/deposit
     public static double AUTO_TARGET_RPM = ShooterConfig.MAX_RPM;
@@ -34,5 +34,5 @@ public class AutoUnifiedConfig {
     public static double JIGGLE_DWELL_S = 0.08;
 
     // Teleop manager timings
-    public static double TELEOP_FEED_DWELL_S = 1.00;
+    public static double TELEOP_FEED_DWELL_S = 0.25;  // Time to push ball into bucket before indexing
 }

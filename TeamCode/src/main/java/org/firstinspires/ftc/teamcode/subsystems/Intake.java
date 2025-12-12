@@ -92,8 +92,9 @@ public class Intake {
                 return false;
 
             case OUT:
+                // Jam clear: go FORWARD (opposite of normal REVERSE intake)
                 motorBefore = motor.getPower();
-                motor.setPower(REVERSE_PWR);
+                motor.setPower(FORWARD_PWR);
                 if (jamTimer.getElapsedTimeSeconds() >= JAM_OUT_TIME_S) {
                     jamState = JamState.IN;
                     jamTimer.resetTimer();
@@ -101,7 +102,8 @@ public class Intake {
                 return true;
 
             case IN:
-                motor.setPower(FORWARD_PWR);
+                // Return to REVERSE (normal intake direction)
+                motor.setPower(REVERSE_PWR);
                 if (jamTimer.getElapsedTimeSeconds() >= JAM_IN_TIME_S) {
                     motor.setPower(motorBefore);
                     jamState = JamState.IDLE;
@@ -153,7 +155,9 @@ public class Intake {
 
         int dir = desiredDir();
 
-        if (dir == 1 && fwdArmed && rpm < JAM_FWD_MIN_RPM) {
+        // Detect jam when running in REVERSE (normal intake direction)
+        // RPM will be negative when reversing, so check absolute value
+        if (dir == -1 && revArmed && Math.abs(rpm) < JAM_REV_MIN_ABS_RPM) {
             clearJam();
         }
     }

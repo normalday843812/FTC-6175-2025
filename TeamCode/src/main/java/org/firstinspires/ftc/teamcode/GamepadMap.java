@@ -10,79 +10,118 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.util.EdgeTrigger;
 
+/**
+ * Single-gamepad control scheme.
+ *
+ * Layout:
+ * - Left stick: Drive (forward/strafe)
+ * - Right stick X: Rotate
+ * - Right stick Y: Shooter yaw manual adjust
+ * - Triggers: Shooter power (RT=up, LT=down)
+ * - Bumpers: Intake (RB=forward, LB=reverse)
+ * - A: Slow mode toggle
+ * - B: Spindexer backward
+ * - X: Spindexer forward
+ * - Y: Lever toggle (raises/lowers transfer lever to hold ball in)
+ * - Dpad up: Transfer shoot (flicks ball out)
+ * - Dpad down: Field centric toggle
+ * - Dpad left: Transfer CR reverse
+ * - Dpad right: Transfer CR forward
+ * - Left stick button: Reset shooter yaw
+ * - Right stick button: Shooter yaw auto lock toggle
+ * - Back: Teleop manager toggle
+ * - Start: (unused - jam clearing is automatic)
+ */
 @Configurable
 public class GamepadMap {
     private final OpMode opmode;
 
+    // Drive
     public double forward, strafe, rotate;
-    public boolean angleLockToggle, slowModeToggle, fieldCentricToggle,
-            spindexerForward, spindexerBackward, intakeToggle, intakeReverseToggle,
-            teleopSortManagerToggle;
+    public boolean slowModeToggle, fieldCentricToggle;
+
+    // Intake
+    public boolean intakeToggle, intakeReverseToggle;
+
+    // Shooter
     public double shooterUp, shooterDown;
     public double shooterYaw;
-    public boolean transferButton, transferButtonHeld, intakeClearJam, resetShooterYaw;
+    public boolean shooterYawAutoLockToggle, resetShooterYaw;
+
+    // Transfer/Spindexer
+    public boolean transferButton, transferButtonHeld;  // Flicks ball out (shoot)
     public boolean transferCrForward, transferCrReverse;
+    public boolean spindexerForward, spindexerBackward;
+
+    // Modes
+    public boolean leverToggle;  // Raises/lowers transfer lever to hold ball in
+    public boolean teleopSortManagerToggle;
+
+    // Hood (if using right stick Y for hood instead of shooter yaw)
     public double hoodAxis;
-    public boolean shooterYawAutoLockToggle;
-    public boolean shootingModeToggle, shootingModeToggleHeld;
-    public boolean findGreenBall, findPurpleBall;
-    private final EdgeTrigger a_gp2 = new EdgeTrigger(), b_gp2 = new EdgeTrigger(), x = new EdgeTrigger(),
-            y = new EdgeTrigger(), dpad_down_t = new EdgeTrigger(), right_bumper_t = new EdgeTrigger(),
-            dpad_up_t_gp1 = new EdgeTrigger(), dpad_up_t_gp2 = new EdgeTrigger(), dpad_left_t = new EdgeTrigger(), dpad_right_t = new EdgeTrigger(),
-            left_bumper_t = new EdgeTrigger(), start_button_t = new EdgeTrigger(),
-            back_button_t_gp2 = new EdgeTrigger(),
-            left_stick_button_t = new EdgeTrigger(), right_stick_button_t = new EdgeTrigger(),
-            a_gp1 = new EdgeTrigger();
+
+    // Edge triggers
+    private final EdgeTrigger a_t = new EdgeTrigger();
+    private final EdgeTrigger b_t = new EdgeTrigger();
+    private final EdgeTrigger x_t = new EdgeTrigger();
+    private final EdgeTrigger y_t = new EdgeTrigger();
+    private final EdgeTrigger dpad_up_t = new EdgeTrigger();
+    private final EdgeTrigger dpad_down_t = new EdgeTrigger();
+    private final EdgeTrigger dpad_left_t = new EdgeTrigger();
+    private final EdgeTrigger dpad_right_t = new EdgeTrigger();
+    private final EdgeTrigger rb_t = new EdgeTrigger();
+    private final EdgeTrigger lb_t = new EdgeTrigger();
+    private final EdgeTrigger back_t = new EdgeTrigger();
+    private final EdgeTrigger ls_button_t = new EdgeTrigger();
+    private final EdgeTrigger rs_button_t = new EdgeTrigger();
 
     public GamepadMap(OpMode opmode) {
         this.opmode = opmode;
     }
 
     public void update() {
-        // ==================== GAMEPAD 1: DRIVER ====================
-        // --- Movement (left stick + right stick X) ---
+        // === DRIVE (Left stick + Right stick X) ===
         forward = deadband(clamp(opmode.gamepad1.left_stick_y, -1.0, 1.0), STICK_DB);
         strafe = deadband(clamp(opmode.gamepad1.left_stick_x, -1.0, 1.0), STICK_DB);
         rotate = deadband(clamp(opmode.gamepad1.right_stick_x, -1.0, 1.0), ROT_DB);
 
-        // --- Drive Mode Toggles (dpad) ---
+        // === DRIVE MODE TOGGLES ===
+        slowModeToggle = a_t.rose(opmode.gamepad1.a);  // A button for slow mode
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad1.dpad_down);
-        slowModeToggle = dpad_up_t_gp1.rose(opmode.gamepad1.dpad_up);
-        angleLockToggle = dpad_left_t.rose(opmode.gamepad1.dpad_left);
 
-        // --- Ball Seeking (face buttons - colors match buttons) ---
-        findGreenBall = a_gp1.rose(opmode.gamepad1.a);  // A is green
-        findPurpleBall = b_gp2.rose(opmode.gamepad1.b); // B is red/close to purple
+        // === INTAKE (Bumpers) ===
+        intakeToggle = rb_t.rose(opmode.gamepad1.right_bumper);
+        intakeReverseToggle = lb_t.rose(opmode.gamepad1.left_bumper);
+        // Jam clearing is automatic - no manual button needed
 
-        // ==================== GAMEPAD 2: OPERATOR ====================
-        // --- Intake (bumpers - R=in, L=reverse, intuitive) ---
-        intakeToggle = right_bumper_t.rose(opmode.gamepad2.right_bumper);
-        intakeReverseToggle = left_bumper_t.rose(opmode.gamepad2.left_bumper);
-        intakeClearJam = start_button_t.rose(opmode.gamepad2.start);
+        // === SHOOTER POWER (Triggers) ===
+        shooterUp = opmode.gamepad1.right_trigger;
+        shooterDown = opmode.gamepad1.left_trigger;
 
-        // --- Shooter Power (triggers - variable control) ---
-        shooterUp = opmode.gamepad2.right_trigger;
-        shooterDown = opmode.gamepad2.left_trigger;
+        // === SHOOTER YAW (Right stick Y + buttons) ===
+        shooterYaw = deadband(opmode.gamepad1.right_stick_y, ROT_DB);
+        shooterYawAutoLockToggle = rs_button_t.rose(opmode.gamepad1.right_stick_button);
+        resetShooterYaw = ls_button_t.rose(opmode.gamepad1.left_stick_button);
 
-        // --- Shooter Aiming (right stick - dedicated axis) ---
-        shooterYaw = deadband(opmode.gamepad2.right_stick_x, ROT_DB);
-        shooterYawAutoLockToggle = right_stick_button_t.rose(opmode.gamepad2.right_stick_button);
-        resetShooterYaw = left_stick_button_t.rose(opmode.gamepad2.left_stick_button);
+        // === TRANSFER SHOOT (Dpad up) ===
+        transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
+        transferButtonHeld = opmode.gamepad1.dpad_up;
 
-        // --- Transfer/Spindexer (dpad - directional logic) ---
-        transferButton = dpad_up_t_gp2.rose(opmode.gamepad2.dpad_up)
-                || dpad_up_t_gp1.rose(opmode.gamepad1.dpad_up);
-        transferButtonHeld = opmode.gamepad2.dpad_up;
-        transferCrForward = dpad_right_t.rose(opmode.gamepad2.dpad_right);
-        transferCrReverse = dpad_left_t.rose(opmode.gamepad2.dpad_left);
-        spindexerForward = x.rose(opmode.gamepad2.x);
-        spindexerBackward = y.rose(opmode.gamepad2.y);
+        // === TRANSFER CR (Dpad left/right) ===
+        transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
+        transferCrReverse = dpad_left_t.rose(opmode.gamepad1.dpad_left);
 
-        // --- Shooting Mode (face button A - primary action) ---
-        shootingModeToggle = a_gp2.rose(opmode.gamepad2.a);
-        shootingModeToggleHeld = opmode.gamepad2.a;
+        // === SPINDEXER (X/B) ===
+        spindexerForward = x_t.rose(opmode.gamepad1.x);
+        spindexerBackward = b_t.rose(opmode.gamepad1.b);
 
-        // --- Manager Toggles (back/start - rarely used) ---
-        teleopSortManagerToggle = back_button_t_gp2.rose(opmode.gamepad2.back);
+        // === LEVER TOGGLE (Y) ===
+        leverToggle = y_t.rose(opmode.gamepad1.y);
+
+        // === MANAGER TOGGLE (Back) ===
+        teleopSortManagerToggle = back_t.rose(opmode.gamepad1.back);
+
+        // === HOOD (unused axis, available if needed) ===
+        hoodAxis = 0; // Not mapped currently
     }
 }

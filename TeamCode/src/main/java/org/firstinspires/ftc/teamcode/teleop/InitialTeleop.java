@@ -9,6 +9,7 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.LightController;
+import org.firstinspires.ftc.teamcode.managers.PersistentBallState;
 import org.firstinspires.ftc.teamcode.managers.TeleopManager;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
@@ -67,8 +68,19 @@ public class InitialTeleop extends LinearOpMode {
         LightController light = new LightController(ui, shooter, shooterYaw, intake);
 
         InventoryManager inventoryManager = new InventoryManager();
+
+        // Load persistent ball state from auto (if available)
+        if (PersistentBallState.isInitialized()) {
+            PersistentBallState.loadIntoModel(inventoryManager.getModel());
+            telemetry.addLine("Loaded ball state from auto");
+            telemetry.addData("Balls", PersistentBallState.getBallCount());
+        } else {
+            telemetry.addLine("No ball state from auto - starting fresh");
+        }
+        telemetry.update();
+
         TeleopManager teleopManager =
-                new TeleopManager(intake, shooter, shooterYaw, spindexer, transfer, slots,  inventoryManager, ui, this);
+                new TeleopManager(intake, shooter, shooterYaw, spindexer, transfer, slots, inventoryManager, ui, this);
 
         if (isStopRequested()) return;
         waitForStart();
@@ -105,6 +117,9 @@ public class InitialTeleop extends LinearOpMode {
             shooterYaw.operate();
 
             teleopManager.update(map);
+
+            // Save ball state periodically so it persists
+            PersistentBallState.saveFromModel(inventoryManager.getModel());
 
             TelemetryHelper.update();
         }
