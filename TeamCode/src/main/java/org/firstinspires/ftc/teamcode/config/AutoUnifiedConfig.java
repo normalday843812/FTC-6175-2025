@@ -38,7 +38,7 @@ public class AutoUnifiedConfig {
     public static int FRONT_CLEAR_EMPTY_CONFIRM_CYCLES = 2;
 
     // Shooter/deposit
-    public static double AUTO_TARGET_RPM = 4000;
+    public static double AUTO_TARGET_RPM = 3500;
     public static double TARGET_RPM_BAND = 150;
     public static double AT_RPM_WAIT_TIMEOUT_S = 1.5;
     public static double INDEX_DWELL_S = 0.15;
