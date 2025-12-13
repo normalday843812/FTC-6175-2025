@@ -21,6 +21,8 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_CRE
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_FORWARD_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INTAKE_POST_DETECT_DWELL_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_SHOOT_EMPTY_PRECHECK_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.REQUIRE_FULL_BEFORE_SHOOT;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.ROTATE_NEXT_BALL_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.ROTATE_NEXT_BALL_SENSOR_SETTLE_S;
@@ -253,7 +255,9 @@ public class AutoManager {
                 break;
         }
 
-        boolean shooterHandledByState = (s == State.PATH_TO_SHOOT || s == State.SHOOTING);
+        boolean keepShooterHot = AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS && shotsRemainingInBatch > 0;
+        boolean shooterHandledByState = (s == State.PATH_TO_SHOOT || s == State.SHOOTING)
+                || (keepShooterHot && s == State.ROTATE_NEXT_BALL);
         if (!shooterHandledByState) {
             shooter.setAutoRpm(IDLE_RPM);
             shooter.operate();
@@ -316,6 +320,14 @@ public class AutoManager {
             return;
         }
 
+        // If we just entered shooting but slot-0 is empty, don't waste time spinning up just to hit NO_BALL.
+        if (shotsRemainingInBatch > 0
+                && t.getElapsedTimeSeconds() < Math.max(0.0, AUTO_SHOOT_EMPTY_PRECHECK_S)
+                && !frontHasBall()) {
+            transitionTo(State.ROTATE_NEXT_BALL);
+            return;
+        }
+
         if (ui != null) {
             ui.setBase(shooter.isAtTarget(TARGET_RPM_BAND)
                     ? UiLightConfig.UiState.READY
@@ -373,6 +385,11 @@ public class AutoManager {
         transfer.raiseLever();
         transfer.runTransfer(AUTO_HOLD_TRANSFER_DURING_ROTATE ? Transfer.CrState.FORWARD : Transfer.CrState.OFF);
         intake.setAutoMode(AUTO_IDLE_INTAKE_FORWARD_DURING_ROTATE ? Intake.AutoMode.FORWARD : Intake.AutoMode.OFF);
+        if (AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS && shotsRemainingInBatch > 0) {
+            double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
+            shooter.setAutoRpm(rpm);
+            shooter.operate();
+        }
 
         // Avoid getting stuck forever if spindexer never settles / keeps getting spammed with commands.
         if (t.getElapsedTimeSeconds() >= Math.max(0.0, ROTATE_NEXT_BALL_TIMEOUT_S)) {
@@ -915,6 +932,8 @@ public class AutoManager {
                 .addData("Balls", "%d", inv.getBallCount())
                 .addData("FrontHasBall", () -> frontHasBall())
                 .addData("ShotsRemaining", "%d", shotsRemainingInBatch)
+                .addData("ShootPrecheckS", "%.2f", AUTO_SHOOT_EMPTY_PRECHECK_S)
+                .addData("KeepShooterHot", "%b", AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS)
                 .addData("IntakeConfirmCycles", "%d", INTAKE_CONFIRM_CYCLES)
                 .addData("PostDetectDwellS", "%.2f", INTAKE_POST_DETECT_DWELL_S)
                 .addData("IdleIntakeForward", "%b", AUTO_IDLE_INTAKE_FORWARD)

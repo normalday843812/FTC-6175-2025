@@ -49,6 +49,13 @@ public class AutoUnifiedConfig {
     public static boolean AUTO_HOLD_TRANSFER_DURING_SHOOTING = true;
     public static boolean AUTO_HOLD_TRANSFER_DURING_ROTATE = true;
 
+    // Shooting behavior
+    // If we enter SHOOTING but slot-0 sensors say empty, immediately rotate rather than waiting for DepositController to time out.
+    public static double AUTO_SHOOT_EMPTY_PRECHECK_S = 0.25;
+    // Keep the shooter at AUTO_TARGET_RPM while rotating between balls so we don't "spin down then wait to spin up"
+    // between shots (often perceived as long 'spindexing' delays at the goal).
+    public static boolean AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS = true;
+
     // Shooter/deposit
     public static double AUTO_TARGET_RPM = 3500;
     public static double TARGET_RPM_BAND = 150;
