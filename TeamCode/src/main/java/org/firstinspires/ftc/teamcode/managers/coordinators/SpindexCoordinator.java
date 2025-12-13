@@ -67,7 +67,14 @@ public class SpindexCoordinator {
      * After calling this, poll isSettled() to wait for completion (includes verification).
      */
     public boolean goToEmpty() {
-        syncModel();
+        // Always trust front sensors before choosing an "empty" target.
+        // With all sensors mounted at slot-0, the model can easily think the front bucket is EMPTY
+        // when it actually contains a ball (e.g., after manual spindexing or a partial auto->teleop transition).
+        if (sensors != null) {
+            inventory.syncFromSensors(sensors, spindexer);
+        } else {
+            syncModel();
+        }
         int slot = inventory.findNearestEmptySlot(spindexer);
         if (slot >= 0) {
             goToSlotWithVerification(slot, true);  // expect empty at target
@@ -174,7 +181,29 @@ public class SpindexCoordinator {
     private boolean verifyMoveSucceeded() {
         // This codebase intentionally places all color sensors at the front (slot 0),
         // so verification can only use "front has ball" truth.
-        return !expectEmptyAtFront || !sensors.hasFrontBall();
+        if (!expectEmptyAtFront) {
+            return true;
+        }
+
+        if (sensors == null) {
+            return true;
+        }
+
+        // Expected EMPTY at front.
+        if (!sensors.hasFrontBall()) {
+            return true;
+        }
+
+        // Sensors still see a BALL at the front.
+        // If the servo actually reached the commanded target slot, this isn't necessarily a mechanical jam;
+        // it usually means the model thought this bucket was empty when it wasn't. Accept sensor truth and
+        // let higher-level logic decide what to do next instead of jiggling forever.
+        if (spindexer.getCurrentSlot() == moveTargetSlot) {
+            inventory.syncFromSensors(sensors, spindexer);
+            return true;
+        }
+
+        return false;
     }
 
     /**

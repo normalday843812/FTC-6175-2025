@@ -106,7 +106,9 @@ public class IntakeCoordinator {
     private boolean checkForBall() {
         if (sensors == null) return false;
 
-        boolean detected = sensors.hasBall();
+        // Teleop uses a dedicated intake sensor (index 2) for "a new ball is entering / stuck at intake".
+        // Slot-0/front sensors are used separately to confirm the ball is actually seated before counting it.
+        boolean detected = sensors.hasIntakeBall();
         if (!detected) {
             confirmationCount = 0;
             ballLatched = false;

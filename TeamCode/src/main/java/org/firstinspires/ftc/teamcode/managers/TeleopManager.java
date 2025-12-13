@@ -94,6 +94,7 @@ public class TeleopManager {
         this.enabled = enabled;
 
         if (enabled) {
+            shootCoord.exitShootingMode();
             spindexCoord.syncFromSensors();
             enterState(State.INTAKING);
         } else {
@@ -173,18 +174,26 @@ public class TeleopManager {
         // Shooter idle during intaking
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
 
-        // Ball detected (usually intake sensor) - start loading so it seats into slot-0.
-        // This must take priority over any "front has ball" checks so we don't skip model updates.
-        if (ballDetected) {
-            pendingBallIntake = true;
-            intakeCoord.setDesiredState(false, false);  // Stop intake briefly
-            enterState(State.LOADING);
-            return;
-        }
-
         // If full, stop intaking and go to READY (intake will be put into FORWARD block mode there).
         if (isFull) {
             enterState(State.READY);
+            return;
+        }
+
+        // Ball detected (intake sensor): if the front is already occupied, make space first by indexing.
+        // Otherwise go to LOADING to seat it into slot-0 (front sensors will confirm before counting).
+        if (ballDetected) {
+            pendingBallIntake = true;
+            intakeCoord.setDesiredState(false, false);  // Stop intake briefly
+
+            if (frontHasBall) {
+                transfer.raiseLever();
+                transfer.runTransfer(Transfer.CrState.FORWARD);
+                spindexCoord.syncFromSensors();
+                enterState(State.INDEXING);
+            } else {
+                enterState(State.LOADING);
+            }
             return;
         }
 
@@ -214,7 +223,6 @@ public class TeleopManager {
 
     private void handleLoading() {
         // Push ball into bucket
-        shootCoord.enterShootingMode();
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
         transfer.raiseLever();  // Lever up to keep ball in
         transfer.runTransfer(Transfer.CrState.FORWARD);
@@ -300,7 +308,6 @@ public class TeleopManager {
         boolean isEmpty = spindexCoord.isEmpty();
 
         // Maintain ready state - transfer always up, CR forward
-        shootCoord.enterShootingMode();
         transfer.raiseLever();
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
@@ -422,6 +429,7 @@ public class TeleopManager {
                 shootCoord.enterShootingMode();
                 break;
             case INTAKING:
+                shootCoord.exitShootingMode();
                 pendingBallIntake = false;
                 break;
         }

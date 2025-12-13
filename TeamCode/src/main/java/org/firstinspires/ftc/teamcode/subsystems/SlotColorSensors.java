@@ -94,6 +94,17 @@ public class SlotColorSensors {
     }
 
     /**
+     * Returns true if the dedicated intake sensor detects a ball.
+     * This intentionally ignores the slot-0 "front" sensors.
+     */
+    public boolean hasIntakeBall() {
+        int idx = Math.max(0, FRONT_SENSOR_COUNT);
+        if (idx >= devices.length) return false;
+        double[] sample = readSensor(idx);
+        return sample != null && hasBallAt(idx, sample);
+    }
+
+    /**
      * Gets the color (BALL or NONE) at a specific sensor position.
      * Used by SpindexerModel for verification.
      */
@@ -166,9 +177,11 @@ public class SlotColorSensors {
     }
 
     private void addBallTelemetry(boolean anyBall, boolean frontBall) {
+        boolean intakeBall = hasIntakeBall();
         tele.addLine("=== BALL SENSOR ===")
                 .addData("Ball", "%s", anyBall ? "YES" : "no")
-                .addData("FrontBall", "%s", frontBall ? "YES" : "no");
+                .addData("FrontBall", "%s", frontBall ? "YES" : "no")
+                .addData("IntakeBall", "%s", intakeBall ? "YES" : "no");
 
         for (int i = 0; i < Math.min(devices.length, 3); i++) {
             double[] hsva = lastHSVA[i];
