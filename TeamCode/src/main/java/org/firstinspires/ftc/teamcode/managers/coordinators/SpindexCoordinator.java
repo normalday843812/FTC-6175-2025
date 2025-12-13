@@ -87,7 +87,7 @@ public class SpindexCoordinator {
             return;
         }
 
-        int currentSlot = spindexer.getCurrentSlot();
+        int currentSlot = spindexer.getCommandedSlot();
 
         // If already at target slot, no need to move or verify
         if (currentSlot == targetSlot) {
@@ -307,6 +307,6 @@ public class SpindexCoordinator {
     }
 
     private void syncModel() {
-        inventory.getModel().setBucketAtFront(spindexer.getCurrentSlot());
+        inventory.getModel().setBucketAtFront(spindexer.getCommandedSlot());
     }
 }
