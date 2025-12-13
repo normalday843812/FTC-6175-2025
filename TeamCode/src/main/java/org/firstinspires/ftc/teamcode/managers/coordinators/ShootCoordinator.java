@@ -67,7 +67,13 @@ public class ShootCoordinator {
         if (!managerControlsTransfer) {
             applyTransferState();
         }
-        return shooter.shotOccurred();
+        // Shooter shot detection is a latched pulse until acknowledged; consume it here so
+        // callers don't repeatedly process the same "shot" across many loops.
+        boolean shotOccurred = shooter.shotOccurred();
+        if (shotOccurred) {
+            shooter.acknowledgeShotOccurred();
+        }
+        return shotOccurred;
     }
 
     public void setTargetRpm(double rpm) {
@@ -129,6 +135,9 @@ public class ShootCoordinator {
                     transfer.holdUp();
                 } else if (map.transferButton) {
                     transfer.flick();
+                } else if (transfer.isHoldingUp()) {
+                    // In manual mode, ensure a "hold" doesn't stick forever after the button is released.
+                    transfer.releaseHold();
                 }
             }
 

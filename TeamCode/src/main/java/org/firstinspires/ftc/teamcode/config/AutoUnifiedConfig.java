@@ -58,7 +58,7 @@ public class AutoUnifiedConfig {
 
     // Shooter/deposit
     public static double AUTO_TARGET_RPM = 3500;
-    public static double TARGET_RPM_BAND = 150;
+    public static double TARGET_RPM_BAND = 500;
     public static double AT_RPM_WAIT_TIMEOUT_S = 1.5;
     public static double INDEX_DWELL_S = 0.15;
     public static double VERIFY_WINDOW_S = 0.5;

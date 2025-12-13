@@ -122,6 +122,10 @@ public class Transfer {
         return state == FlickState.IDLE;
     }
 
+    public boolean isHoldingUp() {
+        return state == FlickState.HOLD_UP;
+    }
+
     public void holdUp() {
         if (state == FlickState.IDLE) {
             crStateBefore = crState;

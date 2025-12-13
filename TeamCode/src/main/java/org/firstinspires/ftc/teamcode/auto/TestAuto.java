@@ -27,7 +27,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@Autonomous(name = "Test Auto", group = "Testing")
+@Autonomous(name = "CHOOSE THSI ONE", group = "Testing")
 public class TestAuto extends LinearOpMode {
 
     @Override
