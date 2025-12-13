@@ -21,7 +21,6 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
 
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
-import org.firstinspires.ftc.teamcode.config.AutoPathConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
 import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
@@ -225,7 +224,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             double headDeg = getHeadingToGoal(shootPose);
-            followToPose(shootPose, headDeg, AutoPathConfig.TO_SHOOT_CONTROL_POINTS);
+            followToPose(shootPose, headDeg);
             pathIssued = true;
         }
 
@@ -335,7 +334,7 @@ public class AutoManager {
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
             double intakeHeadingDeg = Math.toDegrees(target.getHeading());
-            followToPose(target, intakeHeadingDeg, AutoPathConfig.TO_INTAKE_CONTROL_POINTS);
+            followToPose(target, intakeHeadingDeg);
             pathIssued = true;
         }
 
@@ -379,7 +378,7 @@ public class AutoManager {
             // Creep in X direction: red = +X, blue = -X
             double targetX = current.getX() + (isRed ? INTAKE_CREEP_DISTANCE : -INTAKE_CREEP_DISTANCE);
             Pose creepTarget = new Pose(targetX, current.getY(), current.getHeading());
-            followToPose(creepTarget, Math.toDegrees(current.getHeading()), null);
+            followToPose(creepTarget, Math.toDegrees(current.getHeading()));
             pathIssued = true;
         }
 
@@ -443,7 +442,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             double headDeg = Math.toDegrees(finalPose.getHeading());
-            followToPose(finalPose, headDeg, AutoPathConfig.TO_FINAL_CONTROL_POINTS);
+            followToPose(finalPose, headDeg);
             pathIssued = true;
         }
 
@@ -469,29 +468,16 @@ public class AutoManager {
 
     // --- Path Helpers (using Pedro directly) ---
 
-    private void followToPose(Pose target, double headDeg, double[][] controlPoints) {
+    private void followToPose(Pose target, double headDeg) {
         Pose current = follower.getPose();
-
-        java.util.List<Pose> points = new java.util.ArrayList<>();
-        points.add(current);
-
-        if (controlPoints != null && controlPoints.length > 0) {
-            for (double[] cp : controlPoints) {
-                double headingRad = cp.length > 2 ? Math.toRadians(cp[2]) : target.getHeading();
-                points.add(new Pose(cp[0], cp[1], headingRad));
-            }
-        } else {
-            points.add(midpointControl(current, target));
-        }
-
-        points.add(target);
+        Pose control = midpointControl(current, target);
 
         PathChain chain = follower.pathBuilder()
-                .addPath(new BezierCurve(points))
+                .addPath(new BezierCurve(follower::getPose, control, target))
                 .setLinearHeadingInterpolation(
                         current.getHeading(),
                         Math.toRadians(headDeg),
-                        AutoPathConfig.HEADING_INTERPOLATION_END_T
+                        0.8
                 )
                 .build();
 
