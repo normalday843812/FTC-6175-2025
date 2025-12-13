@@ -38,7 +38,7 @@ public class ShootCoordinator {
      */
     public boolean update(GamepadMap map, boolean managerControlsTransfer) {
         handleShootingInputs(map, managerControlsTransfer);
-        handleAimInputs(map);
+        handleAimInputs(map, managerControlsTransfer);
 
         // Manual RPM override (TeleopManager disabled/manual mode).
         // Uses triggers as "RT up / LT down" to adjust RPM continuously.
@@ -67,13 +67,12 @@ public class ShootCoordinator {
         if (!managerControlsTransfer) {
             applyTransferState();
         }
-        // Shooter shot detection is a latched pulse until acknowledged; consume it here so
-        // callers don't repeatedly process the same "shot" across many loops.
-        boolean shotOccurred = shooter.shotOccurred();
-        if (shotOccurred) {
+
+        boolean shot = shooter.shotOccurred();
+        if (shot) {
             shooter.acknowledgeShotOccurred();
         }
-        return shotOccurred;
+        return shot;
     }
 
     public void setTargetRpm(double rpm) {
@@ -135,9 +134,6 @@ public class ShootCoordinator {
                     transfer.holdUp();
                 } else if (map.transferButton) {
                     transfer.flick();
-                } else if (transfer.isHoldingUp()) {
-                    // In manual mode, ensure a "hold" doesn't stick forever after the button is released.
-                    transfer.releaseHold();
                 }
             }
 
@@ -149,7 +145,7 @@ public class ShootCoordinator {
         }
     }
 
-    private void handleAimInputs(GamepadMap map) {
+    private void handleAimInputs(GamepadMap map, boolean managerControlsTransfer) {
         if (map.shooterYawAutoLockToggle) {
             shooterYaw.lockAllianceGoal();
         }
@@ -158,10 +154,14 @@ public class ShootCoordinator {
             shooterYaw.resetShooterYaw();
         }
 
-        if (map.shooterYawBiasInc) {
-            shooterYaw.adjustAimBiasDeg(AIM_BIAS_STEP_DEG);
-        } else if (map.shooterYawBiasDec) {
-            shooterYaw.adjustAimBiasDeg(-AIM_BIAS_STEP_DEG);
+        // Bumpers are used as manual intake controls when the TeleopManager is OFF,
+        // so only apply yaw-bias adjustments when the manager owns the transfer.
+        if (managerControlsTransfer) {
+            if (map.shooterYawBiasInc) {
+                shooterYaw.adjustAimBiasDeg(AIM_BIAS_STEP_DEG);
+            } else if (map.shooterYawBiasDec) {
+                shooterYaw.adjustAimBiasDeg(-AIM_BIAS_STEP_DEG);
+            }
         }
 
         if (Math.abs(map.shooterYaw) > 0.1) {

@@ -78,6 +78,8 @@ public class AutoUnifiedConfig {
     public static boolean TELEOP_MANAGER_TELEMETRY_ENABLED = true;
     public static double TELEOP_SHOT_TIMEOUT_S = 1.0;
     public static int TELEOP_INTAKE_CONFIRM_CYCLES = 3;
+    public static double TELEOP_LOAD_TIMEOUT_S = 1.2;
+    public static int TELEOP_LOAD_FRONT_CONFIRM_CYCLES = 2;
 
     // Teleop spindex jam recovery (sensor verification uses slot-0/front detection)
     public static double TELEOP_SPINDEX_VERIFY_DELAY_S = 0.15;

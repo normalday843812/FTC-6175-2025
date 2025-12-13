@@ -14,6 +14,7 @@ public class IntakeCoordinator {
     private boolean running = false;
     private boolean reversing = false;
     private int confirmationCount = 0;
+    private boolean ballLatched = false;
 
     // Desired state set by manager
     private boolean desiredRunning = false;
@@ -47,7 +48,12 @@ public class IntakeCoordinator {
             handleInputs(map);
         }
         applyState();
-        return running && checkForBall();
+        if (!running) {
+            confirmationCount = 0;
+            ballLatched = false;
+            return false;
+        }
+        return checkForBall();
     }
 
     public void forceStart() {
@@ -66,14 +72,24 @@ public class IntakeCoordinator {
     }
 
     private void handleInputs(GamepadMap map) {
-        if (map.intakeToggle) {
-            running = !running;
+        // Manual mode: "hold" controls (GamepadMap provides these only for TeleopManager OFF).
+        // - intakeReverseToggle: run intake in REVERSE (normal intake direction)
+        // - intakeToggle: run intake in FORWARD (block/eject)
+        boolean reverseHeld = map.intakeReverseToggle;
+        boolean forwardHeld = map.intakeToggle;
+
+        if (reverseHeld) {
+            running = true;
+            reversing = true;
+        } else if (forwardHeld) {
+            running = true;
             reversing = false;
-            confirmationCount = 0;
+        } else {
+            running = false;
+            reversing = false;
         }
-        if (map.intakeReverseToggle) {
-            reversing = !reversing;
-        }
+        confirmationCount = 0;
+        ballLatched = false;
         // Jam clearing is automatic via Intake.detectAndClearJamIfNeeded()
     }
 
@@ -88,18 +104,25 @@ public class IntakeCoordinator {
     }
 
     private boolean checkForBall() {
-        boolean detected = sensors.hasBall();
+        if (sensors == null) return false;
 
-        if (detected) {
-            confirmationCount++;
-            if (confirmationCount >= Math.max(1, TELEOP_INTAKE_CONFIRM_CYCLES)) {
-                confirmationCount = 0;
-                return true;
-            }
-        } else {
+        boolean detected = sensors.hasBall();
+        if (!detected) {
             confirmationCount = 0;
+            ballLatched = false;
+            return false;
         }
 
+        if (ballLatched) {
+            return false;
+        }
+
+        confirmationCount++;
+        if (confirmationCount >= Math.max(1, TELEOP_INTAKE_CONFIRM_CYCLES)) {
+            ballLatched = true;
+            confirmationCount = 0;
+            return true;
+        }
         return false;
     }
 }

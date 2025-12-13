@@ -96,9 +96,10 @@ public class GamepadMap {
         shooterYawBiasInc = rb_t.rose(opmode.gamepad1.right_bumper);
         shooterYawBiasDec = lb_t.rose(opmode.gamepad1.left_bumper);
 
-        // Manual intake toggles removed (intake is managed by TeleopManager)
-        intakeToggle = false;
-        intakeReverseToggle = false;
+        // Manual intake (only used when TeleopManager is OFF).
+        // LEFT bumper = intake (REVERSE), RIGHT bumper = block/eject (FORWARD).
+        intakeReverseToggle = opmode.gamepad1.left_bumper;
+        intakeToggle = opmode.gamepad1.right_bumper;
 
         // === SHOOTER POWER (Triggers) ===
         shooterUp = opmode.gamepad1.right_trigger;
