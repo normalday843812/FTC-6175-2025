@@ -91,14 +91,6 @@ public class ShootCoordinator {
         transfer.flick();
     }
 
-    public void holdUp() {
-        transfer.holdUp();
-    }
-
-    public void releaseHold() {
-        transfer.releaseHold();
-    }
-
     public boolean isShootingMode() {
         return shootingMode;
     }
@@ -129,12 +121,9 @@ public class ShootCoordinator {
 
         // Transfer commands only when manager doesn't own them
         if (!managerControlsTransfer) {
-            if (shootingMode) {
-                if (map.transferButtonHeld) {
-                    transfer.holdUp();
-                } else if (map.transferButton) {
-                    transfer.flick();
-                }
+            // Manual control: press = flick. No "hold up" behavior.
+            if (map.transferButton) {
+                transfer.flick();
             }
 
             if (map.transferCrForward) {

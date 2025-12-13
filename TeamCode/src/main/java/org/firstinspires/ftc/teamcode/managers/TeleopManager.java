@@ -58,13 +58,12 @@ public class TeleopManager {
 
     private boolean enabled = false;
     private State state = State.INTAKING;
-    private boolean waitingForButtonRelease = false;
-    private boolean holdingShot = false;
     private double targetRpm = ShooterConfig.IDLE_RPM;
     private boolean rpmOverrideLatched = false;
     private double rpmOverrideRpm = ShooterConfig.MAX_RPM;
     private boolean pendingBallIntake = false;
     private int loadFrontConfirmCount = 0;
+    private int indexRetryCount = 0;
 
     public TeleopManager(Intake intake,
                          Shooter shooter,
@@ -129,11 +128,6 @@ public class TeleopManager {
         boolean shotOccurred = shootCoord.update(map, enabled);
         spindexCoord.update(map);
 
-        // Track button release for held shooting
-        if (waitingForButtonRelease && !map.transferButtonHeld) {
-            waitingForButtonRelease = false;
-        }
-
         if (enabled) {
             runStateMachine(map, ballDetected, shotOccurred);
             updateLights();
@@ -173,31 +167,14 @@ public class TeleopManager {
 
     private void handleIntaking(GamepadMap map, boolean ballDetected) {
         boolean frontHasBall = sensors != null && sensors.hasFrontBall();
+        boolean isFull = spindexCoord.isFull();
+        boolean wantsShoot = shootCoord.isShootingMode();
 
         // Shooter idle during intaking
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
 
-        if (frontHasBall) {
-            // Ball at front - keep transfer up, CR forward to hold ball
-            transfer.raiseLever();
-            transfer.runTransfer(Transfer.CrState.FORWARD);
-            intakeCoord.setDesiredState(false, false);
-        } else {
-            // No ball at front - intake normally
-            intakeCoord.setDesiredState(true, true);  // running=true, reversing=true (REVERSE for intake)
-            transfer.lowerLever();  // Lever down to accept ball
-            transfer.runTransfer(Transfer.CrState.REVERSE);
-        }
-
-        // User manually enters shooting mode OR manually spindexed ball to front
-        if (shootCoord.isShootingMode() || frontHasBall) {
-            intakeCoord.setDesiredState(false, false);
-            shootCoord.enterShootingMode();
-            enterState(State.READY);
-            return;
-        }
-
-        // Ball detected - start loading (only when front is still empty).
+        // Ball detected (usually intake sensor) - start loading so it seats into slot-0.
+        // This must take priority over any "front has ball" checks so we don't skip model updates.
         if (ballDetected) {
             pendingBallIntake = true;
             intakeCoord.setDesiredState(false, false);  // Stop intake briefly
@@ -205,11 +182,34 @@ public class TeleopManager {
             return;
         }
 
-        // Auto-enter ready when full
-        if (spindexCoord.isFull()) {
-            shootCoord.enterShootingMode();
+        // If full, stop intaking and go to READY (intake will be put into FORWARD block mode there).
+        if (isFull) {
             enterState(State.READY);
+            return;
         }
+
+        // If there's a ball at the front:
+        // - If the driver wants to shoot, go READY.
+        // - Otherwise, index to an empty front bucket so we can keep intaking.
+        if (frontHasBall) {
+            transfer.raiseLever();
+            transfer.runTransfer(Transfer.CrState.FORWARD);
+            intakeCoord.setDesiredState(false, false);
+
+            if (wantsShoot) {
+                enterState(State.READY);
+            } else {
+                // Ensure the model knows the current front bucket really has a ball before choosing an empty slot.
+                spindexCoord.syncFromSensors();
+                enterState(State.INDEXING);
+            }
+            return;
+        }
+
+        // Front empty and not full: intake normally.
+        intakeCoord.setDesiredState(true, true);  // running=true, reversing=true (REVERSE for intake)
+        transfer.lowerLever();  // Lever down to accept ball
+        transfer.runTransfer(Transfer.CrState.REVERSE);
     }
 
     private void handleLoading() {
@@ -262,20 +262,36 @@ public class TeleopManager {
             return;
         }
 
-        // Spindexer is settled - decide next state
-        if (spindexCoord.isFull()) {
-            // Full - go to ready state
-            shootCoord.enterShootingMode();
-            enterState(State.READY);
-        } else if (frontHasBall) {
-            // User manually spindexed ball to front - go to ready
-            shootCoord.enterShootingMode();
-            enterState(State.READY);
-        } else {
-            // At empty slot (front is empty) - go back to intaking
-            shootCoord.exitShootingMode();
-            enterState(State.INTAKING);
+        // Update model from front sensor truth at the final indexed position.
+        spindexCoord.syncFromSensors();
+        frontHasBall = sensors != null && sensors.hasFrontBall();
+
+        // If front is empty, we're ready to intake again (unless full).
+        if (!frontHasBall) {
+            if (spindexCoord.isFull()) {
+                enterState(State.READY);
+            } else {
+                enterState(State.INTAKING);
+            }
+            return;
         }
+
+        // Front still has a ball after attempting to go-to-empty:
+        // - If model says full, we're actually full -> READY.
+        // - Otherwise retry indexing a limited number of times to avoid loops.
+        if (spindexCoord.isFull()) {
+            enterState(State.READY);
+            return;
+        }
+
+        indexRetryCount++;
+        if (indexRetryCount >= SpindexerModel.NUM_BUCKETS) {
+            // Give up and let the driver shoot/clear; we can't find an empty front right now.
+            enterState(State.READY);
+            return;
+        }
+
+        spindexCoord.goToEmpty();
     }
 
     private void handleReady(GamepadMap map, boolean shotOccurred) {
@@ -319,17 +335,10 @@ public class TeleopManager {
             return;
         }
 
-        // User initiates a shot (and we're not waiting for release)
-        if (!waitingForButtonRelease) {
-            if (map.transferButtonHeld) {
-                holdingShot = true;
-                shootCoord.holdUp();
-                enterState(State.SHOOTING);
-            } else if (map.transferButton) {
-                holdingShot = false;
-                shootCoord.flick();
-                enterState(State.SHOOTING);
-            }
+        // User initiates a shot (simple: press = flick)
+        if (map.transferButton) {
+            shootCoord.flick();
+            enterState(State.SHOOTING);
         }
     }
 
@@ -342,39 +351,20 @@ public class TeleopManager {
         transfer.raiseLever();  // Lever up for shooting
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
-        if (holdingShot) {
-            if (map.transferButtonHeld) {
-                shootCoord.holdUp();
-            } else {
-                shootCoord.releaseHold();
-                holdingShot = false;
-            }
-        }
-
         // Shot detected
         if (shotOccurred) {
             handleShotOccurred();
             return;
         }
 
-        // Button released without shot detection - go back to ready
-        if (!map.transferButtonHeld && transfer.isIdle()) {
-            enterState(State.READY);
-            return;
-        }
-
         // Timeout fallback
         if (stateTimer.getElapsedTimeSeconds() >= TELEOP_SHOT_TIMEOUT_S) {
             // Assume shot happened or failed, go back to ready
-            shootCoord.releaseHold();
-            holdingShot = false;
             enterState(State.READY);
         }
     }
 
     private void clearAll() {
-        waitingForButtonRelease = false;
-        holdingShot = false;
         rpmOverrideLatched = false;
         rpmOverrideRpm = ShooterConfig.MAX_RPM;
         pendingBallIntake = false;
@@ -400,9 +390,6 @@ public class TeleopManager {
 
     private void handleShotOccurred() {
         spindexCoord.onBallShot();
-        shootCoord.releaseHold();
-        holdingShot = false;
-        waitingForButtonRelease = true;
 
         if (spindexCoord.isEmpty()) {
             rpmOverrideLatched = false;
@@ -425,6 +412,7 @@ public class TeleopManager {
         // State entry actions
         switch (newState) {
             case INDEXING:
+                indexRetryCount = 0;
                 spindexCoord.goToEmpty();
                 break;
             case LOADING:
@@ -434,7 +422,6 @@ public class TeleopManager {
                 shootCoord.enterShootingMode();
                 break;
             case INTAKING:
-                waitingForButtonRelease = false;
                 pendingBallIntake = false;
                 break;
         }
@@ -518,13 +505,11 @@ public class TeleopManager {
                 .addData("ShootingMode", "%b", shootCoord.isShootingMode())
                 .addData("IntakeRunning", "%b", intakeCoord.isRunning())
                 .addData("SpindexSettled", "%b", spindexCoord.isSettled())
-                .addData("WaitingRelease", "%b", waitingForButtonRelease)
                 .addData("TargetRPM", "%.0f", targetRpm)
                 .addData("RpmOverrideLatched", "%b", rpmOverrideLatched)
                 .addData("RpmOverrideRpm", "%.0f", rpmOverrideRpm)
                 .addData("PendingIntake", "%b", pendingBallIntake)
-                .addData("LoadFrontConfirm", "%d", loadFrontConfirmCount)
-                .addData("HoldingShot", "%b", holdingShot);
+                .addData("LoadFrontConfirm", "%d", loadFrontConfirmCount);
 
         tele.addLine("--- Buckets ---")
                 .addData("Slot0", spindexCoord.getBucketContents(0)::name)

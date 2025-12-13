@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class Transfer {
-    private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN, HOLD_UP}
+    private enum FlickState {IDLE, FLICK_UP, FLICK_DOWN}
 
     public enum CrState {OFF, FORWARD, REVERSE}
 
@@ -69,10 +69,6 @@ public class Transfer {
                     state = FlickState.IDLE;
                 }
                 break;
-            case HOLD_UP:
-                transferServo1.setPosition(TRANSFER_1_MAX);
-                crState = CrState.FORWARD;
-                break;
         }
 
         switch (crState) {
@@ -122,27 +118,11 @@ public class Transfer {
         return state == FlickState.IDLE;
     }
 
-    public boolean isHoldingUp() {
-        return state == FlickState.HOLD_UP;
-    }
-
-    public void holdUp() {
-        if (state == FlickState.IDLE) {
-            crStateBefore = crState;
-        }
-        state = FlickState.HOLD_UP;
-    }
-
-    public void releaseHold() {
-        state = FlickState.FLICK_DOWN;
-        flickTimer.resetTimer();
-
-    }
-
     private void addTelemetry() {
         tele.addLine("=== TRANSFER ===")
                 .addData("Flick State", state::name)
                 .addData("CR State", crState::name)
+
                 .addData("Lever Up", () -> leverRaised);
     }
 }

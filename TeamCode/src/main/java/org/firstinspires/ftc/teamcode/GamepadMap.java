@@ -50,7 +50,7 @@ public class GamepadMap {
     public boolean shooterYawBiasInc, shooterYawBiasDec;
 
     // Transfer/Spindexer
-    public boolean transferButton, transferButtonHeld;  // Flicks ball out (shoot)
+    public boolean transferButton, transferButtonHeld;  // Flicks ball out (shoot); held is unused (kept for compat)
     public boolean transferCrForward, transferCrReverse;
     public boolean spindexerForward, spindexerBackward;
 
@@ -112,7 +112,7 @@ public class GamepadMap {
 
         // === TRANSFER SHOOT (Dpad up) ===
         transferButton = dpad_up_t.rose(opmode.gamepad1.dpad_up);
-        transferButtonHeld = opmode.gamepad1.dpad_up;
+        transferButtonHeld = false;
 
         // === TRANSFER CR (Dpad left/right) ===
         transferCrForward = dpad_right_t.rose(opmode.gamepad1.dpad_right);
