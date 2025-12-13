@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AT_RPM_WAIT_TIMEOUT_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEPOSIT_EMPTY_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.INDEX_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DELTA_DOWN;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.JIGGLE_DELTA_UP;
@@ -34,6 +35,8 @@ public class DepositController {
     private S s = S.SPINUP;
     private int refires = 0, jiggles = 0;
     private boolean ballVerified = false;
+    private int emptyConfirmCount = 0;
+    private boolean sawRpmShot = false;
 
     public DepositController(Shooter shooter, Transfer transfer, Spindexer spx, SlotColorSensors slots, TelemetryHelper tele) {
         this.shooter = shooter;
@@ -49,6 +52,8 @@ public class DepositController {
         refires = 0;
         jiggles = 0;
         ballVerified = false;
+        emptyConfirmCount = 0;
+        sawRpmShot = false;
         tState.resetTimer();
         spx.stopJiggle();
     }
@@ -57,13 +62,15 @@ public class DepositController {
         shooter.setAutoRpm(targetRpm);
         shooter.operate();
 
+        boolean frontHasBall = slots != null && slots.hasBall();
+
         switch (s) {
             case SPINUP:
                 transfer.raiseLever();
 
                 // Verify ball is at front using sensors before proceeding
                 if (!ballVerified) {
-                    if (slots != null && slots.hasBall()) {
+                    if (frontHasBall) {
                         ballVerified = true;
                     } else if (tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S) {
                         // Timed out waiting for ball - no ball at front
@@ -88,15 +95,37 @@ public class DepositController {
             case WAIT_FLICK:
                 if (transfer.isIdle()) {
                     tVerify.resetTimer();
+                    emptyConfirmCount = 0;
+                    sawRpmShot = false;
                     s = S.VERIFY;
                 }
                 break;
 
             case VERIFY:
                 if (shooter.shotOccurred()) {
+                    sawRpmShot = true;
                     shooter.acknowledgeShotOccurred();
-                    s = S.DONE;
-                } else if (tVerify.getElapsedTimeSeconds() >= VERIFY_WINDOW_S) {
+                }
+
+                // Primary truth: slot-0 sensor should clear when the ball leaves.
+                if (ballVerified) {
+                    if (!frontHasBall) {
+                        emptyConfirmCount++;
+                        if (emptyConfirmCount >= DEPOSIT_EMPTY_CONFIRM_CYCLES) {
+                            if (!sawRpmShot) {
+                                // Sensor says ball left but RPM-drop logic didn't trigger (can happen on last ball).
+                                // Reset shot logic so next ball can be detected cleanly.
+                                shooter.resetShotLogic();
+                            }
+                            s = S.DONE;
+                            break;
+                        }
+                    } else {
+                        emptyConfirmCount = 0;
+                    }
+                }
+
+                if (tVerify.getElapsedTimeSeconds() >= VERIFY_WINDOW_S) {
                     if (refires < REFIRE_MAX) {
                         refires++;
                         transfer.flick();
@@ -106,7 +135,13 @@ public class DepositController {
                         spx.startJiggle(JIGGLE_DELTA_UP, JIGGLE_DELTA_DOWN, JIGGLE_DWELL_S);
                         s = S.JIGGLE;
                     } else {
+                        // If the sensor cleared but we didn't get enough consecutive reads (timing), accept as shot.
+                        if (ballVerified && !frontHasBall) {
+                            shooter.resetShotLogic();
+                            s = S.DONE;
+                        } else {
                         s = S.FAIL;
+                        }
                     }
                 }
                 break;
@@ -129,6 +164,9 @@ public class DepositController {
         tele.addLine("--- DEPOSIT ---")
                 .addData("S", s::name)
                 .addData("BallVerified", "%b", ballVerified)
+                .addData("FrontHasBall", "%b", frontHasBall)
+                .addData("EmptyConfirm", "%d", emptyConfirmCount)
+                .addData("SawRpmShot", "%b", sawRpmShot)
                 .addData("Refires", "%d", refires)
                 .addData("Jiggles", "%d", jiggles);
         return Result.BUSY;
