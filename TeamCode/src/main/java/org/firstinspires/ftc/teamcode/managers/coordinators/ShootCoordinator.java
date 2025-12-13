@@ -1,11 +1,18 @@
 package org.firstinspires.ftc.teamcode.managers.coordinators;
 
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_STEP_DEG;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_MAX_RPM;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_MIN_RPM;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_RATE_RPM_PER_S;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND;
 
 import org.firstinspires.ftc.teamcode.GamepadMap;
+import org.firstinspires.ftc.teamcode.config.ShooterConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
+import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class ShootCoordinator {
 
@@ -14,7 +21,8 @@ public class ShootCoordinator {
     private final Transfer transfer;
 
     private boolean shootingMode = false;
-    private double targetRpm = 0.0;
+    private double targetRpm = ShooterConfig.IDLE_RPM;
+    private final Timer rpmAdjustTimer = new Timer();
 
     public ShootCoordinator(Shooter shooter, ShooterYaw shooterYaw, Transfer transfer) {
         this.shooter = shooter;
@@ -31,6 +39,26 @@ public class ShootCoordinator {
     public boolean update(GamepadMap map, boolean managerControlsTransfer) {
         handleShootingInputs(map, managerControlsTransfer);
         handleAimInputs(map);
+
+        // Manual RPM override (TeleopManager disabled/manual mode).
+        // Uses triggers as "RT up / LT down" to adjust RPM continuously.
+        if (!managerControlsTransfer && MANUAL_RPM_OVERRIDE_ENABLED) {
+            double dt = rpmAdjustTimer.getElapsedTimeSeconds();
+            rpmAdjustTimer.resetTimer();
+            dt = Math.max(0.0, Math.min(0.10, dt));
+
+            double up = map.shooterUp;
+            double down = map.shooterDown;
+            boolean hasInput = up > MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND
+                    || down > MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND;
+
+            if (hasInput) {
+                double delta = (up - down) * MANUAL_RPM_OVERRIDE_RATE_RPM_PER_S * dt;
+                targetRpm = clamp(targetRpm + delta, MANUAL_RPM_OVERRIDE_MIN_RPM, MANUAL_RPM_OVERRIDE_MAX_RPM);
+            }
+        } else {
+            rpmAdjustTimer.resetTimer();
+        }
 
         // Always apply shooter RPM - manager doesn't control shooter
         shooter.setAutoRpm(targetRpm);
@@ -138,5 +166,9 @@ public class ShootCoordinator {
         } else {
             transfer.lowerLever();
         }
+    }
+
+    private static double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 }

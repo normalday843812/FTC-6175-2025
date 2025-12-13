@@ -4,6 +4,12 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEE
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_MANAGER_TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SHOT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_LATCH_REQUIRES_FULL;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_MAX_RPM;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_MIN_RPM;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_RATE_RPM_PER_S;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -46,11 +52,14 @@ public class TeleopManager {
 
     private final TelemetryHelper tele;
     private final Timer stateTimer = new Timer();
+    private final Timer rpmAdjustTimer = new Timer();
 
     private boolean enabled = false;
     private State state = State.INTAKING;
     private boolean waitingForButtonRelease = false;
     private double targetRpm = ShooterConfig.IDLE_RPM;
+    private boolean rpmOverrideLatched = false;
+    private double rpmOverrideRpm = ShooterConfig.MAX_RPM;
 
     public TeleopManager(Intake intake,
                          Shooter shooter,
@@ -94,7 +103,7 @@ public class TeleopManager {
     }
 
     public void setTargetRpm(double rpm) {
-        this.targetRpm = rpm;
+        setShooterTargetRpm(rpm);
     }
 
     public State getState() {
@@ -161,7 +170,7 @@ public class TeleopManager {
         boolean ballAtFront = spindexCoord.getFrontBucketContents() == SpindexerModel.BallColor.BALL;
 
         // Shooter idle during intaking
-        shootCoord.setTargetRpm(ShooterConfig.IDLE_RPM);
+        setShooterTargetRpm(ShooterConfig.IDLE_RPM);
 
         if (ballAtFront) {
             // Ball at front - keep transfer up, CR forward to hold ball
@@ -201,7 +210,7 @@ public class TeleopManager {
     private void handleLoading() {
         // Push ball into bucket
         shootCoord.enterShootingMode();
-        shootCoord.setTargetRpm(ShooterConfig.IDLE_RPM);
+        setShooterTargetRpm(ShooterConfig.IDLE_RPM);
         transfer.raiseLever();  // Lever up to keep ball in
         transfer.runTransfer(Transfer.CrState.FORWARD);
         intakeCoord.setDesiredState(false, false);  // Stop intake
@@ -216,7 +225,7 @@ public class TeleopManager {
         boolean ballAtFront = spindexCoord.getFrontBucketContents() == SpindexerModel.BallColor.BALL;
 
         // Shooter idle during indexing
-        shootCoord.setTargetRpm(ShooterConfig.IDLE_RPM);
+        setShooterTargetRpm(ShooterConfig.IDLE_RPM);
 
         // Transfer up during indexing (keeping ball in), CR forward to hold ball
         transfer.raiseLever();
@@ -247,6 +256,7 @@ public class TeleopManager {
     private void handleReady(GamepadMap map, boolean shotOccurred) {
         boolean isFull = spindexCoord.isFull();
         boolean ballAtFront = spindexCoord.getFrontBucketContents() == SpindexerModel.BallColor.BALL;
+        boolean isEmpty = spindexCoord.isEmpty();
 
         // Maintain ready state - transfer always up, CR forward
         shootCoord.enterShootingMode();
@@ -254,13 +264,15 @@ public class TeleopManager {
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
         if (isFull) {
-            // Full - shooter at max, intake runs FORWARD to push balls through
-            shootCoord.setTargetRpm(ShooterConfig.MAX_RPM);
+            // Full - shooter at max by default, but allow a latched manual override using triggers.
+            double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+            setShooterTargetRpm(rpm);
             intakeCoord.setDesiredState(true, false);  // running=true, reversing=false (FORWARD)
         } else {
             // Not full but ready to shoot - shooter at max when ball at front
             if (ballAtFront) {
-                shootCoord.setTargetRpm(ShooterConfig.MAX_RPM);
+                double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+                setShooterTargetRpm(rpm);
                 intakeCoord.setDesiredState(false, false);  // Intake off
             } else {
                 // No ball at front and not full - go back to intaking
@@ -291,8 +303,11 @@ public class TeleopManager {
     }
 
     private void handleShooting(GamepadMap map, boolean shotOccurred) {
-        // Maintain shooting state - shooter at max RPM
-        shootCoord.setTargetRpm(ShooterConfig.MAX_RPM);
+        boolean isFull = spindexCoord.isFull();
+        boolean isEmpty = spindexCoord.isEmpty();
+        // Maintain shooting state - shooter at max RPM by default, with optional latched override.
+        double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+        setShooterTargetRpm(rpm);
         transfer.raiseLever();  // Lever up for shooting
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
@@ -318,6 +333,8 @@ public class TeleopManager {
 
     private void clearAll() {
         waitingForButtonRelease = false;
+        rpmOverrideLatched = false;
+        rpmOverrideRpm = ShooterConfig.MAX_RPM;
 
         // Clear persistent + model state so logic doesn't "think" we still have balls
         PersistentBallState.reset();
@@ -327,7 +344,7 @@ public class TeleopManager {
         intakeCoord.forceStop();
         intake.clearJam();
         shootCoord.exitShootingMode();
-        shootCoord.setTargetRpm(ShooterConfig.IDLE_RPM);
+        setShooterTargetRpm(ShooterConfig.IDLE_RPM);
         shooter.resetShotLogic();
         shooterYaw.resetAimBiasDeg();
 
@@ -343,6 +360,8 @@ public class TeleopManager {
         waitingForButtonRelease = true;
 
         if (spindexCoord.isEmpty()) {
+            rpmOverrideLatched = false;
+            rpmOverrideRpm = ShooterConfig.MAX_RPM;
             // All empty - go back to intaking
             shootCoord.exitShootingMode();
             enterState(State.INTAKING);
@@ -356,6 +375,7 @@ public class TeleopManager {
     private void enterState(State newState) {
         state = newState;
         stateTimer.resetTimer();
+        rpmAdjustTimer.resetTimer();
 
         // State entry actions
         switch (newState) {
@@ -369,6 +389,50 @@ public class TeleopManager {
                 waitingForButtonRelease = false;
                 break;
         }
+    }
+
+    private void setShooterTargetRpm(double rpm) {
+        this.targetRpm = rpm;
+        shootCoord.setTargetRpm(rpm);
+        shooter.setAutoRpm(rpm);
+    }
+
+    private double applyLatchedRpmOverride(GamepadMap map, double baseRpm, boolean isFull, boolean isEmpty) {
+        if (!MANUAL_RPM_OVERRIDE_ENABLED) {
+            return baseRpm;
+        }
+
+        if (isEmpty) {
+            rpmOverrideLatched = false;
+            rpmOverrideRpm = ShooterConfig.MAX_RPM;
+            return baseRpm;
+        }
+
+        double dt = rpmAdjustTimer.getElapsedTimeSeconds();
+        rpmAdjustTimer.resetTimer();
+        dt = Math.max(0.0, Math.min(0.10, dt));
+
+        double up = map.shooterUp;
+        double down = map.shooterDown;
+        boolean hasInput = up > MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND
+                || down > MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND;
+
+        // Only allow *starting* the override when we're full (so it doesn't fight normal ready logic).
+        if (!rpmOverrideLatched && hasInput && (!MANUAL_RPM_OVERRIDE_LATCH_REQUIRES_FULL || isFull)) {
+            rpmOverrideLatched = true;
+            rpmOverrideRpm = baseRpm;
+        }
+
+        if (rpmOverrideLatched && hasInput) {
+            double delta = (up - down) * MANUAL_RPM_OVERRIDE_RATE_RPM_PER_S * dt;
+            rpmOverrideRpm = clamp(rpmOverrideRpm + delta, MANUAL_RPM_OVERRIDE_MIN_RPM, MANUAL_RPM_OVERRIDE_MAX_RPM);
+        }
+
+        return rpmOverrideLatched ? rpmOverrideRpm : baseRpm;
+    }
+
+    private static double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 
     private void updateLights() {
@@ -406,7 +470,9 @@ public class TeleopManager {
                 .addData("IntakeRunning", "%b", intakeCoord.isRunning())
                 .addData("SpindexSettled", "%b", spindexCoord.isSettled())
                 .addData("WaitingRelease", "%b", waitingForButtonRelease)
-                .addData("TargetRPM", "%.0f", targetRpm);
+                .addData("TargetRPM", "%.0f", targetRpm)
+                .addData("RpmOverrideLatched", "%b", rpmOverrideLatched)
+                .addData("RpmOverrideRpm", "%.0f", rpmOverrideRpm);
 
         tele.addLine("--- Buckets ---")
                 .addData("Slot0", spindexCoord.getBucketContents(0)::name)
