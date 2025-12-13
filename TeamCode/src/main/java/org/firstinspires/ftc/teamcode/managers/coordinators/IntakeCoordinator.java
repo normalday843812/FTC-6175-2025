@@ -106,6 +106,14 @@ public class IntakeCoordinator {
     private boolean checkForBall() {
         if (sensors == null) return false;
 
+        // Only treat the intake sensor as a "new ball" signal while actively intaking (REVERSE).
+        // When running FORWARD (block/eject), ignore it so we don't latch a ball that isn't being accepted.
+        if (!reversing) {
+            confirmationCount = 0;
+            ballLatched = false;
+            return false;
+        }
+
         // Teleop uses a dedicated intake sensor (index 2) for "a new ball is entering / stuck at intake".
         // Slot-0/front sensors are used separately to confirm the ball is actually seated before counting it.
         boolean detected = sensors.hasIntakeBall();

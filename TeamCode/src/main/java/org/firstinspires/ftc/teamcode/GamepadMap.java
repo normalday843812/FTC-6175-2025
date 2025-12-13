@@ -18,12 +18,12 @@ import org.firstinspires.ftc.teamcode.util.EdgeTrigger;
  * - Right stick X: Rotate
  * - Right stick Y: Shooter yaw manual adjust
  * - Triggers: Shooter power (RT=up, LT=down)
- * - Bumpers: Shooter yaw trim (RB=+bias, LB=-bias)
- * - A: Lever/shooting-mode toggle (raises/lowers transfer lever)
+ * - Bumpers: Shooter yaw trim (TeleopManager ON), intake hold-controls (TeleopManager OFF)
+ * - A: Hold lever up (manual mode)
  * - B: Spindexer backward
  * - X: Spindexer forward
- * - Y: Slow mode toggle
- * - Dpad up: Transfer shoot (flicks ball out)
+     * - Y: Slow mode toggle
+     * - Dpad up: Transfer shoot (flicks ball out)
  * - Dpad down: Field centric toggle
  * - Dpad left: Transfer CR reverse
  * - Dpad right: Transfer CR forward
@@ -31,7 +31,7 @@ import org.firstinspires.ftc.teamcode.util.EdgeTrigger;
  * - Right stick button: Shooter yaw auto lock toggle
  * - Back: Teleop manager toggle
  * - Start: (unused - jam clearing is automatic)
- */
+     */
 @Configurable
 public class GamepadMap {
     private final OpMode opmode;
@@ -55,7 +55,7 @@ public class GamepadMap {
     public boolean spindexerForward, spindexerBackward;
 
     // Modes
-    public boolean leverToggle;  // Raises/lowers transfer lever to hold ball in
+    public boolean leverHeld;  // Hold transfer lever up (manual mode)
     public boolean teleopSortManagerToggle;
     public boolean clearAll; // Resets ball state/model and stops mechanisms
 
@@ -63,7 +63,6 @@ public class GamepadMap {
     public double hoodAxis;
 
     // Edge triggers
-    private final EdgeTrigger a_t = new EdgeTrigger();
     private final EdgeTrigger b_t = new EdgeTrigger();
     private final EdgeTrigger x_t = new EdgeTrigger();
     private final EdgeTrigger y_t = new EdgeTrigger();
@@ -93,8 +92,8 @@ public class GamepadMap {
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad1.dpad_down);
 
         // === SHOOTER YAW BIAS (Bumpers) ===
-        shooterYawBiasInc = rb_t.rose(opmode.gamepad1.right_bumper);
-        shooterYawBiasDec = lb_t.rose(opmode.gamepad1.left_bumper);
+        shooterYawBiasInc = rb_t.rose(opmode.gamepad2.right_bumper);
+        shooterYawBiasDec = lb_t.rose(opmode.gamepad2.left_bumper);
 
         // Manual intake (only used when TeleopManager is OFF).
         // LEFT bumper = intake (REVERSE), RIGHT bumper = block/eject (FORWARD).
@@ -122,8 +121,8 @@ public class GamepadMap {
         spindexerForward = x_t.rose(opmode.gamepad1.x);
         spindexerBackward = b_t.rose(opmode.gamepad1.b);
 
-        // === LEVER TOGGLE (A) ===
-        leverToggle = a_t.rose(opmode.gamepad1.a);
+        // === LEVER (A) ===
+        leverHeld = opmode.gamepad1.a;
 
         // === MANAGER TOGGLE (Back) ===
         teleopSortManagerToggle = back_t.rose(opmode.gamepad1.back);
