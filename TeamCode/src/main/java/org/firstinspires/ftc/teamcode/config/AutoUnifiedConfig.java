@@ -10,7 +10,7 @@ public class AutoUnifiedConfig {
     public static double DEFAULT_TIMEOUT_S = 2.5;
     public static double PATH_TIMEOUT_TO_GOAL_S = 3.0;
     public static double PATH_TIMEOUT_TO_INTAKE_S = 3.0;
-    public static double ROTATE_NEXT_BALL_TIMEOUT_S = 1.5;
+    public static double ROTATE_NEXT_BALL_TIMEOUT_S = 3.0;
     public static double ROTATE_NEXT_BALL_SENSOR_SETTLE_S = 0.20;
 
     // Spindex decisions
@@ -22,6 +22,8 @@ public class AutoUnifiedConfig {
     public static int INTAKE_CONFIRM_CYCLES = 3;  // consecutive reads after empty->ball transition
     public static double INTAKE_POST_DETECT_DWELL_S = 0.15; // extra settle time after detecting a new ball
     public static boolean AUTO_IDLE_INTAKE_FORWARD = true; // run intake FORWARD except during INTAKING
+    public static boolean AUTO_IDLE_INTAKE_FORWARD_DURING_SHOOTING = true;
+    public static boolean AUTO_IDLE_INTAKE_FORWARD_DURING_ROTATE = true;
     public static boolean REQUIRE_FULL_BEFORE_SHOOT = true; // only shoot when 3 balls unless out of sets/time
 
     // Inventory audit (slot-0 sensor reused by rotating spindexer)
@@ -36,6 +38,16 @@ public class AutoUnifiedConfig {
     public static double FRONT_CLEAR_REVERSE_DWELL_S = 0.25;
     public static double FRONT_CLEAR_FORWARD_DWELL_S = 0.10;
     public static int FRONT_CLEAR_EMPTY_CONFIRM_CYCLES = 2;
+
+    // Rotate-to-ball recovery (when we expect a ball, but the front sensors read empty)
+    public static boolean ROTATE_RESEAT_ENABLED = true;
+    public static int ROTATE_RESEAT_MAX_ATTEMPTS = 2;
+    public static double ROTATE_RESEAT_REVERSE_DWELL_S = 0.25;
+    public static double ROTATE_RESEAT_SETTLE_DWELL_S = 0.10;
+
+    // Transfer holding behavior (lever is still raised for retention)
+    public static boolean AUTO_HOLD_TRANSFER_DURING_SHOOTING = true;
+    public static boolean AUTO_HOLD_TRANSFER_DURING_ROTATE = true;
 
     // Shooter/deposit
     public static double AUTO_TARGET_RPM = 3500;

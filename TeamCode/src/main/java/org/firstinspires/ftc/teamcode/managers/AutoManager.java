@@ -2,8 +2,12 @@ package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_TARGET_RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD_DURING_ROTATE;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD_DURING_SHOOTING;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEFAULT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEPOSIT_EMPTY_CONFIRM_CYCLES;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_HOLD_TRANSFER_DURING_ROTATE;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_HOLD_TRANSFER_DURING_SHOOTING;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.FRONT_CLEAR_EMPTY_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.FRONT_CLEAR_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.FRONT_CLEAR_FORWARD_DWELL_S;
@@ -118,6 +122,8 @@ public class AutoManager {
     private int auditStableCount = 0;
     private boolean auditContinueIntakeHere = false;
     private int rotateTargetSlot = -1;
+    private int rotateCheckedCount = 0;
+    private int shotsRemainingInBatch = 0;
 
     public AutoManager(Mecanum drive,
                        Shooter shooter,
@@ -184,8 +190,10 @@ public class AutoManager {
         model.setBucketContents(2, SpindexerModel.BallColor.BALL);
 
         if (depositRoute && options.enableDeposit) {
+            shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
             s = State.PATH_TO_SHOOT;
         } else {
+            shotsRemainingInBatch = 0;
             s = options.enableFinalMove ? State.FINAL_PARK : State.DONE;
         }
         pathIssued = false;
@@ -301,7 +309,8 @@ public class AutoManager {
 
     private void handleShooting() {
         transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(AUTO_HOLD_TRANSFER_DURING_SHOOTING ? Transfer.CrState.FORWARD : Transfer.CrState.OFF);
+        intake.setAutoMode(AUTO_IDLE_INTAKE_FORWARD_DURING_SHOOTING ? Intake.AutoMode.FORWARD : Intake.AutoMode.OFF);
         if (!options.enableDeposit) {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
@@ -317,24 +326,29 @@ public class AutoManager {
         double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
 
         DepositController.Result r = deposit.update(rpm);
-        if (r == DepositController.Result.SHOT) {
+        boolean treatAsShot = (r == DepositController.Result.SHOT)
+                || (r == DepositController.Result.FAIL && !frontHasBall());
+
+        if (treatAsShot) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
             // Sync model with current spindexer position before marking shot
             inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
             inv.onShot();
-            if (inv.hasBalls()) {
+            shotsRemainingInBatch = Math.max(0, shotsRemainingInBatch - 1);
+
+            if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
             } else if (options.enableIntake && inv.setsRemain()) {
+                inv.clearBalls();
                 transitionTo(State.PATH_TO_INTAKE);
             } else {
+                inv.clearBalls();
                 transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             }
         } else if (r == DepositController.Result.NO_BALL) {
-            // Sensors say no ball at front - mark front bucket empty and try to find another
             if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 300);
-            syncFrontBucketFromSensor(); // will mark front bucket empty
-
-            if (inv.hasBalls()) {
+            // Don't mark buckets empty on NO_BALL; just rotate and search for the next loaded ball.
+            if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
             } else if (options.enableIntake && inv.setsRemain()) {
                 transitionTo(State.PATH_TO_INTAKE);
@@ -343,25 +357,12 @@ public class AutoManager {
             }
         } else if (r == DepositController.Result.FAIL) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 500);
-            // If the sensor says the ball left, treat as a shot (RPM-drop may have been missed).
-            if (!frontHasBall()) {
-                syncFrontBucketFromSensor(); // mark empty
-                if (inv.hasBalls()) {
-                    transitionTo(State.ROTATE_NEXT_BALL);
-                } else if (options.enableIntake && inv.setsRemain()) {
-                    transitionTo(State.PATH_TO_INTAKE);
-                } else {
-                    transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
-                }
-                return;
-            }
-
-            // Ball still present at front; don't give up on a count-based timer.
-            // Try rotating to another known ball (or reattempt shooting the same one if it's the only one).
-            syncFrontBucketFromSensor(); // ensures model knows this front bucket is BALL
-
-            if (inv.hasBalls()) {
+            // Ball still present at front; rotate and try again rather than skipping straight to intake.
+            syncFrontBucketFromSensor(); // ensures model knows this front bucket is BALL/EMPTY from sensors
+            if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
+            } else if (options.enableIntake && inv.setsRemain()) {
+                transitionTo(State.PATH_TO_INTAKE);
             } else {
                 transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             }
@@ -370,7 +371,8 @@ public class AutoManager {
 
     private void handleRotateNextBall() {
         transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(AUTO_HOLD_TRANSFER_DURING_ROTATE ? Transfer.CrState.FORWARD : Transfer.CrState.OFF);
+        intake.setAutoMode(AUTO_IDLE_INTAKE_FORWARD_DURING_ROTATE ? Intake.AutoMode.FORWARD : Intake.AutoMode.OFF);
 
         // Avoid getting stuck forever if spindexer never settles / keeps getting spammed with commands.
         if (t.getElapsedTimeSeconds() >= Math.max(0.0, ROTATE_NEXT_BALL_TIMEOUT_S)) {
@@ -385,12 +387,15 @@ public class AutoManager {
             return;
         }
 
+        // Deterministic, sensor-driven scan: rotate through slots until slot-0 sensors say a ball is present.
+        // This prevents “skip slot 1 then shoot slot 2” when the model gets out of sync.
         if (rotateTargetSlot < 0) {
-            rotateTargetSlot = inv.decideTargetSlot(spindexer);
+            int dir = PREFER_CLOCKWISE_ON_TIE ? 1 : -1;
+            rotateTargetSlot = ((spindexer.getCommandedSlot() + dir) % SpindexerModel.NUM_BUCKETS + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
         }
 
         // Only issue the command once per target (don't compare to getCurrentSlot(), which depends on STEP tuning).
-        if (rotateTargetSlot >= 0 && spindexer.getCommandedSlot() != rotateTargetSlot) {
+        if (spindexer.getCommandedSlot() != rotateTargetSlot) {
             spindexer.setSlot(rotateTargetSlot);
         }
 
@@ -404,26 +409,31 @@ public class AutoManager {
             return;
         }
 
-        syncFrontBucketFromSensor();
-        if (!frontHasBall()) {
-
-            if (!inv.hasBalls()) {
-                if (options.enableIntake && inv.setsRemain()) {
-                    transitionTo(State.PATH_TO_INTAKE);
-                } else {
-                    transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
-                }
-                return;
-            }
-            // Model says we still have a ball somewhere, but the bucket we rotated to was empty.
-            // Pick a new target (or time out into AUDIT above).
-            rotateTargetSlot = -1;
-            tRotate.resetTimer();
+        if (frontHasBall()) {
+            syncFrontBucketFromSensor(); // mark this bucket BALL in the model
+            deposit.reset();
+            transitionTo(State.SHOOTING);
             return;
         }
 
-        deposit.reset();
-        transitionTo(State.SHOOTING);
+        // No ball at front: rotate to the next slot and try again (up to 3 slots).
+        rotateCheckedCount++;
+        if (rotateCheckedCount >= SpindexerModel.NUM_BUCKETS) {
+            // Could not find a ball at any slot. Treat as empty and proceed to intake/park.
+            inv.clearBalls();
+            shotsRemainingInBatch = 0;
+            if (options.enableIntake && inv.setsRemain()) {
+                transitionTo(State.PATH_TO_INTAKE);
+            } else {
+                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            }
+            return;
+        }
+
+        int dir = PREFER_CLOCKWISE_ON_TIE ? 1 : -1;
+        rotateTargetSlot = ((rotateTargetSlot + dir) % SpindexerModel.NUM_BUCKETS + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
+        spindexer.setSlot(rotateTargetSlot);
+        tRotate.resetTimer();
     }
 
     private void handlePathToIntake() {
@@ -759,6 +769,7 @@ public class AutoManager {
         // Audit complete: decide where to go.
         boolean full = inv.getBallCount() >= SpindexerModel.NUM_BUCKETS;
         if (full && options.enableDeposit) {
+            shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
             transitionTo(State.PATH_TO_SHOOT);
             return;
         }
@@ -838,6 +849,7 @@ public class AutoManager {
             alignCheckedCount = 0;
         } else if (newState == State.ROTATE_NEXT_BALL) {
             rotateTargetSlot = -1;
+            rotateCheckedCount = 0;
             tRotate.resetTimer();
         } else if (newState == State.CLEAR_FRONT) {
             clearPhase = 0;
@@ -902,6 +914,7 @@ public class AutoManager {
                 .addData("t", "%.2f", t.getElapsedTimeSeconds())
                 .addData("Balls", "%d", inv.getBallCount())
                 .addData("FrontHasBall", () -> frontHasBall())
+                .addData("ShotsRemaining", "%d", shotsRemainingInBatch)
                 .addData("IntakeConfirmCycles", "%d", INTAKE_CONFIRM_CYCLES)
                 .addData("PostDetectDwellS", "%.2f", INTAKE_POST_DETECT_DWELL_S)
                 .addData("IdleIntakeForward", "%b", AUTO_IDLE_INTAKE_FORWARD)
@@ -916,6 +929,7 @@ public class AutoManager {
                 .addData("ClearPhase", "%d", clearPhase)
                 .addData("ClearReturnSlot", "%d", clearReturnSlot)
                 .addData("AlignChecked", "%d", alignCheckedCount)
-                .addData("RotateTarget", "%d", rotateTargetSlot);
+                .addData("RotateTarget", "%d", rotateTargetSlot)
+                .addData("RotateChecked", "%d", rotateCheckedCount);
     }
 }

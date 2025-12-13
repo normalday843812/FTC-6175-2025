@@ -42,6 +42,12 @@ public class InventoryManager {
         model.onBallIntaked();
     }
 
+    public void clearBalls() {
+        for (int i = 0; i < SpindexerModel.NUM_BUCKETS; i++) {
+            model.setBucketContents(i, SpindexerModel.BallColor.EMPTY);
+        }
+    }
+
     // --- Sensor Verification ---
 
     public void syncFromSensors(SlotColorSensors slots, Spindexer spx) {
