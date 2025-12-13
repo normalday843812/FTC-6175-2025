@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.BIAS;
+import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.SETTLE_TIME_MS;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.SLOTS;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.STEP;
 import static org.firstinspires.ftc.teamcode.config.SpindexerConfig.TELEMETRY_ENABLED;
@@ -12,8 +13,6 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class Spindexer {
-    private static final long SETTLE_TIME_MS = 300;
-
     private final Servo spindexerServo;
     private final TelemetryHelper tele;
     private int commandedSlot = 0;
@@ -87,7 +86,7 @@ public class Spindexer {
     }
 
     public boolean isMoving() {
-        return jiggleActive || (System.currentTimeMillis() - lastCommandMs < SETTLE_TIME_MS);
+        return jiggleActive || (System.currentTimeMillis() - lastCommandMs < Math.max(0L, SETTLE_TIME_MS));
     }
 
     public boolean isSettled() {
@@ -112,7 +111,7 @@ public class Spindexer {
     }
 
     public void stepSlots(int delta) {
-        setSlot(getCurrentSlot() + delta);
+        setSlot(commandedSlot + delta);
     }
 
     public void stepForward() {

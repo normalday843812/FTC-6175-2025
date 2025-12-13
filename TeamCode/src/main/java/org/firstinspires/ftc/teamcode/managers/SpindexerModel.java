@@ -422,8 +422,7 @@ public class SpindexerModel {
      */
     public VerificationResult verifyFrontBucket(SlotColorSensors sensors) {
         BallColor expected = bucketContents[bucketAtFront];
-        SlotColorSensors.BallColor sensorColor = sensors.getColor(0); // Position 0 = front
-        BallColor actual = fromSensorColor(sensorColor);
+        BallColor actual = (sensors != null && sensors.hasFrontBall()) ? BallColor.BALL : BallColor.EMPTY;
 
         boolean matches = colorsMatch(expected, actual);
         lastVerification = new VerificationResult(matches, expected, actual, bucketAtFront);
@@ -435,42 +434,31 @@ public class SpindexerModel {
     /**
      * Verifies all buckets against sensor readings.
      *
+     * Note: this robot intentionally mounts all color sensors at the front (slot 0), so we can only
+     * directly verify the bucket currently at the front. Full-bucket verification requires rotating
+     * the spindexer and sampling at slot 0.
+     *
      * @param sensors The color sensor subsystem
      * @return true if all buckets match sensors
      */
     public boolean verifyAllBuckets(SlotColorSensors sensors) {
-        boolean allMatch = true;
-
-        for (int pos = 0; pos < NUM_BUCKETS; pos++) {
-            int bucket = getBucketAtPosition(pos);
-            BallColor expected = bucketContents[bucket];
-            SlotColorSensors.BallColor sensorColor = sensors.getColor(pos);
-            BallColor actual = fromSensorColor(sensorColor);
-
-            if (!colorsMatch(expected, actual)) {
-                allMatch = false;
-                // Optionally auto-correct:
-                // bucketContents[bucket] = actual;
-            }
-        }
-
-        needsVerification = !allMatch;
-        return allMatch;
+        return verifyFrontBucket(sensors).matches;
     }
 
     /**
      * Rebuilds model state from sensor readings.
-     * Use this to recover from a mismatch or initialize from unknown state.
+     *
+     * Note: this robot intentionally mounts all color sensors at the front (slot 0), so the only
+     * bucket we can rebuild without rotating is the bucket currently at the front.
+     *
+     * Use this to recover the front bucket from sensor truth (other buckets remain unchanged).
      *
      * @param sensors The color sensor subsystem
      */
     public void rebuildFromSensors(SlotColorSensors sensors) {
-        for (int pos = 0; pos < NUM_BUCKETS; pos++) {
-            int bucket = getBucketAtPosition(pos);
-            SlotColorSensors.BallColor sensorColor = sensors.getColor(pos);
-            bucketContents[bucket] = fromSensorColor(sensorColor);
-        }
+        bucketContents[bucketAtFront] = (sensors != null && sensors.hasFrontBall()) ? BallColor.BALL : BallColor.EMPTY;
         needsVerification = false;
+        lastVerification = null;
     }
 
     /**
