@@ -169,7 +169,7 @@ public class TeleopManager {
     private void handleIntaking(GamepadMap map, boolean ballDetected) {
         boolean frontHasBall = sensors != null && sensors.hasFrontBall();
         boolean isFull = spindexCoord.isFull();
-        boolean wantsShoot = map.leverHeld;
+        boolean wantsShoot = shootCoord.isShootingMode();
 
         // Shooter idle during intaking
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
@@ -203,7 +203,7 @@ public class TeleopManager {
         if (frontHasBall) {
             transfer.raiseLever();
             transfer.runTransfer(Transfer.CrState.FORWARD);
-            intakeCoord.setDesiredState(true, false); // block/eject (FORWARD) while front is occupied
+            intakeCoord.setDesiredState(false, false);
 
             if (wantsShoot) {
                 enterState(State.READY);
@@ -222,12 +222,11 @@ public class TeleopManager {
     }
 
     private void handleLoading() {
-        // Seat the ball into slot-0 (front) so the slot sensors can confirm it before we count it.
-        // Intake sensor triggers this state; slot sensors are the source of truth for "stored".
+        // Push ball into bucket
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
-        transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.REVERSE);
-        intakeCoord.setDesiredState(true, true);  // keep intaking (REVERSE) until slot sensors see it
+        transfer.raiseLever();  // Lever up to keep ball in
+        transfer.runTransfer(Transfer.CrState.FORWARD);
+        intakeCoord.setDesiredState(false, false);  // Stop intake
 
         boolean frontHasBall = sensors != null && sensors.hasFrontBall();
         if (frontHasBall) {
@@ -322,7 +321,7 @@ public class TeleopManager {
             if (frontHasBall) {
                 double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
                 setShooterTargetRpm(rpm);
-                intakeCoord.setDesiredState(true, false);  // block/eject (FORWARD)
+                intakeCoord.setDesiredState(false, false);  // Intake off
             } else {
                 // No ball at front and not full - go back to intaking
                 shootCoord.exitShootingMode();
@@ -334,17 +333,6 @@ public class TeleopManager {
         // Check for shot (catches quick shots)
         if (shotOccurred) {
             handleShotOccurred();
-            return;
-        }
-
-        // If not full and driver isn't actively holding shooting mode, keep intaking/filling.
-        if (!isFull && !map.leverHeld) {
-            if (frontHasBall) {
-                spindexCoord.syncFromSensors();
-                enterState(State.INDEXING);
-            } else {
-                enterState(State.INTAKING);
-            }
             return;
         }
 
@@ -369,7 +357,6 @@ public class TeleopManager {
         setShooterTargetRpm(rpm);
         transfer.raiseLever();  // Lever up for shooting
         transfer.runTransfer(Transfer.CrState.FORWARD);
-        intakeCoord.setDesiredState(true, false); // block/eject (FORWARD)
 
         // Shot detected
         if (shotOccurred) {

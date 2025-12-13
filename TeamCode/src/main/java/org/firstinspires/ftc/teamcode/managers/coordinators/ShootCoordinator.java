@@ -114,8 +114,10 @@ public class ShootCoordinator {
     }
 
     private void handleShootingInputs(GamepadMap map, boolean managerControlsTransfer) {
-        if (!managerControlsTransfer) {
-            shootingMode = map.leverHeld;
+        // Manual-only toggle: when the TeleopManager is enabled it owns the lever state, so don't
+        // let the driver flip shootingMode underneath it (this is a common source of "stuck in READY").
+        if (!managerControlsTransfer && map.leverToggle) {
+            shootingMode = !shootingMode;
         }
 
         // Transfer commands only when manager doesn't own them
