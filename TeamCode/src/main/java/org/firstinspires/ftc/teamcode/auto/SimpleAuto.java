@@ -26,7 +26,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.Menu;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 
-@Autonomous(name = "Full Auto", group = "Pedro")
+@Autonomous(name = "CHOOSE THIS AUTO", group = "Pedro")
 public class SimpleAuto extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {

@@ -13,7 +13,7 @@ public class ShooterConfig {
     public static double D = 0.00;
     public static double F = 0.000542;
     public static double IDLE_RPM = 800.0;
-    public static double MAX_RPM = 4500;
+    public static double MAX_RPM = 3800;
     public static DcMotorSimple.Direction SHOOTER_MOTOR_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static DcMotorSimple.Direction SHOOTER_MOTOR_DIRECTION_1 = DcMotorSimple.Direction.REVERSE;
     public static double SHOT_ARM_AT_RPM = 3500;
