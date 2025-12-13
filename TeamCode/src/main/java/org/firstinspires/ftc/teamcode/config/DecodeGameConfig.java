@@ -32,8 +32,8 @@ public class DecodeGameConfig {
 
     public static Pose startPose(boolean isRed, boolean audienceSide) {
         return isRed
-                ? (audienceSide ? new Pose(88, 7.5, Math.toRadians(90)) : new Pose(117.5, 131.2, Math.toRadians(-142)))
-                : (audienceSide ? new Pose(56, 7.5, Math.toRadians(90)) : new Pose(27.29, 131.2, Math.toRadians(-36)));
+                ? (audienceSide ? new Pose(88, 7.5, Math.toRadians(90)) : new Pose(125.80645161290323, 119.2258064516129, Math.toRadians(217)))
+                : (audienceSide ? new Pose(56, 7.5, Math.toRadians(90)) : new Pose(17.806451612903224, 118.83870967741935, Math.toRadians(324)));
     }
 
     public static Pose shootPose(boolean isRed) {

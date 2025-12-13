@@ -83,7 +83,6 @@ public class AutoManager {
     private State s;
     private int shotsRemaining = 3;
     private boolean pathIssued = false;
-    private double intakeHeadingDeg;
 
     public AutoManager(Mecanum drive,
                        Shooter shooter,
@@ -132,7 +131,7 @@ public class AutoManager {
         this.finalPose = finalPose;
         this.ui = ui;
         this.tele = tele;
-        this.deposit = new DepositController(shooter, transfer, spindexer, tele);
+        this.deposit = new DepositController(shooter, transfer, spindexer, slots, tele);
         this.options = options == null ? Options.defaults() : options;
     }
 
@@ -258,10 +257,26 @@ public class AutoManager {
         DepositController.Result r = deposit.update(rpm);
         if (r == DepositController.Result.SHOT) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
+            // Sync model with current spindexer position before marking shot
+            inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
             inv.onShot();
             shotsRemaining--;
 
             if (shotsRemaining > 0) {
+                transitionTo(State.ROTATE_NEXT_BALL);
+            } else if (options.enableIntake && inv.setsRemain()) {
+                transitionTo(State.PATH_TO_INTAKE);
+            } else {
+                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            }
+        } else if (r == DepositController.Result.NO_BALL) {
+            // Sensors say no ball at front - mark front bucket empty and try to find another
+            if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 300);
+            inv.getModel().setBucketContents(spindexer.getCurrentSlot(), SpindexerModel.BallColor.EMPTY);
+            shotsRemaining--;
+
+            if (shotsRemaining > 0 && inv.hasBalls()) {
+                // Model still thinks there are balls - try rotating to find one
                 transitionTo(State.ROTATE_NEXT_BALL);
             } else if (options.enableIntake && inv.setsRemain()) {
                 transitionTo(State.PATH_TO_INTAKE);
@@ -289,6 +304,19 @@ public class AutoManager {
         }
 
         if (spindexer.isSettled()) {
+            if (slots != null && !slots.hasBall()) {
+                inv.getModel().setBucketContents(spindexer.getCurrentSlot(), SpindexerModel.BallColor.EMPTY);
+
+                if (!inv.hasBalls()) {
+                    if (options.enableIntake && inv.setsRemain()) {
+                        transitionTo(State.PATH_TO_INTAKE);
+                    } else {
+                        transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+                    }
+                }
+                return;
+            }
+
             deposit.reset();
             transitionTo(State.SHOOTING);
         }
@@ -305,7 +333,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
-            intakeHeadingDeg = Math.toDegrees(target.getHeading());
+            double intakeHeadingDeg = Math.toDegrees(target.getHeading());
             followToPose(target, intakeHeadingDeg);
             pathIssued = true;
         }
@@ -318,6 +346,12 @@ public class AutoManager {
 
     private void handleAlignEmptySlot() {
         int emptySlot = inv.findNearestEmptySlot(spindexer);
+
+        if (emptySlot < 0 && slots != null && !slots.hasBall()) {
+            inv.getModel().setBucketContents(spindexer.getCurrentSlot(), SpindexerModel.BallColor.EMPTY);
+            emptySlot = spindexer.getCurrentSlot();
+        }
+
         if (emptySlot >= 0 && emptySlot != spindexer.getCurrentSlot()) {
             spindexer.setSlot(emptySlot);
         }
@@ -358,6 +392,7 @@ public class AutoManager {
         if (gotBall) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
             intake.setAutoMode(Intake.AutoMode.OFF);
+            inv.getModel().setBucketAtFront(spindexer.getCurrentSlot());
             inv.onBallIntaked();
             transitionTo(State.STORE_BALL);
         } else if (timeout || pathDone) {

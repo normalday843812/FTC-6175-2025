@@ -11,19 +11,21 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.VERIFY_WINDOW_S;
 
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
 
 public class DepositController {
-    public enum Result {BUSY, SHOT, FAIL}
+    public enum Result {BUSY, SHOT, FAIL, NO_BALL}
 
-    private enum S {SPINUP, WAIT_INDEX, WAIT_FLICK, VERIFY, JIGGLE, DONE, FAIL}
+    private enum S {SPINUP, WAIT_INDEX, WAIT_FLICK, VERIFY, JIGGLE, DONE, FAIL, NO_BALL}
 
     private final Shooter shooter;
     private final Transfer transfer;
     private final Spindexer spx;
+    private final SlotColorSensors slots;
     private final TelemetryHelper tele;
 
     private final Timer tState = new Timer();
@@ -31,11 +33,13 @@ public class DepositController {
 
     private S s = S.SPINUP;
     private int refires = 0, jiggles = 0;
+    private boolean ballVerified = false;
 
-    public DepositController(Shooter shooter, Transfer transfer, Spindexer spx, TelemetryHelper tele) {
+    public DepositController(Shooter shooter, Transfer transfer, Spindexer spx, SlotColorSensors slots, TelemetryHelper tele) {
         this.shooter = shooter;
         this.transfer = transfer;
         this.spx = spx;
+        this.slots = slots;
         this.tele = tele;
         tState.resetTimer();
     }
@@ -44,6 +48,7 @@ public class DepositController {
         s = S.SPINUP;
         refires = 0;
         jiggles = 0;
+        ballVerified = false;
         tState.resetTimer();
         spx.stopJiggle();
     }
@@ -55,7 +60,19 @@ public class DepositController {
         switch (s) {
             case SPINUP:
                 transfer.raiseLever();
-                if (shooter.isAtTarget(TARGET_RPM_BAND) || tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S) {
+
+                // Verify ball is at front using sensors before proceeding
+                if (!ballVerified) {
+                    if (slots != null && slots.hasBall()) {
+                        ballVerified = true;
+                    } else if (tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S) {
+                        // Timed out waiting for ball - no ball at front
+                        s = S.NO_BALL;
+                        break;
+                    }
+                }
+
+                if (ballVerified && (shooter.isAtTarget(TARGET_RPM_BAND) || tState.getElapsedTimeSeconds() >= AT_RPM_WAIT_TIMEOUT_S)) {
                     tState.resetTimer();
                     s = S.WAIT_INDEX;
                 }
@@ -105,10 +122,13 @@ public class DepositController {
                 return Result.SHOT;
             case FAIL:
                 return Result.FAIL;
+            case NO_BALL:
+                return Result.NO_BALL;
         }
 
         tele.addLine("--- DEPOSIT ---")
                 .addData("S", s::name)
+                .addData("BallVerified", "%b", ballVerified)
                 .addData("Refires", "%d", refires)
                 .addData("Jiggles", "%d", jiggles);
         return Result.BUSY;
