@@ -17,7 +17,9 @@ import static org.firstinspires.ftc.teamcode.config.ShooterConfig.MAX_RPM;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
@@ -224,7 +226,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             double headDeg = getHeadingToGoal(shootPose);
-            followToPose(shootPose, headDeg);
+            followToPose(shootPose, headDeg, true);
             pathIssued = true;
         }
 
@@ -334,7 +336,7 @@ public class AutoManager {
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
             double intakeHeadingDeg = Math.toDegrees(target.getHeading());
-            followToPose(target, intakeHeadingDeg);
+            followToPose(target, intakeHeadingDeg, false);
             pathIssued = true;
         }
 
@@ -378,11 +380,11 @@ public class AutoManager {
             // Creep in X direction: red = +X, blue = -X
             double targetX = current.getX() + (isRed ? INTAKE_CREEP_DISTANCE : -INTAKE_CREEP_DISTANCE);
             Pose creepTarget = new Pose(targetX, current.getY(), current.getHeading());
-            followToPose(creepTarget, Math.toDegrees(current.getHeading()));
+            followToPose(creepTarget, Math.toDegrees(current.getHeading()), true);
             pathIssued = true;
         }
 
-        intake.setAutoMode(Intake.AutoMode.FORWARD);
+        intake.setAutoMode(Intake.AutoMode.REVERSE);
         intake.operate();
 
         boolean gotBall = slots != null && slots.hasBall();
@@ -442,7 +444,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             double headDeg = Math.toDegrees(finalPose.getHeading());
-            followToPose(finalPose, headDeg);
+            followToPose(finalPose, headDeg, true);
             pathIssued = true;
         }
 
@@ -468,18 +470,30 @@ public class AutoManager {
 
     // --- Path Helpers (using Pedro directly) ---
 
-    private void followToPose(Pose target, double headDeg) {
+    private void followToPose(Pose target, double headDeg, boolean enableBezier) {
         Pose current = follower.getPose();
         Pose control = midpointControl(current, target);
+        PathChain chain;
+        if (enableBezier) {
+            chain = follower.pathBuilder()
+                    .addPath(new BezierCurve(follower::getPose, control, target))
+                    .setLinearHeadingInterpolation(
+                            current.getHeading(),
+                            Math.toRadians(headDeg),
+                            0.8
+                    )
+                    .build();
+        } else {
+            chain = follower.pathBuilder()
+                    .addPath(new BezierLine(follower::getPose, target))
+                    .setLinearHeadingInterpolation(
+                            current.getHeading(),
+                            Math.toRadians(headDeg),
+                            0.8
+                    )
+                    .build();
+        }
 
-        PathChain chain = follower.pathBuilder()
-                .addPath(new BezierCurve(follower::getPose, control, target))
-                .setLinearHeadingInterpolation(
-                        current.getHeading(),
-                        Math.toRadians(headDeg),
-                        0.8
-                )
-                .build();
 
         drive.followPath(chain);
     }
