@@ -18,11 +18,11 @@ import org.firstinspires.ftc.teamcode.util.EdgeTrigger;
  * - Right stick X: Rotate
  * - Right stick Y: Shooter yaw manual adjust
  * - Triggers: Shooter power (RT=up, LT=down)
- * - Bumpers: Intake (RB=forward, LB=reverse)
- * - A: Slow mode toggle
+ * - Bumpers: Shooter yaw trim (RB=+bias, LB=-bias)
+ * - A: Lever/shooting-mode toggle (raises/lowers transfer lever)
  * - B: Spindexer backward
  * - X: Spindexer forward
- * - Y: Lever toggle (raises/lowers transfer lever to hold ball in)
+ * - Y: Slow mode toggle
  * - Dpad up: Transfer shoot (flicks ball out)
  * - Dpad down: Field centric toggle
  * - Dpad left: Transfer CR reverse
@@ -47,6 +47,7 @@ public class GamepadMap {
     public double shooterUp, shooterDown;
     public double shooterYaw;
     public boolean shooterYawAutoLockToggle, resetShooterYaw;
+    public boolean shooterYawBiasInc, shooterYawBiasDec;
 
     // Transfer/Spindexer
     public boolean transferButton, transferButtonHeld;  // Flicks ball out (shoot)
@@ -56,6 +57,7 @@ public class GamepadMap {
     // Modes
     public boolean leverToggle;  // Raises/lowers transfer lever to hold ball in
     public boolean teleopSortManagerToggle;
+    public boolean clearAll; // Resets ball state/model and stops mechanisms
 
     // Hood (if using right stick Y for hood instead of shooter yaw)
     public double hoodAxis;
@@ -72,6 +74,7 @@ public class GamepadMap {
     private final EdgeTrigger rb_t = new EdgeTrigger();
     private final EdgeTrigger lb_t = new EdgeTrigger();
     private final EdgeTrigger back_t = new EdgeTrigger();
+    private final EdgeTrigger start_t = new EdgeTrigger();
     private final EdgeTrigger ls_button_t = new EdgeTrigger();
     private final EdgeTrigger rs_button_t = new EdgeTrigger();
 
@@ -86,13 +89,16 @@ public class GamepadMap {
         rotate = deadband(clamp(opmode.gamepad1.right_stick_x, -1.0, 1.0), ROT_DB);
 
         // === DRIVE MODE TOGGLES ===
-        slowModeToggle = a_t.rose(opmode.gamepad1.a);  // A button for slow mode
+        slowModeToggle = y_t.rose(opmode.gamepad1.y);
         fieldCentricToggle = dpad_down_t.rose(opmode.gamepad1.dpad_down);
 
-        // === INTAKE (Bumpers) ===
-        intakeToggle = rb_t.rose(opmode.gamepad1.right_bumper);
-        intakeReverseToggle = lb_t.rose(opmode.gamepad1.left_bumper);
-        // Jam clearing is automatic - no manual button needed
+        // === SHOOTER YAW BIAS (Bumpers) ===
+        shooterYawBiasInc = rb_t.rose(opmode.gamepad1.right_bumper);
+        shooterYawBiasDec = lb_t.rose(opmode.gamepad1.left_bumper);
+
+        // Manual intake toggles removed (intake is managed by TeleopManager)
+        intakeToggle = false;
+        intakeReverseToggle = false;
 
         // === SHOOTER POWER (Triggers) ===
         shooterUp = opmode.gamepad1.right_trigger;
@@ -115,11 +121,14 @@ public class GamepadMap {
         spindexerForward = x_t.rose(opmode.gamepad1.x);
         spindexerBackward = b_t.rose(opmode.gamepad1.b);
 
-        // === LEVER TOGGLE (Y) ===
-        leverToggle = y_t.rose(opmode.gamepad1.y);
+        // === LEVER TOGGLE (A) ===
+        leverToggle = a_t.rose(opmode.gamepad1.a);
 
         // === MANAGER TOGGLE (Back) ===
         teleopSortManagerToggle = back_t.rose(opmode.gamepad1.back);
+
+        // === CLEAR ALL (Start) ===
+        clearAll = start_t.rose(opmode.gamepad1.start);
 
         // === HOOD (unused axis, available if needed) ===
         hoodAxis = 0; // Not mapped currently

@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEED_DWELL_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_MANAGER_TELEMETRY_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SHOT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TARGET_RPM_BAND;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -29,9 +31,6 @@ public class TeleopManager {
         READY,
         SHOOTING
     }
-
-    private static final boolean TELEMETRY_ENABLED = true;
-    private static final double SHOT_TIMEOUT_S = 1.0;
 
     private final IntakeCoordinator intakeCoord;
     private final ShootCoordinator shootCoord;
@@ -74,7 +73,7 @@ public class TeleopManager {
         this.shootCoord = new ShootCoordinator(shooter, shooterYaw, transfer);
         this.spindexCoord = new SpindexCoordinator(spindexer, sensors, inventory);
 
-        this.tele = new TelemetryHelper(opmode, TELEMETRY_ENABLED);
+        this.tele = new TelemetryHelper(opmode, TELEOP_MANAGER_TELEMETRY_ENABLED);
     }
 
     public void setEnabled(boolean enabled) {
@@ -82,7 +81,6 @@ public class TeleopManager {
         this.enabled = enabled;
 
         if (enabled) {
-            spindexCoord.syncFromSensors();
             enterState(State.INTAKING);
         } else {
             intakeCoord.forceStop();
@@ -105,6 +103,10 @@ public class TeleopManager {
 
     public void update(GamepadMap map) {
         sensors.update();
+
+        if (map.clearAll) {
+            clearAll();
+        }
 
         // Coordinators process their gamepad inputs
         // When enabled, manager controls intake/transfer to prevent conflicts
@@ -307,11 +309,32 @@ public class TeleopManager {
         }
 
         // Timeout fallback
-        if (stateTimer.getElapsedTimeSeconds() >= SHOT_TIMEOUT_S) {
+        if (stateTimer.getElapsedTimeSeconds() >= TELEOP_SHOT_TIMEOUT_S) {
             // Assume shot happened or failed, go back to ready
             shootCoord.releaseHold();
             enterState(State.READY);
         }
+    }
+
+    private void clearAll() {
+        waitingForButtonRelease = false;
+
+        // Clear persistent + model state so logic doesn't "think" we still have balls
+        PersistentBallState.reset();
+        spindexCoord.clearAllState();
+
+        // Stop/neutral all mechanisms
+        intakeCoord.forceStop();
+        intake.clearJam();
+        shootCoord.exitShootingMode();
+        shootCoord.setTargetRpm(ShooterConfig.IDLE_RPM);
+        shooter.resetShotLogic();
+        shooterYaw.resetAimBiasDeg();
+
+        transfer.lowerLever();
+        transfer.runTransfer(Transfer.CrState.OFF);
+
+        enterState(State.INTAKING);
     }
 
     private void handleShotOccurred() {

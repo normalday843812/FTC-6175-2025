@@ -10,6 +10,8 @@ public class AutoUnifiedConfig {
     public static double DEFAULT_TIMEOUT_S = 2.5;
     public static double PATH_TIMEOUT_TO_GOAL_S = 3.0;
     public static double PATH_TIMEOUT_TO_INTAKE_S = 3.0;
+    public static double ROTATE_NEXT_BALL_TIMEOUT_S = 1.5;
+    public static double ROTATE_NEXT_BALL_SENSOR_SETTLE_S = 0.20;
 
     // Spindex decisions
     public static boolean PREFER_CLOCKWISE_ON_TIE = true;
@@ -26,6 +28,7 @@ public class AutoUnifiedConfig {
     public static boolean INVENTORY_AUDIT_ENABLED = true;
     public static double INVENTORY_AUDIT_SENSOR_SETTLE_S = 0.3;
     public static int INVENTORY_AUDIT_CONFIRM_CYCLES = 3;
+    public static double INVENTORY_AUDIT_TIMEOUT_S = 3.0;
 
     // Front-clear recovery when we can't align an empty slot (slot-0 sensor stuck reading BALL)
     public static boolean FRONT_CLEAR_ENABLED = true;
@@ -51,4 +54,15 @@ public class AutoUnifiedConfig {
 
     // Teleop manager timings
     public static double TELEOP_FEED_DWELL_S = 0.4;  // Time to push ball into bucket before indexing
+
+    // Teleop manager behavior
+    public static boolean TELEOP_MANAGER_TELEMETRY_ENABLED = true;
+    public static double TELEOP_SHOT_TIMEOUT_S = 1.0;
+    public static int TELEOP_INTAKE_CONFIRM_CYCLES = 3;
+
+    // Teleop spindex jam recovery (sensor verification uses slot-0/front detection)
+    public static double TELEOP_SPINDEX_VERIFY_DELAY_S = 0.15;
+    public static double TELEOP_SPINDEX_JIGGLE_DELTA = 0.06;
+    public static double TELEOP_SPINDEX_JIGGLE_DWELL_S = 0.12;
+    public static int TELEOP_SPINDEX_MAX_RECOVERY_ATTEMPTS = 1;
 }

@@ -1,5 +1,10 @@
 package org.firstinspires.ftc.teamcode.managers.coordinators;
 
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SPINDEX_JIGGLE_DELTA;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SPINDEX_JIGGLE_DWELL_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SPINDEX_MAX_RECOVERY_ATTEMPTS;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_SPINDEX_VERIFY_DELAY_S;
+
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.SpindexerModel;
@@ -18,12 +23,6 @@ public class SpindexCoordinator {
         RETRY_MOVE,     // Re-attempting the move after jiggle
         RESYNC          // Giving up, rebuilding from sensors
     }
-
-    // Jam detection config
-    private static final double VERIFY_DELAY_S = 0.15;
-    private static final double JIGGLE_DELTA = 0.06;
-    private static final double JIGGLE_DWELL_S = 0.12;
-    private static final int MAX_RECOVERY_ATTEMPTS = 1;
 
     private final Spindexer spindexer;
     private final SlotColorSensors sensors;
@@ -126,7 +125,7 @@ public class SpindexCoordinator {
 
             case VERIFYING:
                 // Give sensors a moment to stabilize after movement
-                if (jamTimer.getElapsedTimeSeconds() >= VERIFY_DELAY_S) {
+                if (jamTimer.getElapsedTimeSeconds() >= TELEOP_SPINDEX_VERIFY_DELAY_S) {
                     if (verifyMoveSucceeded()) {
                         // Move succeeded
                         jamState = JamState.IDLE;
@@ -149,7 +148,7 @@ public class SpindexCoordinator {
 
             case RETRY_MOVE:
                 // Wait for retry move to settle
-                if (spindexer.isSettled() && jamTimer.getElapsedTimeSeconds() >= VERIFY_DELAY_S) {
+                if (spindexer.isSettled() && jamTimer.getElapsedTimeSeconds() >= TELEOP_SPINDEX_VERIFY_DELAY_S) {
                     if (verifyMoveSucceeded()) {
                         // Retry succeeded
                         jamState = JamState.IDLE;
@@ -173,35 +172,9 @@ public class SpindexCoordinator {
      * Verify that the move succeeded by checking sensor state.
      */
     private boolean verifyMoveSucceeded() {
-        // Check if all slots show balls - if so, we're actually full
-        boolean allFull = true;
-        for (int i = 0; i < 3; i++) {
-            if (sensors.getColor(i) != SlotColorSensors.BallColor.BALL) {
-                allFull = false;
-                break;
-            }
-        }
-
-        if (allFull) {
-            // All sensors show balls - accept that we're full
-            // Update model to match reality
-            for (int i = 0; i < 3; i++) {
-                inventory.getModel().setBucketContents(i, SpindexerModel.BallColor.BALL);
-            }
-            return true;
-        }
-
-        // If we expected the front to be empty, check sensor 0
-        if (expectEmptyAtFront) {
-            SlotColorSensors.BallColor frontSensor = sensors.getColor(0);
-            if (frontSensor == SlotColorSensors.BallColor.BALL) {
-                // Front sensor sees a ball but we expected empty - possible jam
-                return false;
-            }
-        }
-
-        // Move looks successful
-        return true;
+        // This codebase intentionally places all color sensors at the front (slot 0),
+        // so verification can only use "front has ball" truth.
+        return !expectEmptyAtFront || !sensors.hasFrontBall();
     }
 
     /**
@@ -210,9 +183,9 @@ public class SpindexCoordinator {
     private void attemptRecovery() {
         recoveryAttempts++;
 
-        if (recoveryAttempts <= MAX_RECOVERY_ATTEMPTS) {
+        if (recoveryAttempts <= TELEOP_SPINDEX_MAX_RECOVERY_ATTEMPTS) {
             // Try jiggling to dislodge
-            spindexer.startJiggle(JIGGLE_DELTA, JIGGLE_DELTA, JIGGLE_DWELL_S);
+            spindexer.startJiggle(TELEOP_SPINDEX_JIGGLE_DELTA, TELEOP_SPINDEX_JIGGLE_DELTA, TELEOP_SPINDEX_JIGGLE_DWELL_S);
             jamState = JamState.RECOVERING;
             jamTimer.resetTimer();
         } else {
@@ -305,6 +278,19 @@ public class SpindexCoordinator {
     public void reset() {
         inventory.reset();
         spindexer.start();
+    }
+
+    public void clearAllState() {
+        jamState = JamState.IDLE;
+        moveSourceSlot = -1;
+        moveTargetSlot = -1;
+        recoveryAttempts = 0;
+        expectEmptyAtFront = false;
+        jamTimer.resetTimer();
+        spindexer.stopJiggle();
+
+        inventory.reset();
+        syncModel();
     }
 
     // --- Internal ---

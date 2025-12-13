@@ -62,7 +62,7 @@ public class DepositController {
         shooter.setAutoRpm(targetRpm);
         shooter.operate();
 
-        boolean frontHasBall = slots != null && slots.hasBall();
+        boolean frontHasBall = slots != null && slots.hasFrontBall();
 
         switch (s) {
             case SPINUP:

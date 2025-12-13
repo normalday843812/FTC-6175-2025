@@ -93,6 +93,8 @@ public class InitialTeleop extends LinearOpMode {
         transfer.start();
         shooterYaw.start();
 
+        teleopManager.setEnabled(managerEnabled);
+
         while (opModeIsActive()) {
             map.update();
 
@@ -105,18 +107,11 @@ public class InitialTeleop extends LinearOpMode {
                 teleopManager.setEnabled(managerEnabled);
             }
 
-            light.update(true);
-
-            transfer.operate();
-            slots.update();
+            // Drive first so shooter yaw sees the latest pose.
             drive.operate();
-            intake.operate();
-            shooter.operate();
             hood.operate();
-            spindexer.operate();
-            shooterYaw.operate();
-
             teleopManager.update(map);
+            light.update(true);
 
             // Save ball state periodically so it persists
             PersistentBallState.saveFromModel(inventoryManager.getModel());

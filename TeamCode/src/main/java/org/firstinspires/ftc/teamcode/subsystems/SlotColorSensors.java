@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import static org.firstinspires.ftc.teamcode.config.ColorCal.A;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.A_THRESHOLD;
+import static org.firstinspires.ftc.teamcode.config.ColorCal.FRONT_REQUIRED_COUNT;
+import static org.firstinspires.ftc.teamcode.config.ColorCal.FRONT_SENSOR_COUNT;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.H;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.REQUIRE_BOTH_VA;
 import static org.firstinspires.ftc.teamcode.config.ColorCal.S;
@@ -47,6 +49,7 @@ public class SlotColorSensors {
 
         // Read all sensors and update telemetry
         boolean anyBall = false;
+        boolean frontBall = false;
         for (int idx = 0; idx < devices.length && idx < 3; idx++) {
             double[] sample = readSensor(idx);
             if (sample != null) {
@@ -57,7 +60,8 @@ public class SlotColorSensors {
             }
         }
 
-        addBallTelemetry(anyBall);
+        frontBall = hasFrontBall();
+        addBallTelemetry(anyBall, frontBall);
     }
 
     /**
@@ -71,6 +75,22 @@ public class SlotColorSensors {
             }
         }
         return false;
+    }
+
+    /**
+     * Returns true if the "front" (slot-0 / shooter-feed) sensors detect a ball.
+     * This intentionally ignores the separate intake sensor (index 2).
+     */
+    public boolean hasFrontBall() {
+        int count = 0;
+        int limit = Math.min(devices.length, Math.max(0, FRONT_SENSOR_COUNT));
+        for (int idx = 0; idx < limit; idx++) {
+            double[] sample = readSensor(idx);
+            if (sample != null && hasBallAt(idx, sample)) {
+                count++;
+            }
+        }
+        return count >= Math.max(1, FRONT_REQUIRED_COUNT);
     }
 
     /**
@@ -133,6 +153,22 @@ public class SlotColorSensors {
     private void addBallTelemetry(boolean anyBall) {
         tele.addLine("=== BALL SENSOR ===")
                 .addData("Ball", "%s", anyBall ? "YES" : "no");
+
+        for (int i = 0; i < Math.min(devices.length, 3); i++) {
+            double[] hsva = lastHSVA[i];
+            if (hsva != null) {
+                boolean vPass = hsva[V] > V_THRESHOLD[i];
+                boolean aPass = hsva[A] > A_THRESHOLD[i];
+                tele.addData("S" + i, "H=%.0f S=%.2f V=%.3f A=%.3f [V:%b A:%b]",
+                        hsva[H], hsva[S], hsva[V], hsva[A], vPass, aPass);
+            }
+        }
+    }
+
+    private void addBallTelemetry(boolean anyBall, boolean frontBall) {
+        tele.addLine("=== BALL SENSOR ===")
+                .addData("Ball", "%s", anyBall ? "YES" : "no")
+                .addData("FrontBall", "%s", frontBall ? "YES" : "no");
 
         for (int i = 0; i < Math.min(devices.length, 3); i++) {
             double[] hsva = lastHSVA[i];

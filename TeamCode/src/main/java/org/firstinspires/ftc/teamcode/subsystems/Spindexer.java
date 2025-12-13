@@ -66,13 +66,23 @@ public class Spindexer {
     }
 
     public int getSlots() {
-        return SLOTS > 0 ? SLOTS : (int) Math.max(1, Math.round(1.0 / STEP));
+        if (SLOTS > 0) return SLOTS;
+        if (STEP <= 0.0) return 1;
+        return (int) Math.max(1, Math.round(1.0 / STEP));
+    }
+
+    private double effectiveStep() {
+        int slots = getSlots();
+        if (STEP > 0.0) return STEP;
+        if (slots <= 0) return 1.0;
+        return 1.0 / slots;
     }
 
     public int getCurrentSlot() {
+        double step = effectiveStep();
         double pos = getPosition() - BIAS;
         if (pos < 0) pos += 1.0;
-        int slot = (int) Math.round(pos / STEP);
+        int slot = (int) Math.round(pos / step);
         return ((slot % getSlots()) + getSlots()) % getSlots();
     }
 
@@ -91,7 +101,7 @@ public class Spindexer {
         commandedSlot = k;
         lastCommandMs = System.currentTimeMillis();
 
-        double target = BIAS + k * STEP;
+        double target = BIAS + k * effectiveStep();
         while (target > 1.0) target -= 1.0;
         while (target < 0.0) target += 1.0;
         setAbsolute(target);

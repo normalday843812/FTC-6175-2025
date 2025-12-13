@@ -1,12 +1,12 @@
 package org.firstinspires.ftc.teamcode.managers.coordinators;
 
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_INTAKE_CONFIRM_CYCLES;
+
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 
 public class IntakeCoordinator {
-
-    private static final int CONFIRMATION_THRESHOLD = 3;
 
     private final Intake intake;
     private final SlotColorSensors sensors;
@@ -92,7 +92,7 @@ public class IntakeCoordinator {
 
         if (detected) {
             confirmationCount++;
-            if (confirmationCount >= CONFIRMATION_THRESHOLD) {
+            if (confirmationCount >= Math.max(1, TELEOP_INTAKE_CONFIRM_CYCLES)) {
                 confirmationCount = 0;
                 return true;
             }

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.managers.coordinators;
 
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_STEP_DEG;
+
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
@@ -117,6 +119,12 @@ public class ShootCoordinator {
 
         if (map.resetShooterYaw) {
             shooterYaw.resetShooterYaw();
+        }
+
+        if (map.shooterYawBiasInc) {
+            shooterYaw.adjustAimBiasDeg(AIM_BIAS_STEP_DEG);
+        } else if (map.shooterYawBiasDec) {
+            shooterYaw.adjustAimBiasDeg(-AIM_BIAS_STEP_DEG);
         }
 
         if (Math.abs(map.shooterYaw) > 0.1) {

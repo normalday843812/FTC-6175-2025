@@ -25,12 +25,12 @@ public class InventoryManager {
 
 
     public int decideTargetSlot(Spindexer spx) {
-        model.setBucketAtFront(spx.getCurrentSlot());
+        model.setBucketAtFront(spx.getCommandedSlot());
         return model.findBallBucket();
     }
 
     public int findNearestEmptySlot(Spindexer spx) {
-        model.setBucketAtFront(spx.getCurrentSlot());
+        model.setBucketAtFront(spx.getCommandedSlot());
         int direction = PREFER_CLOCKWISE_ON_TIE ?
                 SpindexerModel.DIRECTION_CW : SpindexerModel.DIRECTION_CCW;
         return model.findNearestEmptyBucket(direction);
@@ -45,12 +45,12 @@ public class InventoryManager {
     // --- Sensor Verification ---
 
     public void syncFromSensors(SlotColorSensors slots, Spindexer spx) {
-        model.setBucketAtFront(spx.getCurrentSlot());
+        model.setBucketAtFront(spx.getCommandedSlot());
         model.rebuildFromSensors(slots);
     }
 
     public boolean verifyModel(SlotColorSensors slots, Spindexer spx) {
-        model.setBucketAtFront(spx.getCurrentSlot());
+        model.setBucketAtFront(spx.getCommandedSlot());
         return model.verifyAllBuckets(slots);
     }
 

@@ -4,6 +4,9 @@ import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_X
 import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_BLUE_Y;
 import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_X;
 import static org.firstinspires.ftc.teamcode.config.DecodeGameConfig.GOAL_RED_Y;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_DEG;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_MAX_DEG;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_MIN_DEG;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_MAX;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.INTEGRAL_ZONE_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KD;
@@ -123,6 +126,15 @@ public class ShooterYaw {
         targetInitialized = true;
     }
 
+    public void adjustAimBiasDeg(double deltaDeg) {
+        double next = clamp(AIM_BIAS_DEG + deltaDeg, AIM_BIAS_MIN_DEG, AIM_BIAS_MAX_DEG);
+        org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_DEG = next;
+    }
+
+    public void resetAimBiasDeg() {
+        org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_DEG = 0.0;
+    }
+
     public void resetShooterYaw() {
         motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -148,6 +160,7 @@ public class ShooterYaw {
         targetInitialized = true;
 
         double desiredRelativeDeg = normalizeDeg(targetWorldDeg - robotHeadingDeg);
+        desiredRelativeDeg = normalizeDeg(desiredRelativeDeg + clamp(AIM_BIAS_DEG, AIM_BIAS_MIN_DEG, AIM_BIAS_MAX_DEG));
         int desiredTicks = clampTicks(degToTicks(desiredRelativeDeg));
         int currentTicks = motor.getCurrentPosition();
 
@@ -230,6 +243,7 @@ public class ShooterYaw {
         tele.addLine("=== SHOOTER YAW ===")
                 .addData("Mode", mode::name)
                 .addData("TargetWorld", "%.1f°", targetWorldDeg)
+                .addData("BiasDeg", "%.2f", clamp(AIM_BIAS_DEG, AIM_BIAS_MIN_DEG, AIM_BIAS_MAX_DEG))
                 .addData("RobotHeading", "%.1f°", robotHeadingDeg)
                 .addData("CurrentTicks", "%d", currentTicks)
                 .addData("GoalPos", "(%.0f, %.0f)", goalX, goalY)

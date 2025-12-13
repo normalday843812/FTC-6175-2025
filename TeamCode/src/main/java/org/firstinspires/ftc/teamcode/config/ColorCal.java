@@ -24,5 +24,11 @@ public class ColorCal {
 
     public static boolean REQUIRE_BOTH_VA = false;
 
+    // Ball presence semantics:
+    // - Sensors 0/1 are the "front" (slot-0 / shooter-feed) sensors.
+    // - Sensor 2 is a separate intake sensor.
+    public static int FRONT_SENSOR_COUNT = 2;
+    public static int FRONT_REQUIRED_COUNT = 1;
+
     public static boolean TELEMETRY_ENABLED = true;
 }

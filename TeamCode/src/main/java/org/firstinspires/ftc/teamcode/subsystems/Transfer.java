@@ -41,6 +41,7 @@ public class Transfer {
     public void start() {
         state = FlickState.IDLE;
         crState = CrState.OFF;
+        crStateBefore = CrState.OFF;
         leverRaised = false;
         transferServo1.setPosition(TRANSFER_1_MIN);
         transferCrServo.setPower(0.0);
@@ -70,6 +71,7 @@ public class Transfer {
                 break;
             case HOLD_UP:
                 transferServo1.setPosition(TRANSFER_1_MAX);
+                crState = CrState.FORWARD;
                 break;
         }
 
@@ -97,9 +99,7 @@ public class Transfer {
     }
 
     public void raiseLever() {
-        if (state == FlickState.IDLE) {
-            leverRaised = true;
-        }
+        leverRaised = true;
     }
 
     public void lowerLever() {
@@ -107,7 +107,11 @@ public class Transfer {
     }
 
     public void runTransfer(CrState state) {
-        crState = state;
+        // Persist desired CR state and restore it after flick/hold sequences.
+        crStateBefore = state;
+        if (this.state == FlickState.IDLE) {
+            crState = state;
+        }
     }
 
     public boolean isLeverRaised() {
@@ -119,6 +123,9 @@ public class Transfer {
     }
 
     public void holdUp() {
+        if (state == FlickState.IDLE) {
+            crStateBefore = crState;
+        }
         state = FlickState.HOLD_UP;
     }
 
