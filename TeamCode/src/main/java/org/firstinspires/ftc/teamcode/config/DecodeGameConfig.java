@@ -20,9 +20,9 @@ public class DecodeGameConfig {
     public static double GOAL_RED_Y = GOAL_RED_PEDRO.getY();
 
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
-            new Pose(109, 84, Math.toRadians(0)),
-            new Pose(109, 60, Math.toRadians(0)),
-            new Pose(109, 35, Math.toRadians(0))
+            new Pose(95, 84, Math.toRadians(0)),
+            new Pose(95, 60, Math.toRadians(0)),
+            new Pose(95, 35, Math.toRadians(0))
     };
     public static Pose[] INTAKE_SETS_BLUE = new Pose[]{
             new Pose(35, 84, Math.toRadians(180)),
@@ -44,5 +44,47 @@ public class DecodeGameConfig {
     public static Pose finalPose(boolean isRed) {
         return isRed ? new Pose(106, 12, Math.toRadians(180))
                 : new Pose(36, 12, Math.toRadians(0));
+    }
+
+    /**
+     * Returns the ball-color shooting pattern represented by a field AprilTag ID.
+     *
+     * <p>Known tags (user-provided):
+     * <ul>
+     *   <li>GPP = 21</li>
+     *   <li>PGP = 22</li>
+     *   <li>PPG = 23</li>
+     * </ul>
+     */
+    public static SpindexerModel.BallColor[] patternForTag(int tagId) {
+        if (tagId == AutoConfig.APRIL_TAG_GPP) {
+            return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE
+            };
+        }
+        if (tagId == AutoConfig.APRIL_TAG_PGP) {
+            return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE
+            };
+        }
+        if (tagId == AutoConfig.APRIL_TAG_PPG) {
+            return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN
+            };
+        }
+        return null;
+    }
+
+    public static String patternNameForTag(int tagId) {
+        if (tagId == AutoConfig.APRIL_TAG_GPP) return "GPP";
+        if (tagId == AutoConfig.APRIL_TAG_PGP) return "PGP";
+        if (tagId == AutoConfig.APRIL_TAG_PPG) return "PPG";
+        return "UNKNOWN";
     }
 }

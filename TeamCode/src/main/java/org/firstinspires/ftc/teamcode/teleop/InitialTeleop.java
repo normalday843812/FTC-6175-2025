@@ -180,6 +180,22 @@ public class InitialTeleop extends LinearOpMode {
         shooter.start();
 
         spindexer.start();
+        // Restore the spindexer slot from the persisted model so hardware + model stay aligned.
+        // This prevents the manager from thinking "bucketAtFront = X" while the servo is actually at slot 0.
+        try {
+            int desiredSlot = inventoryManager.getModel().getBucketAtFront();
+            spindexer.setSlot(desiredSlot);
+
+            long startMs = System.currentTimeMillis();
+            while (opModeIsActive()
+                    && !spindexer.isSettled()
+                    && (System.currentTimeMillis() - startMs) < 400) {
+                spindexer.operate();
+                idle();
+            }
+        } catch (Throwable t) {
+            // Ignore; fall back to slot 0 if anything goes wrong.
+        }
         transfer.start();
         shooterYaw.start(); // switch back to normal tracking mode in teleop
 

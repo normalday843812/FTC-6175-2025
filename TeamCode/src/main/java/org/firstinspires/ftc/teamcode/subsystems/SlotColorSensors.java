@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
  */
 public class SlotColorSensors {
 
-    public enum BallColor {NONE, UNKNOWN, RED, BLUE}
+    public enum BallColor {NONE, PURPLE, GREEN, UNKNOWN}
 
     private final NormalizedColorSensor[] devices;
     private final TelemetryHelper tele;
@@ -114,22 +114,50 @@ public class SlotColorSensors {
         if (idx < 0 || idx >= 3) return BallColor.NONE;
 
         if (matchesInterval(idx, sample,
-                RED_H_MIN, RED_H_MAX,
-                RED_S_MIN, RED_S_MAX,
-                RED_V_MIN, RED_V_MAX,
-                RED_A_MIN, RED_A_MAX)) {
-            return BallColor.RED;
+                PURPLE_H_MIN, PURPLE_H_MAX,
+                PURPLE_S_MIN, PURPLE_S_MAX,
+                PURPLE_V_MIN, PURPLE_V_MAX,
+                PURPLE_A_MIN, PURPLE_A_MAX)) {
+            return BallColor.PURPLE;
         }
 
         if (matchesInterval(idx, sample,
-                BLUE_H_MIN, BLUE_H_MAX,
-                BLUE_S_MIN, BLUE_S_MAX,
-                BLUE_V_MIN, BLUE_V_MAX,
-                BLUE_A_MIN, BLUE_A_MAX)) {
-            return BallColor.BLUE;
+                GREEN_H_MIN, GREEN_H_MAX,
+                GREEN_S_MIN, GREEN_S_MAX,
+                GREEN_V_MIN, GREEN_V_MAX,
+                GREEN_A_MIN, GREEN_A_MAX)) {
+            return BallColor.GREEN;
         }
 
         return BallColor.NONE;
+    }
+
+    /**
+     * Returns the best-effort color at the front (slot-0) using the two front sensors.
+     *
+     * <p>If the two front sensors disagree (PURPLE vs GREEN), returns UNKNOWN. If only one
+     * sensor reports a color, returns that color.</p>
+     */
+    public BallColor getFrontColor() {
+        int limit = Math.min(devices.length, Math.max(0, FRONT_SENSOR_COUNT));
+        if (limit <= 0) return BallColor.NONE;
+
+        BallColor a = getColor(0);
+        BallColor b = (limit >= 2) ? getColor(1) : BallColor.NONE;
+
+        if (a == BallColor.NONE && b == BallColor.NONE) return BallColor.NONE;
+        if (a == BallColor.NONE) return b;
+        if (b == BallColor.NONE) return a;
+        if (a == b) return a;
+        return BallColor.UNKNOWN;
+    }
+
+    /**
+     * Returns the best-effort color at the intake sensor (index {@code FRONT_SENSOR_COUNT}).
+     */
+    public BallColor getIntakeColor() {
+        int idx = Math.max(0, FRONT_SENSOR_COUNT);
+        return getColor(idx);
     }
 
     private static boolean matchesInterval(

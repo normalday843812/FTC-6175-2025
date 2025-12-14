@@ -26,6 +26,15 @@ public class InventoryManager {
 
     public int decideTargetSlot(Spindexer spx) {
         model.setBucketAtFront(spx.getCommandedSlot());
+        int byPattern = model.findNextPatternBucket();
+        if (byPattern >= 0) {
+            return byPattern;
+        }
+        // Pattern known but no matching ball found mid-pattern: fall back to "shoot anything" and clear pattern.
+        // If the pattern is already complete, keep it (auto will reset progress at the next 3-ball batch).
+        if (model.isPatternKnown() && !model.isPatternComplete() && !model.hasUnknownBalls()) {
+            model.clearPattern();
+        }
         return model.findBallBucket();
     }
 
@@ -40,6 +49,14 @@ public class InventoryManager {
 
     public void onBallIntaked() {
         model.onBallIntaked();
+    }
+
+    public void onBallIntaked(SpindexerModel.BallColor color) {
+        model.onBallIntaked(color);
+    }
+
+    public void onBallIntaked(SlotColorSensors.BallColor color) {
+        model.onBallIntaked(color);
     }
 
     public void clearBalls() {

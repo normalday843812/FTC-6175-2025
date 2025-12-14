@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.AutoConfig;
 import org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig;
 import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
+import org.firstinspires.ftc.teamcode.config.LLAprilTagConfig;
 import org.firstinspires.ftc.teamcode.config.TestAutoConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
@@ -27,6 +28,8 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterYaw;
 import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
+import org.firstinspires.ftc.teamcode.vision.AutoPatternDetector;
+import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @Autonomous(name = "CHOOSE THSI ONE", group = "Testing")
 public class TestAuto extends LinearOpMode {
@@ -72,6 +75,38 @@ public class TestAuto extends LinearOpMode {
         InventoryManager inv = new InventoryManager();
         TelemetryHelper tele = new TelemetryHelper(this, AutoUnifiedConfig.TELEMETRY_ENABLED);
 
+        // Optional: Limelight AprilTag pattern detection (autonomous only uses LL for this).
+        LLAprilTag llPattern = null;
+        boolean patternApplied = false;
+        AutoPatternDetector patternDetector = null;
+        if (LLAprilTagConfig.AUTO_PATTERN_ENABLED) {
+            try {
+                hw.initLimeLight(LLAprilTagConfig.AUTO_PATTERN_POLL_RATE_HZ);
+                hw.setLimelightPipeline(LLAprilTagConfig.AUTO_PATTERN_PIPELINE);
+                llPattern = new LLAprilTag(hw.getLimelight(), this);
+                patternDetector = new AutoPatternDetector(llPattern);
+            } catch (Throwable t) {
+                llPattern = null;
+                patternDetector = null;
+                telemetry.addLine("Limelight init failed; skipping pattern detection");
+                telemetry.addData("LL Error", "%s", t.getClass().getSimpleName());
+                telemetry.update();
+            }
+        }
+
+        // Allow pattern detection during INIT (before Start).
+        while (!isStarted() && !isStopRequested()) {
+            if (llPattern != null && patternDetector != null) {
+                llPattern.update();
+                patternDetector.update();
+                if (LLAprilTagConfig.AUTO_PATTERN_TELEMETRY_ENABLED) {
+                    patternDetector.addTelemetry(tele, patternApplied);
+                }
+            }
+            TelemetryHelper.update();
+            sleep(20);
+        }
+
         if (isStopRequested()) return;
         waitForStart();
 
@@ -97,7 +132,37 @@ public class TestAuto extends LinearOpMode {
         boolean depositRoute = TestAutoConfig.RUN_DEPOSIT_ROUTE && TestAutoConfig.ENABLE_DEPOSIT;
         auto.start(depositRoute);
 
+        // Apply any confident pre-start detection after AutoManager.reset() runs in start().
+        if (!patternApplied && patternDetector != null && patternDetector.isConfident()) {
+            int tag = patternDetector.getBestTagId();
+            org.firstinspires.ftc.teamcode.managers.SpindexerModel.BallColor[] pat = DecodeGameConfig.patternForTag(tag);
+            if (pat != null) {
+                inv.getModel().setPattern(pat);
+                inv.getModel().setPatternMeta(tag, patternDetector.getConfidence());
+                patternApplied = true;
+            }
+        }
+
         while (opModeIsActive()) {
+            if (llPattern != null && patternDetector != null) {
+                llPattern.update();
+                patternDetector.update();
+
+                if (!patternApplied && !inv.getModel().isPatternKnown() && patternDetector.isConfident()) {
+                    int tag = patternDetector.getBestTagId();
+                    org.firstinspires.ftc.teamcode.managers.SpindexerModel.BallColor[] pat = DecodeGameConfig.patternForTag(tag);
+                    if (pat != null) {
+                        inv.getModel().setPattern(pat);
+                        inv.getModel().setPatternMeta(tag, patternDetector.getConfidence());
+                        patternApplied = true;
+                    }
+                }
+
+                if (LLAprilTagConfig.AUTO_PATTERN_TELEMETRY_ENABLED) {
+                    patternDetector.addTelemetry(tele, patternApplied);
+                }
+            }
+
             auto.update();
             drive.operate();
 

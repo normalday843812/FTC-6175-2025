@@ -4,9 +4,6 @@ import com.bylazar.configurables.annotations.Configurable;
 
 @Configurable
 public class TeleOpShooterConfig {
-    public static double IDLE_HEADING_DEG = 270.0;
-    public static double IDLE_HEADING_TOLERANCE_DEG = 20.0;
-
     // Manual RPM override (primarily for TeleopManager disabled/manual mode, and for "full-load" shooting)
     public static boolean MANUAL_RPM_OVERRIDE_ENABLED = true;
     public static double MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND = 0.05;

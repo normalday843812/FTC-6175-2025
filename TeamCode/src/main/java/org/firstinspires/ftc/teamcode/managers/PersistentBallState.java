@@ -11,8 +11,10 @@ public class PersistentBallState {
     public static final int NUM_BUCKETS = 3;
 
     // Static state that persists across OpMode runs
-    private static final boolean[] hasBall = new boolean[NUM_BUCKETS];
+    private static final SpindexerModel.BallColor[] bucketContents = new SpindexerModel.BallColor[NUM_BUCKETS];
     private static int bucketAtFront = 0;
+    private static SpindexerModel.BallColor[] pattern = null;
+    private static int patternIndex = 0;
     private static boolean initialized = false;
 
     /**
@@ -34,17 +36,29 @@ public class PersistentBallState {
      */
     public static boolean hasBall(int bucket) {
         if (bucket >= 0 && bucket < NUM_BUCKETS) {
-            return hasBall[bucket];
+            SpindexerModel.BallColor c = bucketContents[bucket];
+            return c != null && c != SpindexerModel.BallColor.EMPTY;
         }
         return false;
     }
 
     /**
-     * Set whether a bucket has a ball.
+     * Get the stored contents of a bucket.
      */
-    public static void setBall(int bucket, boolean ball) {
+    public static SpindexerModel.BallColor getBucketContents(int bucket) {
         if (bucket >= 0 && bucket < NUM_BUCKETS) {
-            hasBall[bucket] = ball;
+            SpindexerModel.BallColor c = bucketContents[bucket];
+            return c == null ? SpindexerModel.BallColor.EMPTY : c;
+        }
+        return SpindexerModel.BallColor.EMPTY;
+    }
+
+    /**
+     * Set the stored contents of a bucket.
+     */
+    public static void setBucketContents(int bucket, SpindexerModel.BallColor color) {
+        if (bucket >= 0 && bucket < NUM_BUCKETS) {
+            bucketContents[bucket] = (color == null) ? SpindexerModel.BallColor.UNKNOWN : color;
         }
     }
 
@@ -69,8 +83,8 @@ public class PersistentBallState {
      */
     public static int getBallCount() {
         int count = 0;
-        for (boolean b : hasBall) {
-            if (b) count++;
+        for (SpindexerModel.BallColor c : bucketContents) {
+            if (c != null && c != SpindexerModel.BallColor.EMPTY) count++;
         }
         return count;
     }
@@ -80,9 +94,11 @@ public class PersistentBallState {
      */
     public static void reset() {
         for (int i = 0; i < NUM_BUCKETS; i++) {
-            hasBall[i] = false;
+            bucketContents[i] = SpindexerModel.BallColor.EMPTY;
         }
         bucketAtFront = 0;
+        pattern = null;
+        patternIndex = 0;
         initialized = false;
     }
 
@@ -91,9 +107,11 @@ public class PersistentBallState {
      */
     public static void saveFromModel(SpindexerModel model) {
         for (int i = 0; i < NUM_BUCKETS; i++) {
-            hasBall[i] = model.getBucketContents(i) == SpindexerModel.BallColor.BALL;
+            bucketContents[i] = model.getBucketContents(i);
         }
         bucketAtFront = model.getBucketAtFront();
+        pattern = model.getPattern();
+        patternIndex = model.getPatternIndex();
         initialized = true;
     }
 
@@ -102,9 +120,15 @@ public class PersistentBallState {
      */
     public static void loadIntoModel(SpindexerModel model) {
         for (int i = 0; i < NUM_BUCKETS; i++) {
-            model.setBucketContents(i, hasBall[i] ? SpindexerModel.BallColor.BALL : SpindexerModel.BallColor.EMPTY);
+            model.setBucketContents(i, getBucketContents(i));
         }
         model.setBucketAtFront(bucketAtFront);
+        if (pattern != null) {
+            model.setPattern(pattern);
+            model.setPatternProgress(patternIndex);
+        } else {
+            model.clearPattern();
+        }
     }
 
     /**
@@ -116,7 +140,7 @@ public class PersistentBallState {
         for (int i = 0; i < NUM_BUCKETS; i++) {
             if (i > 0) sb.append(", ");
             String marker = (i == bucketAtFront) ? "*" : "";
-            sb.append(marker).append(i).append(":").append(hasBall[i] ? "BALL" : "---");
+            sb.append(marker).append(i).append(":").append(getBucketContents(i).name());
         }
         sb.append("]");
         return sb.toString();

@@ -12,4 +12,10 @@ public class AutoConfig {
     // Vision (alliance goal tags)
     public static int APRIL_TAG_BLUE = 20;
     public static int APRIL_TAG_RED = 24;
+
+    // Vision (scoring pattern tags)
+    // GPP = 21, PGP = 22, PPG = 23
+    public static int APRIL_TAG_GPP = 21;
+    public static int APRIL_TAG_PGP = 22;
+    public static int APRIL_TAG_PPG = 23;
 }

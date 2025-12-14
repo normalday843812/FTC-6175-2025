@@ -12,9 +12,9 @@ import java.util.Locale;
  *
  * <h2>Key Concepts</h2>
  * <ul>
- *   <li><b>Bucket</b>: Physical container on spindexer (0, 1, 2). Buckets ROTATE with the spindexer.</li>
- *   <li><b>Position</b>: Fixed location on chassis (0, 1, 2). Position 0 is at intake AND shooter.</li>
- *   <li><b>Sensors</b>: Fixed to chassis, watching positions. Sensor pairs 0-1, 2-3, 4-5 watch positions 0, 1, 2.</li>
+ *   <li><b>Bucket</b>: A physical container on the spindexer (0, 1, 2). Buckets rotate with the spindexer.</li>
+ *   <li><b>Position</b>: A fixed chassis location (0, 1, 2). Position 0 is the front (intake + shooter).</li>
+ *   <li><b>Sensors</b>: Fixed to the chassis. This robot intentionally mounts all color sensors at the front (position 0).</li>
  * </ul>
  *
  * <h2>Mental Model</h2>
@@ -24,15 +24,12 @@ import java.util.Locale;
  *   - Sensors stay fixed (they see whatever bucket is now at their position)
  *   - Ball stays in its bucket (model doesn't change on rotation)
  *
- * Example:
- *   bucketContents = [GREEN, PURPLE, EMPTY]
- *   bucketAtFront = 0
- *   → Sensor at position 0 sees GREEN (bucket 0 is at front)
- *
- *   After rotate CW:
- *   bucketContents = [GREEN, PURPLE, EMPTY]  ← unchanged!
- *   bucketAtFront = 1
- *   → Sensor at position 0 sees PURPLE (bucket 1 is now at front)
+ * Example (matches {@link org.firstinspires.ftc.teamcode.subsystems.Spindexer#stepForward()} wrap behavior):
+ * <pre>
+ * slot0(front)=EMPTY, slot1=GREEN, slot2=PURPLE
+ * stepForward()  (2 → 0 wrap)
+ * slot0(front)=PURPLE, slot1=EMPTY, slot2=GREEN
+ * </pre>
  * </pre>
  *
  * <h2>Usage</h2>
@@ -77,15 +74,23 @@ public class SpindexerModel {
     public static final int DIRECTION_CCW = -1;
 
     // -------------------------------------------------------------------------
-    // Ball State Enum (simplified - no color sorting)
+    // Ball Color Enum
     // -------------------------------------------------------------------------
 
     /**
      * Represents the contents of a bucket.
+     *
+     * <p>Notes:
+     * <ul>
+     *   <li>{@link #EMPTY} means no ball in the bucket.</li>
+     *   <li>{@link #UNKNOWN} means a ball is present but its color has not been identified yet.</li>
+     * </ul>
      */
     public enum BallColor {
         EMPTY,
-        BALL
+        PURPLE,
+        GREEN,
+        UNKNOWN
     }
 
     // -------------------------------------------------------------------------
@@ -102,7 +107,25 @@ public class SpindexerModel {
      */
     private int bucketAtFront = 0;
 
-    // Pattern tracking removed - no longer doing color sorting
+    /**
+     * Desired shooting pattern (order of colors to shoot), or null if unknown/not used.
+     */
+    private BallColor[] pattern = null;
+
+    /**
+     * How many shots have been taken in the current pattern.
+     */
+    private int patternIndex = 0;
+
+    /**
+     * AprilTag ID used to derive the current pattern, or -1 if unknown/manual.
+     */
+    private int patternTagId = -1;
+
+    /**
+     * Confidence (0..1) for {@link #patternTagId}.
+     */
+    private double patternConfidence = 0.0;
 
     /**
      * Flag indicating if model may be out of sync with reality
@@ -134,6 +157,10 @@ public class SpindexerModel {
             bucketContents[i] = BallColor.EMPTY;
         }
         bucketAtFront = 0;
+        pattern = null;
+        patternIndex = 0;
+        patternTagId = -1;
+        patternConfidence = 0.0;
         needsVerification = true;
         lastVerification = null;
     }
@@ -180,17 +207,27 @@ public class SpindexerModel {
     }
 
     /**
-     * Gets which bucket is at a given physical position.
+     * Gets which bucket is at a given physical position (slot) on the chassis.
      *
-     * @param position Physical position (0, 1, or 2)
-     * @return Bucket index at that position
+     * <p>Important: "stepForward" (commanded slot +1, wrapping 2→0) must match your physical
+     * permutation where the old slot-2 bucket becomes the new front (slot-0). To make that
+     * true while keeping {@code bucketAtFront == spindexer.getCommandedSlot()}, the mapping
+     * here uses {@code bucketAtFront - position}.</p>
+     *
+     * @param position Physical position (0 = front, 1, or 2)
+     * @return Bucket index (0-2) at that position
      */
     public int getBucketAtPosition(int position) {
-        // If bucket B is at front (position 0), then:
+        // If bucket B is at the front (position 0), then:
         // - Position 0 has bucket B
-        // - Position 1 has bucket (B+1)%3 for CW layout, or (B-1+3)%3 for CCW
-        // Assuming CW layout where position increases = bucket index increases
-        return (bucketAtFront + position) % NUM_BUCKETS;
+        // - Position 1 has bucket (B-1)
+        // - Position 2 has bucket (B-2)
+        //
+        // With this mapping, "stepForward" (bucketAtFront++) yields:
+        //   new slot0 = old slot2
+        //   new slot1 = old slot0
+        //   new slot2 = old slot1
+        return (bucketAtFront - position + NUM_BUCKETS) % NUM_BUCKETS;
     }
 
     // -------------------------------------------------------------------------
@@ -202,7 +239,7 @@ public class SpindexerModel {
      * Ball always enters at position 0 (front), into whichever bucket is there.
      */
     public void onBallIntaked() {
-        bucketContents[bucketAtFront] = BallColor.BALL;
+        bucketContents[bucketAtFront] = BallColor.UNKNOWN;
     }
 
     /**
@@ -211,6 +248,23 @@ public class SpindexerModel {
      */
     public void onBallShot() {
         bucketContents[bucketAtFront] = BallColor.EMPTY;
+        if (pattern != null && patternIndex < pattern.length) {
+            patternIndex++;
+        }
+    }
+
+    /**
+     * Updates model when a ball is intaked with a known color.
+     */
+    public void onBallIntaked(BallColor color) {
+        bucketContents[bucketAtFront] = (color == null) ? BallColor.UNKNOWN : color;
+    }
+
+    /**
+     * Updates model when a ball is intaked using sensor output.
+     */
+    public void onBallIntaked(SlotColorSensors.BallColor sensorColor) {
+        onBallIntaked(fromSensorColor(sensorColor));
     }
 
     /**
@@ -253,13 +307,36 @@ public class SpindexerModel {
     // -------------------------------------------------------------------------
 
     /**
+     * Finds a bucket containing a specific color.
+     *
+     * @param color The color to find
+     * @return Bucket index (0-2) containing that color, or -1 if not found
+     */
+    public int findBucketWithColor(BallColor color) {
+        if (color == null) return -1;
+        for (int i = 0; i < NUM_BUCKETS; i++) {
+            if (bucketContents[i] == color) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Finds a bucket containing a specific color (using sensor color type).
+     */
+    public int findBucketWithColor(SlotColorSensors.BallColor sensorColor) {
+        return findBucketWithColor(fromSensorColor(sensorColor));
+    }
+
+    /**
      * Finds any bucket containing a ball.
      *
      * @return Bucket index (0-2) containing a ball, or -1 if all empty
      */
     public int findBallBucket() {
         for (int i = 0; i < NUM_BUCKETS; i++) {
-            if (bucketContents[i] == BallColor.BALL) {
+            if (bucketContents[i] != BallColor.EMPTY) {
                 return i;
             }
         }
@@ -319,7 +396,7 @@ public class SpindexerModel {
     public int getBallCount() {
         int count = 0;
         for (BallColor c : bucketContents) {
-            if (c == BallColor.BALL) {
+            if (c != BallColor.EMPTY) {
                 count++;
             }
         }
@@ -342,6 +419,18 @@ public class SpindexerModel {
      */
     public boolean isEmpty() {
         return getBallCount() == 0;
+    }
+
+    /**
+     * Returns true if any bucket contains a ball whose color is not yet identified.
+     */
+    public boolean hasUnknownBalls() {
+        for (BallColor c : bucketContents) {
+            if (c == BallColor.UNKNOWN) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -394,6 +483,131 @@ public class SpindexerModel {
     }
 
     // -------------------------------------------------------------------------
+    // Pattern Operations
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sets the desired shooting pattern.
+     *
+     * @param colors Array of colors in the order they should be shot (e.g. [PURPLE, GREEN, PURPLE])
+     */
+    public void setPattern(BallColor... colors) {
+        if (colors == null || colors.length == 0) {
+            pattern = null;
+            patternIndex = 0;
+            patternTagId = -1;
+            patternConfidence = 0.0;
+            return;
+        }
+        pattern = colors.clone();
+        patternIndex = 0;
+    }
+
+    /**
+     * Sets the desired shooting pattern from sensor color types.
+     */
+    public void setPattern(SlotColorSensors.BallColor... colors) {
+        if (colors == null || colors.length == 0) {
+            pattern = null;
+            patternIndex = 0;
+            patternTagId = -1;
+            patternConfidence = 0.0;
+            return;
+        }
+        pattern = new BallColor[colors.length];
+        for (int i = 0; i < colors.length; i++) {
+            pattern[i] = fromSensorColor(colors[i]);
+        }
+        patternIndex = 0;
+    }
+
+    public void setPatternMeta(int tagId, double confidence01) {
+        patternTagId = tagId;
+        patternConfidence = Math.max(0.0, Math.min(1.0, confidence01));
+    }
+
+    public boolean isPatternKnown() {
+        return pattern != null && pattern.length > 0;
+    }
+
+    /**
+     * Returns a copy of the current pattern, or null if none is set.
+     */
+    public BallColor[] getPattern() {
+        return pattern == null ? null : pattern.clone();
+    }
+
+    public int getPatternIndex() {
+        return patternIndex;
+    }
+
+    public int getPatternTagId() {
+        return patternTagId;
+    }
+
+    public double getPatternConfidence() {
+        return patternConfidence;
+    }
+
+    /**
+     * Sets the current pattern progress (how many shots have already been taken in this pattern).
+     */
+    public void setPatternProgress(int index) {
+        if (pattern == null) {
+            patternIndex = 0;
+            return;
+        }
+        patternIndex = Math.max(0, Math.min(index, pattern.length));
+    }
+
+    /**
+     * Gets the next color to shoot according to the pattern.
+     *
+     * @return Next color needed, or null if pattern is unknown or complete
+     */
+    public BallColor getNextPatternColor() {
+        if (pattern == null || patternIndex >= pattern.length) {
+            return null;
+        }
+        return pattern[patternIndex];
+    }
+
+    public int getRemainingPatternShots() {
+        if (pattern == null) {
+            return 0;
+        }
+        return Math.max(0, pattern.length - patternIndex);
+    }
+
+    public boolean isPatternComplete() {
+        return pattern == null || patternIndex >= pattern.length;
+    }
+
+    /**
+     * Finds the bucket containing the next pattern color.
+     *
+     * @return Bucket index (0-2) or -1 if not found or no pattern
+     */
+    public int findNextPatternBucket() {
+        BallColor needed = getNextPatternColor();
+        if (needed == null) {
+            return -1;
+        }
+        return findBucketWithColor(needed);
+    }
+
+    public void resetPatternProgress() {
+        patternIndex = 0;
+    }
+
+    public void clearPattern() {
+        pattern = null;
+        patternIndex = 0;
+        patternTagId = -1;
+        patternConfidence = 0.0;
+    }
+
+    // -------------------------------------------------------------------------
     // Sensor Verification
     // -------------------------------------------------------------------------
 
@@ -422,7 +636,7 @@ public class SpindexerModel {
      */
     public VerificationResult verifyFrontBucket(SlotColorSensors sensors) {
         BallColor expected = bucketContents[bucketAtFront];
-        BallColor actual = (sensors != null && sensors.hasFrontBall()) ? BallColor.BALL : BallColor.EMPTY;
+        BallColor actual = (sensors != null) ? fromSensorColor(sensors.getFrontColor()) : BallColor.UNKNOWN;
 
         boolean matches = colorsMatch(expected, actual);
         lastVerification = new VerificationResult(matches, expected, actual, bucketAtFront);
@@ -456,7 +670,7 @@ public class SpindexerModel {
      * @param sensors The color sensor subsystem
      */
     public void rebuildFromSensors(SlotColorSensors sensors) {
-        bucketContents[bucketAtFront] = (sensors != null && sensors.hasFrontBall()) ? BallColor.BALL : BallColor.EMPTY;
+        bucketContents[bucketAtFront] = (sensors != null) ? fromSensorColor(sensors.getFrontColor()) : BallColor.UNKNOWN;
         needsVerification = false;
         lastVerification = null;
     }
@@ -501,6 +715,16 @@ public class SpindexerModel {
         }
         telemetry.addData("Buckets", contents.toString().trim());
 
+        if (pattern != null) {
+            StringBuilder pat = new StringBuilder();
+            for (int i = 0; i < pattern.length; i++) {
+                String marker = (i == patternIndex) ? ">" : " ";
+                pat.append(String.format(Locale.US, "%s%s ", marker, shortColor(pattern[i])));
+            }
+            telemetry.addData("Pattern", pat.toString().trim());
+            telemetry.addData("Next shot", getNextPatternColor() == null ? "---" : shortColor(getNextPatternColor()));
+        }
+
         // Show verification status
         if (needsVerification) {
             telemetry.addData("Status", "NEEDS VERIFICATION");
@@ -521,25 +745,47 @@ public class SpindexerModel {
      * Converts from SlotColorSensors.BallColor to internal BallColor.
      */
     private BallColor fromSensorColor(SlotColorSensors.BallColor sensorColor) {
-        return (sensorColor == null || sensorColor == SlotColorSensors.BallColor.NONE)
-                ? BallColor.EMPTY
-                : BallColor.BALL;
+        if (sensorColor == null) return BallColor.UNKNOWN;
+        switch (sensorColor) {
+            case PURPLE:
+                return BallColor.PURPLE;
+            case GREEN:
+                return BallColor.GREEN;
+            case NONE:
+                return BallColor.EMPTY;
+            default:
+                return BallColor.UNKNOWN;
+        }
     }
 
     /**
      * Converts from internal BallColor to SlotColorSensors.BallColor.
      */
     public SlotColorSensors.BallColor toSensorColor(BallColor color) {
-        if (color == BallColor.BALL) {
-            return SlotColorSensors.BallColor.UNKNOWN;
+        if (color == null) return SlotColorSensors.BallColor.UNKNOWN;
+        switch (color) {
+            case PURPLE:
+                return SlotColorSensors.BallColor.PURPLE;
+            case GREEN:
+                return SlotColorSensors.BallColor.GREEN;
+            case EMPTY:
+                return SlotColorSensors.BallColor.NONE;
+            default:
+                return SlotColorSensors.BallColor.UNKNOWN;
         }
-        return SlotColorSensors.BallColor.NONE;
     }
 
     /**
      * Checks if two states match.
      */
     private boolean colorsMatch(BallColor expected, BallColor actual) {
+        if (expected == null || actual == null) return false;
+        if (expected == BallColor.UNKNOWN) {
+            return actual != BallColor.EMPTY;
+        }
+        if (actual == BallColor.UNKNOWN) {
+            return expected != BallColor.EMPTY;
+        }
         return expected == actual;
     }
 
@@ -551,8 +797,12 @@ public class SpindexerModel {
         switch (color) {
             case EMPTY:
                 return "---";
-            case BALL:
-                return "BAL";
+            case PURPLE:
+                return "PUR";
+            case GREEN:
+                return "GRN";
+            case UNKNOWN:
+                return "UNK";
             default:
                 return "???";
         }
@@ -577,6 +827,9 @@ public class SpindexerModel {
             sb.append(shortColor(bucketContents[i]));
         }
         sb.append("]");
+        if (pattern != null) {
+            sb.append(", pattern=").append(patternIndex).append("/").append(pattern.length);
+        }
         sb.append("}");
         return sb.toString();
     }

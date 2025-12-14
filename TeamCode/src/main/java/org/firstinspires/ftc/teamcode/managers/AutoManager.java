@@ -4,6 +4,9 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_TARGE
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD_DURING_ROTATE;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_INTAKE_FORWARD_DURING_SHOOTING;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_SENSOR_SETTLE_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_RETRY_MAX;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEFAULT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEPOSIT_EMPTY_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_HOLD_TRANSFER_DURING_ROTATE;
@@ -45,6 +48,7 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 
+import org.firstinspires.ftc.teamcode.config.AutoPathConfig;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -109,6 +113,7 @@ public class AutoManager {
     private final Timer t = new Timer();
     private final Timer tAudit = new Timer();
     private final Timer tRotate = new Timer();
+    private final Timer tColorId = new Timer();
     private State s;
     private boolean pathIssued = false;
     private boolean intakeSawEmpty = false;
@@ -126,6 +131,16 @@ public class AutoManager {
     private int rotateTargetSlot = -1;
     private int rotateCheckedCount = 0;
     private int shotsRemainingInBatch = 0;
+
+    // Color identification (bucket colors) while driving to the goal.
+    private boolean colorIdDone = false;
+    private int colorIdSlot = 0;
+    private int colorIdRetryCount = 0;
+    private int colorIdPhase = 0;
+
+    // Intaking: capture a best-effort color at detection time and commit it once the ball is seated.
+    private boolean pendingIntakeCommit = false;
+    private SlotColorSensors.BallColor pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
 
     public AutoManager(Mecanum drive,
                        Shooter shooter,
@@ -181,15 +196,21 @@ public class AutoManager {
     public void start(boolean depositRoute) {
         spindexer.setSlot(0);
         shooter.start();
-        shooterYaw.start();
+        // Autonomous does not use ShooterYaw goal tracking; keep it centered.
+        shooterYaw.holdCenter();
         shooter.setAutoRpm(IDLE_RPM);
         transfer.raiseLever();
 
         inv.reset();
         SpindexerModel model = inv.getModel();
-        model.setBucketContents(0, SpindexerModel.BallColor.BALL);
-        model.setBucketContents(1, SpindexerModel.BallColor.BALL);
-        model.setBucketContents(2, SpindexerModel.BallColor.BALL);
+        // Assume we start with 3 balls, but the colors are not known until we explicitly identify them.
+        model.setBucketContents(0, SpindexerModel.BallColor.UNKNOWN);
+        model.setBucketContents(1, SpindexerModel.BallColor.UNKNOWN);
+        model.setBucketContents(2, SpindexerModel.BallColor.UNKNOWN);
+        model.resetPatternProgress();
+        resetColorId();
+        pendingIntakeCommit = false;
+        pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
 
         if (depositRoute && options.enableDeposit) {
             shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
@@ -273,13 +294,134 @@ public class AutoManager {
         return slots != null && slots.hasFrontBall();
     }
 
+    private boolean intakeHasBall() {
+        return slots != null && slots.hasIntakeBall();
+    }
+
+    private boolean anyBallDetected() {
+        return frontHasBall() || intakeHasBall();
+    }
+
+    private SlotColorSensors.BallColor bestDetectedBallColor() {
+        if (slots == null) return SlotColorSensors.BallColor.UNKNOWN;
+        if (slots.hasFrontBall()) return slots.getFrontColor();
+        if (slots.hasIntakeBall()) return slots.getIntakeColor();
+        return SlotColorSensors.BallColor.NONE;
+    }
+
     private void syncFrontBucketFromSensor() {
         int frontBucket = spindexer.getCommandedSlot();
         inv.getModel().setBucketAtFront(frontBucket);
-        inv.getModel().setBucketContents(
-                frontBucket,
-                frontHasBall() ? SpindexerModel.BallColor.BALL : SpindexerModel.BallColor.EMPTY
-        );
+        inv.getModel().setBucketContents(frontBucket, frontBucketColorFromSensors());
+    }
+
+    private SpindexerModel.BallColor frontBucketColorFromSensors() {
+        if (slots == null) {
+            return SpindexerModel.BallColor.UNKNOWN;
+        }
+        SlotColorSensors.BallColor c = slots.getFrontColor();
+        switch (c) {
+            case PURPLE:
+                return SpindexerModel.BallColor.PURPLE;
+            case GREEN:
+                return SpindexerModel.BallColor.GREEN;
+            case NONE:
+                return SpindexerModel.BallColor.EMPTY;
+            default:
+                return SpindexerModel.BallColor.UNKNOWN;
+        }
+    }
+
+    private void resetColorId() {
+        colorIdDone = !AUTO_COLOR_ID_ENABLED;
+        colorIdSlot = 0;
+        colorIdRetryCount = 0;
+        colorIdPhase = 0;
+        tColorId.resetTimer();
+    }
+
+    /**
+     * Identifies bucket colors by rotating the spindexer and sampling the front color sensors.
+     *
+     * <p>This is intended to run in parallel while driving to the goal.</p>
+     */
+    private void updateColorId() {
+        if (!AUTO_COLOR_ID_ENABLED || colorIdDone) return;
+        if (spindexer == null) return;
+
+        // Phase 0: move/hold at the target slot and wait for settle + sensor dwell.
+        if (colorIdPhase == 0) {
+            if (spindexer.getCommandedSlot() != colorIdSlot) {
+                spindexer.setSlot(colorIdSlot);
+            }
+
+            if (!spindexer.isSettled()) {
+                tColorId.resetTimer();
+                return;
+            }
+
+            if (tColorId.getElapsedTimeSeconds() < Math.max(0.0, AUTO_COLOR_ID_SENSOR_SETTLE_S)) {
+                return;
+            }
+
+            colorIdPhase = 1;
+        }
+
+        // Phase 1: read & commit this slot's color.
+        if (colorIdPhase == 1) {
+            syncFrontBucketFromSensor();
+            SpindexerModel.BallColor seen = inv.getModel().getBucketContents(colorIdSlot);
+
+            // If we expected a ball but saw NONE, do a single back/forward reseat before giving up.
+            if (seen == SpindexerModel.BallColor.EMPTY && colorIdRetryCount < Math.max(0, AUTO_COLOR_ID_RETRY_MAX)) {
+                colorIdRetryCount++;
+                int back = (colorIdSlot - 1 + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
+                spindexer.setSlot(back);
+                colorIdPhase = 2;
+                tColorId.resetTimer();
+                return;
+            }
+
+            // Advance to next slot.
+            colorIdRetryCount = 0;
+            colorIdSlot++;
+            if (colorIdSlot >= SpindexerModel.NUM_BUCKETS) {
+                colorIdDone = true;
+                return;
+            }
+            spindexer.setSlot(colorIdSlot);
+            colorIdPhase = 0;
+            tColorId.resetTimer();
+            return;
+        }
+
+        // Phase 2: waiting at the "back" slot before returning to retry.
+        if (colorIdPhase == 2) {
+            if (!spindexer.isSettled()) {
+                tColorId.resetTimer();
+                return;
+            }
+            if (tColorId.getElapsedTimeSeconds() < Math.max(0.0, AUTO_COLOR_ID_SENSOR_SETTLE_S)) {
+                return;
+            }
+            spindexer.setSlot(colorIdSlot);
+            colorIdPhase = 3;
+            tColorId.resetTimer();
+            return;
+        }
+
+        // Phase 3: wait after returning, then re-read.
+        if (colorIdPhase == 3) {
+            if (!spindexer.isSettled()) {
+                tColorId.resetTimer();
+                return;
+            }
+            if (tColorId.getElapsedTimeSeconds() < Math.max(0.0, AUTO_COLOR_ID_SENSOR_SETTLE_S)) {
+                return;
+            }
+            colorIdPhase = 1;
+            return;
+        }
     }
 
     private void handlePathToShoot() {
@@ -290,13 +432,14 @@ public class AutoManager {
             return;
         }
 
+        updateColorId();
+
         if (ui != null) ui.setBase(UiLightConfig.UiState.NAVIGATING);
-        shooterYaw.lockAllianceGoal();
         shooterYaw.operate();
 
         if (!pathIssued) {
             double headDeg = getHeadingToGoal(shootPose);
-            followToPose(shootPose, headDeg, true);
+            followToPose(shootPose, headDeg, AutoPathConfig.TO_SHOOT_CONTROL_POINTS, true);
             pathIssued = true;
         }
 
@@ -307,7 +450,7 @@ public class AutoManager {
 
         if (!drive.isPathBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_GOAL_S) {
             deposit.reset();
-            transitionTo(State.SHOOTING);
+            transitionTo(State.ROTATE_NEXT_BALL);
         }
     }
 
@@ -338,8 +481,9 @@ public class AutoManager {
         double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
 
         DepositController.Result r = deposit.update(rpm);
-        boolean treatAsShot = (r == DepositController.Result.SHOT)
-                || (r == DepositController.Result.FAIL && !frontHasBall());
+        // If the deposit routine can't reconcile sensors vs. RPM-drop after REFIRE_MAX attempts, assume the shot
+        // succeeded anyway (per plan) and advance the inventory to avoid getting stuck.
+        boolean treatAsShot = (r == DepositController.Result.SHOT) || (r == DepositController.Result.FAIL);
 
         if (treatAsShot) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
@@ -350,27 +494,25 @@ public class AutoManager {
 
             if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
-            } else if (options.enableIntake && inv.setsRemain()) {
-                inv.clearBalls();
-                transitionTo(State.PATH_TO_INTAKE);
             } else {
-                inv.clearBalls();
-                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+                // Batch complete. If ANY sensor still sees a ball, keep shooting until it's gone.
+                if (anyBallDetected()) {
+                    shotsRemainingInBatch = 1;
+                    transitionTo(State.ROTATE_NEXT_BALL);
+                    return;
+                }
+
+                if (options.enableIntake && inv.setsRemain()) {
+                    inv.clearBalls();
+                    transitionTo(State.PATH_TO_INTAKE);
+                } else {
+                    inv.clearBalls();
+                    transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+                }
             }
         } else if (r == DepositController.Result.NO_BALL) {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 300);
             // Don't mark buckets empty on NO_BALL; just rotate and search for the next loaded ball.
-            if (shotsRemainingInBatch > 0) {
-                transitionTo(State.ROTATE_NEXT_BALL);
-            } else if (options.enableIntake && inv.setsRemain()) {
-                transitionTo(State.PATH_TO_INTAKE);
-            } else {
-                transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
-            }
-        } else if (r == DepositController.Result.FAIL) {
-            if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 500);
-            // Ball still present at front; rotate and try again rather than skipping straight to intake.
-            syncFrontBucketFromSensor(); // ensures model knows this front bucket is BALL/EMPTY from sensors
             if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
             } else if (options.enableIntake && inv.setsRemain()) {
@@ -404,11 +546,32 @@ public class AutoManager {
             return;
         }
 
-        // Deterministic, sensor-driven scan: rotate through slots until slot-0 sensors say a ball is present.
-        // This prevents “skip slot 1 then shoot slot 2” when the model gets out of sync.
+        // If we have a pattern but some bucket colors are still unknown, prioritize finishing
+        // the color-ID scan before selecting a target bucket to shoot.
+        updateColorId();
+        if (AUTO_COLOR_ID_ENABLED
+                && inv.getModel().isPatternKnown()
+                && inv.getModel().hasUnknownBalls()
+                && !colorIdDone) {
+            return;
+        }
+
+        // Select the next bucket to shoot.
+        // - If a pattern is known and bucket colors are known, pick the next pattern color.
+        // - Otherwise, fall back to "shoot any loaded ball".
         if (rotateTargetSlot < 0) {
-            int dir = PREFER_CLOCKWISE_ON_TIE ? 1 : -1;
-            rotateTargetSlot = ((spindexer.getCommandedSlot() + dir) % SpindexerModel.NUM_BUCKETS + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
+            rotateTargetSlot = inv.decideTargetSlot(spindexer);
+            if (rotateTargetSlot < 0) {
+                // No balls left to shoot.
+                inv.clearBalls();
+                shotsRemainingInBatch = 0;
+                if (options.enableIntake && inv.setsRemain()) {
+                    transitionTo(State.PATH_TO_INTAKE);
+                } else {
+                    transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+                }
+                return;
+            }
         }
 
         // Only issue the command once per target (don't compare to getCurrentSlot(), which depends on STEP tuning).
@@ -427,16 +590,16 @@ public class AutoManager {
         }
 
         if (frontHasBall()) {
-            syncFrontBucketFromSensor(); // mark this bucket BALL in the model
+            syncFrontBucketFromSensor(); // commit this bucket's color to the model
             deposit.reset();
             transitionTo(State.SHOOTING);
             return;
         }
 
-        // No ball at front: rotate to the next slot and try again (up to 3 slots).
+        // Target bucket did not actually have a ball at the front. Accept sensor truth and try again.
+        syncFrontBucketFromSensor();
         rotateCheckedCount++;
         if (rotateCheckedCount >= SpindexerModel.NUM_BUCKETS) {
-            // Could not find a ball at any slot. Treat as empty and proceed to intake/park.
             inv.clearBalls();
             shotsRemainingInBatch = 0;
             if (options.enableIntake && inv.setsRemain()) {
@@ -447,9 +610,7 @@ public class AutoManager {
             return;
         }
 
-        int dir = PREFER_CLOCKWISE_ON_TIE ? 1 : -1;
-        rotateTargetSlot = ((rotateTargetSlot + dir) % SpindexerModel.NUM_BUCKETS + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
-        spindexer.setSlot(rotateTargetSlot);
+        rotateTargetSlot = -1;
         tRotate.resetTimer();
     }
 
@@ -466,7 +627,7 @@ public class AutoManager {
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
             double intakeHeadingDeg = Math.toDegrees(target.getHeading());
-            followToPose(target, intakeHeadingDeg, false);
+            followToPose(target, intakeHeadingDeg, AutoPathConfig.TO_INTAKE_CONTROL_POINTS, false);
             pathIssued = true;
         }
 
@@ -639,7 +800,7 @@ public class AutoManager {
             // Creep in X direction: red = +X, blue = -X
             double targetX = current.getX() + (isRed ? INTAKE_CREEP_DISTANCE : -INTAKE_CREEP_DISTANCE);
             Pose creepTarget = new Pose(targetX, current.getY(), current.getHeading());
-            followToPose(creepTarget, Math.toDegrees(current.getHeading()), true);
+            followToPose(creepTarget, Math.toDegrees(current.getHeading()), null, false);
             pathIssued = true;
         }
 
@@ -647,8 +808,8 @@ public class AutoManager {
 
         intake.setAutoMode(Intake.AutoMode.REVERSE);
 
-        // Only count a new ball when the front was empty and then becomes occupied (edge-based).
-        boolean ballNow = frontHasBall();
+        // Only count a new ball when the sensors were empty and then become occupied (edge-based).
+        boolean ballNow = anyBallDetected();
         if (!ballNow) {
             intakeSawEmpty = true;
             intakeConfirmCount = 0;
@@ -663,7 +824,12 @@ public class AutoManager {
             if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
             intake.setAutoMode(Intake.AutoMode.OFF);
             inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
-            inv.onBallIntaked();
+            if (transfer != null) {
+                transfer.raiseLever();
+                transfer.runTransfer(Transfer.CrState.OFF);
+            }
+            pendingIntakeCommit = true;
+            pendingIntakeColor = (slots != null) ? bestDetectedBallColor() : SlotColorSensors.BallColor.UNKNOWN;
             transitionTo(State.STORE_BALL);
         } else if (timeout) {
             intake.setAutoMode(Intake.AutoMode.OFF);
@@ -685,34 +851,41 @@ public class AutoManager {
     }
 
     private void handleStoreBall() {
-        // Give the ball a moment to fully seat before raising the lever / holding forward.
-        if (t.getElapsedTimeSeconds() < Math.max(0.0, INTAKE_POST_DETECT_DWELL_S)) {
-            transfer.lowerLever();
-            transfer.runTransfer(Transfer.CrState.REVERSE);
-            intake.setAutoMode(Intake.AutoMode.OFF);
-            return;
-        }
-
-        transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
         intake.setAutoMode(Intake.AutoMode.OFF);
 
-        // Wait for ball to be pushed into bucket before deciding next action
-        if (t.getElapsedTimeSeconds() < Math.max(0.0, INTAKE_POST_DETECT_DWELL_S) + TELEOP_FEED_DWELL_S) {
+        // Phase 0: stop everything, raise lever to retain, and allow the ball to settle.
+        transfer.raiseLever();
+        transfer.runTransfer(Transfer.CrState.OFF);
+        if (t.getElapsedTimeSeconds() < Math.max(0.0, INTAKE_POST_DETECT_DWELL_S)) {
             return;
         }
+
+        // Phase 1: feed the ball into the bucket for a fixed dwell, then stop the CR servo.
+        transfer.raiseLever();
+        transfer.runTransfer(Transfer.CrState.FORWARD);
+        if (t.getElapsedTimeSeconds() < Math.max(0.0, INTAKE_POST_DETECT_DWELL_S) + Math.max(0.0, TELEOP_FEED_DWELL_S)) {
+            return;
+        }
+
+        // Commit the newly intaked ball to the inventory model once we've finished feeding/seating it.
+        if (pendingIntakeCommit) {
+            inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
+            inv.onBallIntaked(pendingIntakeColor);
+            pendingIntakeCommit = false;
+            pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
+        }
+
+        transfer.runTransfer(Transfer.CrState.OFF);
 
         // Continue intaking at current position if we have empty slots
         if (inv.hasEmptySlots()) {
             transitionTo(State.ALIGN_EMPTY_SLOT);
         } else if (inv.hasBalls() && options.enableDeposit) {
-            // Full (per model) - audit to be sure before committing to shooting.
-            if (INVENTORY_AUDIT_ENABLED) {
-                auditContinueIntakeHere = true;
-                transitionTo(State.AUDIT_INVENTORY);
-            } else {
-                transitionTo(State.PATH_TO_SHOOT);
-            }
+            // Full: immediately go shoot. Auditing here can false-negative and cause pointless extra intake cycles.
+            shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
+            inv.getModel().resetPatternProgress();
+            resetColorId();
+            transitionTo(State.PATH_TO_SHOOT);
         } else {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
         }
@@ -769,10 +942,7 @@ public class AutoManager {
         // Commit this slot's contents to the model.
         int frontBucket = spindexer.getCommandedSlot();
         inv.getModel().setBucketAtFront(frontBucket);
-        inv.getModel().setBucketContents(
-                frontBucket,
-                now ? SpindexerModel.BallColor.BALL : SpindexerModel.BallColor.EMPTY
-        );
+        inv.getModel().setBucketContents(frontBucket, frontBucketColorFromSensors());
 
         auditTargetSlot++;
         auditLastReading = null;
@@ -787,6 +957,8 @@ public class AutoManager {
         boolean full = inv.getBallCount() >= SpindexerModel.NUM_BUCKETS;
         if (full && options.enableDeposit) {
             shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
+            inv.getModel().resetPatternProgress();
+            resetColorId();
             transitionTo(State.PATH_TO_SHOOT);
             return;
         }
@@ -823,7 +995,7 @@ public class AutoManager {
 
         if (!pathIssued) {
             double headDeg = Math.toDegrees(finalPose.getHeading());
-            followToPose(finalPose, headDeg, true);
+            followToPose(finalPose, headDeg, AutoPathConfig.TO_FINAL_CONTROL_POINTS, true);
             pathIssued = true;
         }
 
@@ -875,6 +1047,8 @@ public class AutoManager {
             intakeSawEmpty = false;
             intakeConfirmCount = 0;
             clearAttempts = 0;
+            pendingIntakeCommit = false;
+            pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
         } else if (newState == State.AUDIT_INVENTORY) {
             auditTargetSlot = 0;
             auditLastReading = null;
@@ -885,17 +1059,31 @@ public class AutoManager {
 
     // --- Path Helpers (using Pedro directly) ---
 
-    private void followToPose(Pose target, double headDeg, boolean enableBezier) {
+    private void followToPose(Pose target, double headDeg, double[][] controlPoints, boolean enableBezier) {
         Pose current = follower.getPose();
-        Pose control = midpointControl(current, target);
         PathChain chain;
+
         if (enableBezier) {
+            java.util.List<Pose> points = new java.util.ArrayList<>();
+            points.add(current);
+
+            if (controlPoints != null && controlPoints.length > 0) {
+                for (double[] cp : controlPoints) {
+                    double headingRad = cp.length > 2 ? Math.toRadians(cp[2]) : target.getHeading();
+                    points.add(new Pose(cp[0], cp[1], headingRad));
+                }
+            } else {
+                points.add(midpointControl(current, target));
+            }
+
+            points.add(target);
+
             chain = follower.pathBuilder()
-                    .addPath(new BezierCurve(follower::getPose, control, target))
+                    .addPath(new BezierCurve(points))
                     .setLinearHeadingInterpolation(
                             current.getHeading(),
                             Math.toRadians(headDeg),
-                            0.8
+                            AutoPathConfig.HEADING_INTERPOLATION_END_T
                     )
                     .build();
         } else {
@@ -904,11 +1092,10 @@ public class AutoManager {
                     .setLinearHeadingInterpolation(
                             current.getHeading(),
                             Math.toRadians(headDeg),
-                            0.8
+                            AutoPathConfig.HEADING_INTERPOLATION_END_T
                     )
                     .build();
         }
-
 
         drive.followPath(chain);
     }

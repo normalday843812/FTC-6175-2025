@@ -189,7 +189,7 @@ public class TeleopManager {
         // if a ball is now at the front.
         if (manualSpindexPending) {
             transfer.raiseLever();
-            transfer.runTransfer(Transfer.CrState.FORWARD);
+            transfer.runTransfer(Transfer.CrState.OFF);
             intakeCoord.setDesiredState(false, false);
 
             if (!spindexCoord.isSettled()) {
@@ -218,7 +218,7 @@ public class TeleopManager {
 
             if (frontHasBall) {
                 transfer.raiseLever();
-                transfer.runTransfer(Transfer.CrState.FORWARD);
+                transfer.runTransfer(Transfer.CrState.OFF);
                 if (!frontSeatArmed) {
                     frontSeatArmed = true;
                     frontSeatTimer.resetTimer();
@@ -240,7 +240,7 @@ public class TeleopManager {
         // - Otherwise, index to an empty front bucket so we can keep intaking.
         if (frontHasBall) {
             transfer.raiseLever();
-            transfer.runTransfer(Transfer.CrState.FORWARD);
+            transfer.runTransfer(Transfer.CrState.OFF);
             intakeCoord.setDesiredState(false, false);
 
             if (wantsShoot) {
@@ -288,7 +288,11 @@ public class TeleopManager {
                 && frontHasBall
                 && loadFrontConfirmCount >= Math.max(1, TELEOP_LOAD_FRONT_CONFIRM_CYCLES)) {
             if (pendingBallIntake) {
-                spindexCoord.onBallIntaked();
+                if (sensors != null) {
+                    spindexCoord.onBallIntaked(sensors.getFrontColor());
+                } else {
+                    spindexCoord.onBallIntaked();
+                }
                 pendingBallIntake = false;
             }
             enterState(State.INDEXING);
@@ -310,7 +314,7 @@ public class TeleopManager {
 
         // Transfer up during indexing (keeping ball in), CR forward to hold ball
         transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(Transfer.CrState.OFF);
         intakeCoord.setDesiredState(false, false);  // Intake off during indexing
 
         // Wait for spindexer to settle (goToEmpty was called in enterState)
@@ -367,7 +371,7 @@ public class TeleopManager {
             // Don't allow shooting while the spindexer is still moving.
             if (!spindexCoord.isSettled()) {
                 transfer.raiseLever();
-                transfer.runTransfer(Transfer.CrState.FORWARD);
+                transfer.runTransfer(Transfer.CrState.OFF);
                 intakeCoord.setDesiredState(false, false);
                 return;
             }
@@ -376,9 +380,9 @@ public class TeleopManager {
             frontHasBall = sensors != null && sensors.hasFrontBall();
         }
 
-        // Maintain ready state - transfer always up, CR forward
+        // Maintain ready state - transfer always up, CR off (flick overrides to forward during the shot)
         transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(Transfer.CrState.OFF);
 
         if (isFull) {
             // Full - shooter at max by default, but allow a latched manual override using triggers.
@@ -427,7 +431,7 @@ public class TeleopManager {
         double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
         setShooterTargetRpm(rpm);
         transfer.raiseLever();  // Lever up for shooting
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(Transfer.CrState.OFF);
 
         // Shot detected
         if (shotOccurred) {

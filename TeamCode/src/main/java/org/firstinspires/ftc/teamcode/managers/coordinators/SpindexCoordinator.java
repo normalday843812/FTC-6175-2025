@@ -250,6 +250,16 @@ public class SpindexCoordinator {
         inventory.onBallIntaked();
     }
 
+    public void onBallIntaked(SpindexerModel.BallColor color) {
+        syncModel();
+        inventory.onBallIntaked(color);
+    }
+
+    public void onBallIntaked(SlotColorSensors.BallColor color) {
+        syncModel();
+        inventory.onBallIntaked(color);
+    }
+
     public void onBallShot() {
         syncModel();
         inventory.onShot();
