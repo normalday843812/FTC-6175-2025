@@ -17,7 +17,7 @@ public class LLAprilTagConfig {
     public static int AUTO_PATTERN_PIPELINE = 0;
     public static boolean AUTO_PATTERN_TELEMETRY_ENABLED = true;
     public static double AUTO_PATTERN_SCORE_DECAY_S = 2.0;
-    public static double AUTO_PATTERN_MIN_CONFIDENCE = 0.60;
+    public static double AUTO_PATTERN_MIN_CONFIDENCE = 0.20;
 
     public static long TTL_MS = 100;
 

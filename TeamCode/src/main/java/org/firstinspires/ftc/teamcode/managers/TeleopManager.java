@@ -288,11 +288,7 @@ public class TeleopManager {
                 && frontHasBall
                 && loadFrontConfirmCount >= Math.max(1, TELEOP_LOAD_FRONT_CONFIRM_CYCLES)) {
             if (pendingBallIntake) {
-                if (sensors != null) {
-                    spindexCoord.onBallIntaked(sensors.getFrontColor());
-                } else {
-                    spindexCoord.onBallIntaked();
-                }
+                spindexCoord.onBallIntaked(sensors.getFrontColor());
                 pendingBallIntake = false;
             }
             enterState(State.INDEXING);
@@ -307,7 +303,7 @@ public class TeleopManager {
     }
 
     private void handleIndexing() {
-        boolean frontHasBall = sensors != null && sensors.hasFrontBall();
+        boolean frontHasBall;
 
         // Shooter idle during indexing
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
@@ -386,13 +382,13 @@ public class TeleopManager {
 
         if (isFull) {
             // Full - shooter at max by default, but allow a latched manual override using triggers.
-            double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+            double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, true, isEmpty);
             setShooterTargetRpm(rpm);
             intakeCoord.setDesiredState(true, false);  // running=true, reversing=false (FORWARD)
         } else {
             // Not full but ready to shoot - shooter at max when ball at front
             if (frontHasBall) {
-                double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+                double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, false, isEmpty);
                 setShooterTargetRpm(rpm);
                 intakeCoord.setDesiredState(false, false);  // Intake off
             } else {

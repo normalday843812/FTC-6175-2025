@@ -118,8 +118,7 @@ public class ShooterYaw {
     }
 
     public void holdTicks(int targetTicks) {
-        int clamped = clampTicks(targetTicks);
-        holdTargetTicks = clamped;
+        holdTargetTicks = clampTicks(targetTicks);
         if (mode != Mode.HOLD_TICKS) {
             resetPID();
         }
@@ -139,8 +138,8 @@ public class ShooterYaw {
     }
 
     public void adjustAimBiasDeg(double deltaDeg) {
-        double next = clamp(AIM_BIAS_DEG + deltaDeg, AIM_BIAS_MIN_DEG, AIM_BIAS_MAX_DEG);
-        org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_DEG = next;
+        org.firstinspires.ftc.teamcode.config.ShooterYawConfig.AIM_BIAS_DEG =
+                clamp(AIM_BIAS_DEG + deltaDeg, AIM_BIAS_MIN_DEG, AIM_BIAS_MAX_DEG);
     }
 
     public void resetAimBiasDeg() {

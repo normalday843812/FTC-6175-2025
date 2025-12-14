@@ -140,7 +140,7 @@ public class SlotColorSensors {
      */
     public BallColor getFrontColor() {
         int limit = Math.min(devices.length, Math.max(0, FRONT_SENSOR_COUNT));
-        if (limit <= 0) return BallColor.NONE;
+        if (limit == 0) return BallColor.NONE;
 
         double[] s0 = readSensor(0);
         double[] s1 = (limit >= 2) ? readSensor(1) : null;

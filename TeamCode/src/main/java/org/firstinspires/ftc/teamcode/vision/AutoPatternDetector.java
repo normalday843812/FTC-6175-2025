@@ -87,19 +87,16 @@ public final class AutoPatternDetector {
 
         // Pick best + compute confidence vs. second best.
         int bestIdx = -1;
-        int secondIdx = -1;
         double best = -1.0;
         double second = -1.0;
         for (int i = 0; i < scores.length; i++) {
             double s = scores[i];
             if (s > best) {
                 second = best;
-                secondIdx = bestIdx;
                 best = s;
                 bestIdx = i;
             } else if (s > second) {
                 second = s;
-                secondIdx = i;
             }
         }
 

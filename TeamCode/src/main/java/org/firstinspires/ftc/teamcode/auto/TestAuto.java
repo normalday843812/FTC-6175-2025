@@ -87,7 +87,6 @@ public class TestAuto extends LinearOpMode {
                 patternDetector = new AutoPatternDetector(llPattern);
             } catch (Throwable t) {
                 llPattern = null;
-                patternDetector = null;
                 telemetry.addLine("Limelight init failed; skipping pattern detection");
                 telemetry.addData("LL Error", "%s", t.getClass().getSimpleName());
                 telemetry.update();
@@ -96,11 +95,11 @@ public class TestAuto extends LinearOpMode {
 
         // Allow pattern detection during INIT (before Start).
         while (!isStarted() && !isStopRequested()) {
-            if (llPattern != null && patternDetector != null) {
+            if (llPattern != null) {
                 llPattern.update();
                 patternDetector.update();
                 if (LLAprilTagConfig.AUTO_PATTERN_TELEMETRY_ENABLED) {
-                    patternDetector.addTelemetry(tele, patternApplied);
+                    patternDetector.addTelemetry(tele, false);
                 }
             }
             TelemetryHelper.update();
@@ -133,7 +132,7 @@ public class TestAuto extends LinearOpMode {
         auto.start(depositRoute);
 
         // Apply any confident pre-start detection after AutoManager.reset() runs in start().
-        if (!patternApplied && patternDetector != null && patternDetector.isConfident()) {
+        if (patternDetector != null && patternDetector.isConfident()) {
             int tag = patternDetector.getBestTagId();
             org.firstinspires.ftc.teamcode.managers.SpindexerModel.BallColor[] pat = DecodeGameConfig.patternForTag(tag);
             if (pat != null) {
@@ -144,7 +143,7 @@ public class TestAuto extends LinearOpMode {
         }
 
         while (opModeIsActive()) {
-            if (llPattern != null && patternDetector != null) {
+            if (llPattern != null) {
                 llPattern.update();
                 patternDetector.update();
 

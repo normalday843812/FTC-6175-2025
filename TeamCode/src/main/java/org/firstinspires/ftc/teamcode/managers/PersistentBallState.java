@@ -1,8 +1,9 @@
 package org.firstinspires.ftc.teamcode.managers;
 
+import java.util.Arrays;
+
 /**
  * Static holder for ball state that persists across OpModes.
- *
  * This allows ball positions to carry over from auto to teleop.
  * Use ResetBallState OpMode to reset when needed.
  */
@@ -93,9 +94,7 @@ public class PersistentBallState {
      * Reset all state to empty.
      */
     public static void reset() {
-        for (int i = 0; i < NUM_BUCKETS; i++) {
-            bucketContents[i] = SpindexerModel.BallColor.EMPTY;
-        }
+        Arrays.fill(bucketContents, SpindexerModel.BallColor.EMPTY);
         bucketAtFront = 0;
         pattern = null;
         patternIndex = 0;

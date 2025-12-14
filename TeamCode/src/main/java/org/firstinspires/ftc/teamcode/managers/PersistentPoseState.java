@@ -6,7 +6,6 @@ import java.util.Locale;
 
 /**
  * Static holder for pose state that persists across OpModes.
- *
  * This allows the Pedro follower pose to carry over from auto to teleop (including when auto is stopped early).
  */
 public final class PersistentPoseState {

@@ -80,7 +80,7 @@ public class SpindexCoordinator {
      * Go to the nearest empty slot with jam detection.
      * After calling this, poll isSettled() to wait for completion (includes verification).
      */
-    public boolean goToEmpty() {
+    public void goToEmpty() {
         // Always trust front sensors before choosing an "empty" target.
         // With all sensors mounted at slot-0, the model can easily think the front bucket is EMPTY
         // when it actually contains a ball (e.g., after manual spindexing or a partial auto->teleop transition).
@@ -92,9 +92,7 @@ public class SpindexCoordinator {
         int slot = inventory.findNearestEmptySlot(spindexer);
         if (slot >= 0) {
             goToSlotWithVerification(slot, true);  // expect empty at target
-            return true;
         }
-        return false;
     }
 
     /**

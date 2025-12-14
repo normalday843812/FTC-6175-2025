@@ -1,12 +1,9 @@
 package org.firstinspires.ftc.teamcode.config;
 
-import com.arcrobotics.ftclib.hardware.motors.Motor;
 import com.bylazar.configurables.annotations.Configurable;
-import com.pedropathing.ftc.FTCCoordinates;
 import com.pedropathing.geometry.Pose;
 
 import org.firstinspires.ftc.teamcode.managers.SpindexerModel;
-import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 
 @Configurable
 public class DecodeGameConfig {

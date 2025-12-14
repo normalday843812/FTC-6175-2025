@@ -5,6 +5,7 @@ import org.firstinspires.ftc.teamcode.subsystems.SlotColorSensors;
 
 import androidx.annotation.NonNull;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -153,9 +154,7 @@ public class SpindexerModel {
      * Call this at the start of each OpMode.
      */
     public void reset() {
-        for (int i = 0; i < NUM_BUCKETS; i++) {
-            bucketContents[i] = BallColor.EMPTY;
-        }
+        Arrays.fill(bucketContents, BallColor.EMPTY);
         bucketAtFront = 0;
         pattern = null;
         patternIndex = 0;
@@ -647,11 +646,9 @@ public class SpindexerModel {
 
     /**
      * Verifies all buckets against sensor readings.
-     *
      * Note: this robot intentionally mounts all color sensors at the front (slot 0), so we can only
      * directly verify the bucket currently at the front. Full-bucket verification requires rotating
      * the spindexer and sampling at slot 0.
-     *
      * @param sensors The color sensor subsystem
      * @return true if all buckets match sensors
      */
@@ -661,12 +658,9 @@ public class SpindexerModel {
 
     /**
      * Rebuilds model state from sensor readings.
-     *
      * Note: this robot intentionally mounts all color sensors at the front (slot 0), so the only
      * bucket we can rebuild without rotating is the bucket currently at the front.
-     *
      * Use this to recover the front bucket from sensor truth (other buckets remain unchanged).
-     *
      * @param sensors The color sensor subsystem
      */
     public void rebuildFromSensors(SlotColorSensors sensors) {

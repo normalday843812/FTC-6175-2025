@@ -12,7 +12,6 @@ import org.firstinspires.ftc.teamcode.util.EdgeTrigger;
 
 /**
  * Single-gamepad control scheme.
- *
  * Layout:
  * - Left stick: Drive (forward/strafe)
  * - Right stick X: Rotate
