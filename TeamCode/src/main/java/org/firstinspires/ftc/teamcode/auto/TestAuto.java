@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.config.TestAutoConfig;
 import org.firstinspires.ftc.teamcode.managers.AutoManager;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.PersistentBallState;
+import org.firstinspires.ftc.teamcode.managers.PersistentPoseState;
 import org.firstinspires.ftc.teamcode.managers.UiLight;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -79,6 +80,7 @@ public class TestAuto extends LinearOpMode {
         Pose finalPose = DecodeGameConfig.finalPose(isRed);
 
         drive.setStartingPose(startPose);
+        PersistentPoseState.saveFromPose(startPose);
         drive.startAuto();
 
         AutoManager.Options options = new AutoManager.Options(
@@ -101,6 +103,7 @@ public class TestAuto extends LinearOpMode {
 
             // Save ball state so teleop can pick it up
             PersistentBallState.saveFromModel(inv.getModel());
+            PersistentPoseState.saveFromPose(drive.getFollower().getPose());
 
             TelemetryHelper.update();
             sleep(20);

@@ -1,16 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.config.ColorCal.A;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.A_THRESHOLD;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.FRONT_REQUIRED_COUNT;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.FRONT_SENSOR_COUNT;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.H;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.REQUIRE_BOTH_VA;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.S;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.SENSOR_GAIN;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.TELEMETRY_ENABLED;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.V;
-import static org.firstinspires.ftc.teamcode.config.ColorCal.V_THRESHOLD;
+import static org.firstinspires.ftc.teamcode.config.ColorCal.*;
 
 import android.graphics.Color;
 
@@ -25,7 +15,7 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
  */
 public class SlotColorSensors {
 
-    public enum BallColor {NONE, BALL}
+    public enum BallColor {NONE, UNKNOWN, RED, BLUE}
 
     private final NormalizedColorSensor[] devices;
     private final TelemetryHelper tele;
@@ -49,12 +39,12 @@ public class SlotColorSensors {
 
         // Read all sensors and update telemetry
         boolean anyBall = false;
-        boolean frontBall = false;
+        boolean frontBall;
         for (int idx = 0; idx < devices.length && idx < 3; idx++) {
             double[] sample = readSensor(idx);
             if (sample != null) {
                 lastHSVA[idx] = sample;
-                if (hasBallAt(idx, sample)) {
+                if (classifyAt(idx, sample) != BallColor.NONE) {
                     anyBall = true;
                 }
             }
@@ -70,7 +60,7 @@ public class SlotColorSensors {
     public boolean hasBall() {
         for (int idx = 0; idx < devices.length && idx < 3; idx++) {
             double[] sample = readSensor(idx);
-            if (sample != null && hasBallAt(idx, sample)) {
+            if (sample != null && classifyAt(idx, sample) != BallColor.NONE) {
                 return true;
             }
         }
@@ -86,7 +76,7 @@ public class SlotColorSensors {
         int limit = Math.min(devices.length, Math.max(0, FRONT_SENSOR_COUNT));
         for (int idx = 0; idx < limit; idx++) {
             double[] sample = readSensor(idx);
-            if (sample != null && hasBallAt(idx, sample)) {
+            if (sample != null && classifyAt(idx, sample) != BallColor.NONE) {
                 count++;
             }
         }
@@ -101,7 +91,7 @@ public class SlotColorSensors {
         int idx = Math.max(0, FRONT_SENSOR_COUNT);
         if (idx >= devices.length) return false;
         double[] sample = readSensor(idx);
-        return sample != null && hasBallAt(idx, sample);
+        return sample != null && classifyAt(idx, sample) != BallColor.NONE;
     }
 
     /**
@@ -113,22 +103,81 @@ public class SlotColorSensors {
             return BallColor.NONE;
         }
         double[] sample = readSensor(slot);
-        if (sample != null && hasBallAt(slot, sample)) {
-            return BallColor.BALL;
-        }
-        return BallColor.NONE;
+        return sample == null ? BallColor.NONE : classifyAt(slot, sample);
     }
 
     /**
-     * Checks if a specific sensor has a ball based on V/A thresholds.
+     * Classify a sample into a ball color (or NONE).
      */
-    private boolean hasBallAt(int idx, double[] sample) {
-        if (idx < 0 || idx >= V_THRESHOLD.length || sample == null) {
+    private BallColor classifyAt(int idx, double[] sample) {
+        if (sample == null) return BallColor.NONE;
+        if (idx < 0 || idx >= 3) return BallColor.NONE;
+
+        if (matchesInterval(idx, sample,
+                RED_H_MIN, RED_H_MAX,
+                RED_S_MIN, RED_S_MAX,
+                RED_V_MIN, RED_V_MAX,
+                RED_A_MIN, RED_A_MAX)) {
+            return BallColor.RED;
+        }
+
+        if (matchesInterval(idx, sample,
+                BLUE_H_MIN, BLUE_H_MAX,
+                BLUE_S_MIN, BLUE_S_MAX,
+                BLUE_V_MIN, BLUE_V_MAX,
+                BLUE_A_MIN, BLUE_A_MAX)) {
+            return BallColor.BLUE;
+        }
+
+        return BallColor.NONE;
+    }
+
+    private static boolean matchesInterval(
+            int idx,
+            double[] hsva,
+            double[] hMin, double[] hMax,
+            double[] sMin, double[] sMax,
+            double[] vMin, double[] vMax,
+            double[] aMin, double[] aMax
+    ) {
+        if (idx < 0) return false;
+        if (hsva == null || hsva.length < 4) return false;
+        if (hMin == null || hMax == null || sMin == null || sMax == null || vMin == null || vMax == null || aMin == null || aMax == null) {
             return false;
         }
-        boolean vPass = sample[V] > V_THRESHOLD[idx];
-        boolean aPass = sample[A] > A_THRESHOLD[idx];
-        return REQUIRE_BOTH_VA ? (vPass && aPass) : (vPass || aPass);
+        if (idx >= hMin.length || idx >= hMax.length || idx >= sMin.length || idx >= sMax.length
+                || idx >= vMin.length || idx >= vMax.length || idx >= aMin.length || idx >= aMax.length) {
+            return false;
+        }
+
+        double h = normalizeHueDeg(hsva[H]);
+        return inHueRange(h, hMin[idx], hMax[idx])
+                && inRange(hsva[S], sMin[idx], sMax[idx])
+                && inRange(hsva[V], vMin[idx], vMax[idx])
+                && inRange(hsva[A], aMin[idx], aMax[idx]);
+    }
+
+    private static boolean inRange(double v, double min, double max) {
+        return v >= min && v <= max;
+    }
+
+    /**
+     * Hue range helper that supports wrap-around when min > max.
+     */
+    private static boolean inHueRange(double hueDeg, double minDeg, double maxDeg) {
+        double h = normalizeHueDeg(hueDeg);
+        double min = normalizeHueDeg(minDeg);
+        double max = normalizeHueDeg(maxDeg);
+        if (min <= max) {
+            return h >= min && h <= max;
+        }
+        return h >= min || h <= max;
+    }
+
+    private static double normalizeHueDeg(double hueDeg) {
+        double h = hueDeg % 360.0;
+        if (h < 0) h += 360.0;
+        return h;
     }
 
     /**
@@ -168,10 +217,9 @@ public class SlotColorSensors {
         for (int i = 0; i < Math.min(devices.length, 3); i++) {
             double[] hsva = lastHSVA[i];
             if (hsva != null) {
-                boolean vPass = hsva[V] > V_THRESHOLD[i];
-                boolean aPass = hsva[A] > A_THRESHOLD[i];
-                tele.addData("S" + i, "H=%.0f S=%.2f V=%.3f A=%.3f [V:%b A:%b]",
-                        hsva[H], hsva[S], hsva[V], hsva[A], vPass, aPass);
+                BallColor c = classifyAt(i, hsva);
+                tele.addData("S" + i, "H=%.0f S=%.2f V=%.3f A=%.3f [%s]",
+                        hsva[H], hsva[S], hsva[V], hsva[A], c.name());
             }
         }
     }
@@ -186,10 +234,9 @@ public class SlotColorSensors {
         for (int i = 0; i < Math.min(devices.length, 3); i++) {
             double[] hsva = lastHSVA[i];
             if (hsva != null) {
-                boolean vPass = hsva[V] > V_THRESHOLD[i];
-                boolean aPass = hsva[A] > A_THRESHOLD[i];
-                tele.addData("S" + i, "H=%.0f S=%.2f V=%.3f A=%.3f [V:%b A:%b]",
-                        hsva[H], hsva[S], hsva[V], hsva[A], vPass, aPass);
+                BallColor c = classifyAt(i, hsva);
+                tele.addData("S" + i, "H=%.0f S=%.2f V=%.3f A=%.3f [%s]",
+                        hsva[H], hsva[S], hsva[V], hsva[A], c.name());
             }
         }
     }

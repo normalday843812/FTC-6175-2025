@@ -44,7 +44,6 @@ public class Mecanum {
 
     public void init() {
         follower = createFollower(opmode.hardwareMap);
-        follower.setStartingPose(new Pose());
         follower.update();
     }
 

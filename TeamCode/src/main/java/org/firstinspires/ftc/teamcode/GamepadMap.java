@@ -59,9 +59,6 @@ public class GamepadMap {
     public boolean teleopSortManagerToggle;
     public boolean clearAll; // Resets ball state/model and stops mechanisms
 
-    // Hood (if using right stick Y for hood instead of shooter yaw)
-    public double hoodAxis;
-
     // Edge triggers
     private final EdgeTrigger a_t = new EdgeTrigger();
     private final EdgeTrigger b_t = new EdgeTrigger();
@@ -131,7 +128,5 @@ public class GamepadMap {
         // === CLEAR ALL (Start) ===
         clearAll = start_t.rose(opmode.gamepad1.start);
 
-        // === HOOD (unused axis, available if needed) ===
-        hoodAxis = 0; // Not mapped currently
     }
 }

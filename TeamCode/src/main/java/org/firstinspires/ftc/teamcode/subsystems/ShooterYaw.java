@@ -32,7 +32,8 @@ public class ShooterYaw {
 
     private enum Mode {
         IDLE,
-        TRACK_GOAL
+        TRACK_GOAL,
+        HOLD_TICKS
     }
 
     private final DcMotorEx motor;
@@ -49,6 +50,9 @@ public class ShooterYaw {
     // Tracking state
     private double targetWorldDeg = 0.0;
     private boolean targetInitialized = false;
+
+    // Hold-ticks state (used for teleop tag scanning and "keep centered" modes)
+    private int holdTargetTicks = 0;
 
     // PID state
     private double integral = 0.0;
@@ -88,6 +92,10 @@ public class ShooterYaw {
             case TRACK_GOAL:
                 operateTrackGoal(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
                 break;
+
+            case HOLD_TICKS:
+                operateHoldTicks(nowMs);
+                break;
         }
 
         lastUpdateMs = nowMs;
@@ -99,12 +107,9 @@ public class ShooterYaw {
     public void lockAllianceGoal() {
         goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
         goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
-        mode = Mode.TRACK_GOAL;
-    }
-
-    public void setGoalPosition(double x, double y) {
-        this.goalX = x;
-        this.goalY = y;
+        if (mode != Mode.TRACK_GOAL) {
+            resetPID();
+        }
         mode = Mode.TRACK_GOAL;
     }
 
@@ -112,13 +117,21 @@ public class ShooterYaw {
         return mode == Mode.TRACK_GOAL && targetInitialized;
     }
 
-    // --- Manual Control ---
-
-    public void center() {
-        double robotHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
-        targetWorldDeg = robotHeadingDeg;
-        targetInitialized = true;
+    public void holdTicks(int targetTicks) {
+        int clamped = clampTicks(targetTicks);
+        holdTargetTicks = clamped;
+        if (mode != Mode.HOLD_TICKS) {
+            resetPID();
+        }
+        mode = Mode.HOLD_TICKS;
+        targetInitialized = false;
     }
+
+    public void holdCenter() {
+        holdTicks(0);
+    }
+
+    // --- Manual Control ---
 
     public void adjustYaw(double deltaDeg) {
         targetWorldDeg = normalizeDeg(targetWorldDeg + deltaDeg);
@@ -167,6 +180,12 @@ public class ShooterYaw {
         double feedforward = -robotOmegaDegPerSec * KF;
 
         double power = calculatePID(desiredTicks, currentTicks, nowMs) + feedforward;
+        motor.setPower(clampPower(power));
+    }
+
+    private void operateHoldTicks(long nowMs) {
+        int currentTicks = motor.getCurrentPosition();
+        double power = calculatePID(holdTargetTicks, currentTicks, nowMs);
         motor.setPower(clampPower(power));
     }
 

@@ -61,7 +61,6 @@ public class RobotHardware {
     private DcMotorEx shooterYawMotor;
 
     // Servos
-    private Servo hoodServo;
     private Servo spindexerServo;
     private Servo transferServo1;
     private CRServo transferServo2;
@@ -157,10 +156,6 @@ public class RobotHardware {
         shooterYawMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         shooterYawMotor.setTargetPosition(0);
         shooterYawMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-    }
-
-    public void initHood() {
-        hoodServo = inputOpMode.hardwareMap.get(Servo.class, "hood_servo");
     }
 
     public void initSpindexer() {
@@ -295,19 +290,6 @@ public class RobotHardware {
     }
 
     // Servos
-    public Servo getHoodServo() {
-        if (hoodServo == null) {
-            if (isFailFastOnMissingHardware()) {
-                throw new IllegalStateException("hoodServo not init");
-            } else {
-                initHood();
-                return hoodServo;
-            }
-        } else {
-            return hoodServo;
-        }
-    }
-
     public Servo getTransferServo1() {
         if (transferServo1 == null) {
             if (isFailFastOnMissingHardware()) {

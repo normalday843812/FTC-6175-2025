@@ -14,6 +14,10 @@ public class ShooterYawConfig {
     public static double AIM_BIAS_MIN_DEG = -60.0;
     public static double AIM_BIAS_MAX_DEG = 60.0;
 
+    // Teleop AprilTag scan (used to sweep ShooterYaw to acquire a Limelight tag)
+    public static boolean TELEOP_TAG_SCAN_ENABLED = true;
+    public static double TELEOP_TAG_SCAN_TICKS_PER_S = 120.0;
+
     // Position limits
     public static int MIN_TICKS = -213;  // ±90°
     public static int MAX_TICKS = 213;

@@ -521,10 +521,9 @@ public class SpindexerModel {
      * Converts from SlotColorSensors.BallColor to internal BallColor.
      */
     private BallColor fromSensorColor(SlotColorSensors.BallColor sensorColor) {
-        if (sensorColor == SlotColorSensors.BallColor.BALL) {
-            return BallColor.BALL;
-        }
-        return BallColor.EMPTY;
+        return (sensorColor == null || sensorColor == SlotColorSensors.BallColor.NONE)
+                ? BallColor.EMPTY
+                : BallColor.BALL;
     }
 
     /**
@@ -532,7 +531,7 @@ public class SpindexerModel {
      */
     public SlotColorSensors.BallColor toSensorColor(BallColor color) {
         if (color == BallColor.BALL) {
-            return SlotColorSensors.BallColor.BALL;
+            return SlotColorSensors.BallColor.UNKNOWN;
         }
         return SlotColorSensors.BallColor.NONE;
     }
