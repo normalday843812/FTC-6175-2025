@@ -121,6 +121,10 @@ public class AutoManager {
     private boolean pathIssued = false;
     private boolean intakeSawEmpty = false;
     private int intakeConfirmCount = 0;
+    // Intake "creep" retries: if a pickup location yields no balls, creep forward up to 3 times before giving up.
+    private int intakeSetBallCountAtStart = 0;
+    private boolean intakeSetHadPickup = false;
+    private int intakeNoPickupCreepAttempts = 0;
     private int spindexReturnSlot = 0;
     private int clearReturnSlot = 0;
     private int clearAttempts = 0;
@@ -214,6 +218,9 @@ public class AutoManager {
         resetColorId();
         pendingIntakeCommit = false;
         pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
+        intakeSetBallCountAtStart = inv.getBallCount();
+        intakeSetHadPickup = false;
+        intakeNoPickupCreepAttempts = 0;
 
         if (depositRoute && options.enableDeposit) {
             shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
@@ -647,6 +654,9 @@ public class AutoManager {
 
         if (!drive.isPathBusy() || t.getElapsedTimeSeconds() >= PATH_TIMEOUT_TO_INTAKE_S) {
             inv.markOneIntakeSetVisited();
+            intakeSetBallCountAtStart = inv.getBallCount();
+            intakeSetHadPickup = false;
+            intakeNoPickupCreepAttempts = 0;
             transitionTo(State.ALIGN_EMPTY_SLOT);
         }
     }
@@ -659,17 +669,20 @@ public class AutoManager {
         // Safety net: if the model believes we are already full, don't keep scanning for an "empty" slot.
         // Audit once to confirm, then proceed to shooting (or continue intake) based on audited truth.
         if (inv.getBallCount() >= SpindexerModel.NUM_BUCKETS) {
-            if (INVENTORY_AUDIT_ENABLED) {
-                auditContinueIntakeHere = true;
-                transitionTo(State.AUDIT_INVENTORY);
-                return;
-            }
             if (options.enableDeposit) {
-                shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
-                resetColorId();
-                transitionTo(State.PATH_TO_SHOOT);
+                if (INVENTORY_AUDIT_ENABLED) {
+                    auditContinueIntakeHere = false;
+                    transitionTo(State.AUDIT_INVENTORY);
+                } else {
+                    shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
+                    resetColorId();
+                    transitionTo(State.PATH_TO_SHOOT);
+                }
                 return;
             }
+            // Full but not depositing: stop trying to find an empty slot.
+            transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+            return;
         }
 
         // We only have reliable sensing at the front (slot 0).
@@ -831,6 +844,12 @@ public class AutoManager {
 
         // Start path to creep forward on first entry
         if (!pathIssued) {
+            // Count creep attempts only until we successfully pick up at least one ball at this intake set.
+            if (!intakeSetHadPickup && intakeNoPickupCreepAttempts < 3) {
+                intakeNoPickupCreepAttempts++;
+            }
+
+            t.resetTimer();
             Pose current = follower.getPose();
             // Creep in X direction: red = +X, blue = -X
             double targetX = current.getX() + (isRed ? INTAKE_CREEP_DISTANCE : -INTAKE_CREEP_DISTANCE);
@@ -868,7 +887,30 @@ public class AutoManager {
         } else if (timeout) {
             intake.setAutoMode(Intake.AutoMode.OFF);
 
-            // "Finished intaking" at this set (timeout). Audit inventory before deciding next action.
+            boolean pickedUpAnyThisSet = intakeSetHadPickup || inv.getBallCount() > intakeSetBallCountAtStart;
+
+            // If we picked up NOTHING at this intake set, creep forward up to 2 more times before giving up.
+            // Never audit in the "no pickups" case (per plan); just advance to the next intake pose.
+            if (!pickedUpAnyThisSet) {
+                if (inv.hasEmptySlots() && intakeNoPickupCreepAttempts < 3) {
+                    // Retry this same intake set with another creep move.
+                    pathIssued = false;
+                    intakeSawEmpty = false;
+                    intakeConfirmCount = 0;
+                    return;
+                }
+
+                if (inv.setsRemain()) {
+                    transitionTo(State.PATH_TO_INTAKE);
+                } else if (inv.hasBalls() && options.enableDeposit) {
+                    transitionTo(State.PATH_TO_SHOOT);
+                } else {
+                    transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
+                }
+                return;
+            }
+
+            // "Finished intaking" at this set (timeout after at least one pickup). Audit inventory before deciding.
             if (INVENTORY_AUDIT_ENABLED) {
                 auditContinueIntakeHere = false;
                 transitionTo(State.AUDIT_INVENTORY);
@@ -905,6 +947,7 @@ public class AutoManager {
         if (pendingIntakeCommit) {
             inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
             inv.onBallIntaked(pendingIntakeColor);
+            intakeSetHadPickup = true;
             pendingIntakeCommit = false;
             pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
         }
@@ -916,7 +959,7 @@ public class AutoManager {
             transitionTo(State.ALIGN_EMPTY_SLOT);
         } else if (inv.hasBalls() && options.enableDeposit) {
             // Full: do a blocking scan (slot 0 -> 1 -> 2) to rebuild bucket colors, then go shoot.
-            auditContinueIntakeHere = true;
+            auditContinueIntakeHere = false;
             transitionTo(State.AUDIT_INVENTORY);
         } else {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
@@ -926,6 +969,12 @@ public class AutoManager {
     private void handleAuditInventory() {
         if (t.getElapsedTimeSeconds() >= Math.max(0.0, INVENTORY_AUDIT_TIMEOUT_S)) {
             // Don't get stuck auditing forever; treat as "not full" and keep searching.
+            if (inv.getBallCount() >= SpindexerModel.NUM_BUCKETS && options.enableDeposit) {
+                shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
+                resetColorId();
+                transitionTo(State.PATH_TO_SHOOT);
+                return;
+            }
             if (options.enableIntake) {
                 transitionTo(auditContinueIntakeHere ? State.ALIGN_EMPTY_SLOT : State.PATH_TO_INTAKE);
             } else {

@@ -103,6 +103,7 @@ public class InitialTeleop extends LinearOpMode {
                 hw.initLimeLight(LLAprilTagConfig.POLL_RATE_HZ);
                 hw.setLimelightPipeline(LLAprilTagConfig.PIPELINE);
                 llAprilTag = new LLAprilTag(hw.getLimelight(), this);
+                teleopManager.setLlAprilTag(llAprilTag, isRed);
             } catch (Throwable t) {
                 telemetry.addLine("Limelight init failed; skipping relocalization");
                 telemetry.addData("LL Error", "%s", t.getClass().getSimpleName());

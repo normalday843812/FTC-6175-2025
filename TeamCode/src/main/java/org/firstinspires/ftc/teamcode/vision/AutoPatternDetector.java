@@ -10,8 +10,8 @@ import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 /**
  * Tracks the most likely autonomous scoring pattern AprilTag (GPP/PGP/PPG) over time.
  *
- * <p>Maintains a decaying score per candidate tag so we can keep a "best guess" even when the
- * tag is not currently fresh.</p>
+ * <p>Maintains a score per candidate tag so we can keep a "best guess" even when the tag is not
+ * currently fresh. (Decay is optional via {@link org.firstinspires.ftc.teamcode.config.LLAprilTagConfig#AUTO_PATTERN_SCORE_DECAY_S}.)</p>
  */
 public final class AutoPatternDetector {
 
@@ -63,11 +63,14 @@ public final class AutoPatternDetector {
         long dtMs = Math.max(0L, now - lastUpdateMs);
         lastUpdateMs = now;
 
-        // Exponential decay over time so old detections fade out.
-        double tauMs = Math.max(1.0, AUTO_PATTERN_SCORE_DECAY_S * 1000.0);
-        double decay = Math.exp(-dtMs / tauMs);
-        for (int i = 0; i < scores.length; i++) {
-            scores[i] *= decay;
+        // Optional exponential decay over time so old detections fade out.
+        // If AUTO_PATTERN_SCORE_DECAY_S <= 0, decay is disabled (score persists).
+        if (AUTO_PATTERN_SCORE_DECAY_S > 0.0) {
+            double tauMs = Math.max(1.0, AUTO_PATTERN_SCORE_DECAY_S * 1000.0);
+            double decay = Math.exp(-dtMs / tauMs);
+            for (int i = 0; i < scores.length; i++) {
+                scores[i] *= decay;
+            }
         }
 
         // Add evidence for any currently-fresh tag.
@@ -102,6 +105,9 @@ public final class AutoPatternDetector {
 
         bestTagId = (bestIdx >= 0) ? ids[bestIdx] : -1;
         bestScore = Math.max(0.0, best);
+        if (bestScore <= 0.0) {
+            bestTagId = -1;
+        }
         double secondScore = Math.max(0.0, second);
         confidence = (bestScore <= 0.0)
                 ? 0.0
@@ -146,4 +152,3 @@ public final class AutoPatternDetector {
         }
     }
 }
-

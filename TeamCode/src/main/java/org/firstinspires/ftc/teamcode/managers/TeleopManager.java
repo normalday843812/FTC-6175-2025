@@ -14,6 +14,11 @@ import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_R
 import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_MIN_RPM;
 import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_RATE_RPM_PER_S;
 import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.MANUAL_RPM_OVERRIDE_TRIGGER_DEADBAND;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_AT_MAX_DIST;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_AT_MIN_DIST;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_MAX_DIST_IN;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_MIN_DIST_IN;
+import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_MODEL_ENABLED;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -31,8 +36,11 @@ import org.firstinspires.ftc.teamcode.subsystems.Spindexer;
 import org.firstinspires.ftc.teamcode.subsystems.Transfer;
 import org.firstinspires.ftc.teamcode.util.TelemetryHelper;
 import org.firstinspires.ftc.teamcode.util.Timer;
+import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 public class TeleopManager {
+
+    private static final double METERS_TO_INCHES = 39.3700787402;
 
     public enum State {
         INTAKING,
@@ -70,6 +78,14 @@ public class TeleopManager {
     private boolean frontSeatArmed = false;
     private boolean manualSpindexPending = false;
 
+    // Optional: distance-based RPM model (teleop only).
+    private LLAprilTag llAprilTag = null;
+    private boolean allianceRed = false;
+    private boolean distModelFresh = false;
+    private double distModelIn = Double.NaN;
+    private double distModelBaseRpm = Double.NaN;
+    private boolean distModelFallback = true;
+
     public TeleopManager(Intake intake,
                          Shooter shooter,
                          ShooterYaw shooterYaw,
@@ -92,6 +108,11 @@ public class TeleopManager {
         this.spindexCoord = new SpindexCoordinator(spindexer, sensors, inventory);
 
         this.tele = new TelemetryHelper(opmode, TELEOP_MANAGER_TELEMETRY_ENABLED);
+    }
+
+    public void setLlAprilTag(LLAprilTag llAprilTag, boolean allianceRed) {
+        this.llAprilTag = llAprilTag;
+        this.allianceRed = allianceRed;
     }
 
     public void setEnabled(boolean enabled) {
@@ -123,6 +144,9 @@ public class TeleopManager {
 
     public void update(GamepadMap map) {
         sensors.update();
+        if (llAprilTag != null && TELEOP_DISTANCE_RPM_MODEL_ENABLED) {
+            llAprilTag.update();
+        }
 
         if (map.clearAll) {
             clearAll();
@@ -176,6 +200,52 @@ public class TeleopManager {
                 handleShooting(map, shotOccurred);
                 break;
         }
+    }
+
+    private double getTeleopDistanceModelBaseRpm() {
+        distModelFresh = false;
+        distModelIn = Double.NaN;
+        distModelBaseRpm = AUTO_TARGET_RPM;
+        distModelFallback = true;
+
+        if (llAprilTag == null) {
+            return AUTO_TARGET_RPM;
+        }
+
+        LLAprilTag.YawInfo info = llAprilTag.getYawInfoForAllianceHome(allianceRed);
+        if (info == null || !info.fresh || !Double.isFinite(info.distanceM)) {
+            return AUTO_TARGET_RPM;
+        }
+
+        distModelFresh = true;
+        distModelIn = info.distanceM * METERS_TO_INCHES;
+        distModelFallback = false;
+
+        double minIn = TELEOP_DISTANCE_RPM_MIN_DIST_IN;
+        double maxIn = TELEOP_DISTANCE_RPM_MAX_DIST_IN;
+        double rpmMin = TELEOP_DISTANCE_RPM_AT_MIN_DIST;
+        double rpmMax = TELEOP_DISTANCE_RPM_AT_MAX_DIST;
+
+        // If min/max are reversed (or equal), handle gracefully.
+        if (maxIn < minIn) {
+            double tmp = minIn;
+            minIn = maxIn;
+            maxIn = tmp;
+
+            tmp = rpmMin;
+            rpmMin = rpmMax;
+            rpmMax = tmp;
+        }
+
+        if (maxIn <= minIn) {
+            distModelBaseRpm = clamp(rpmMin, 0.0, ShooterConfig.MAX_RPM);
+            return distModelBaseRpm;
+        }
+
+        double t = (distModelIn - minIn) / (maxIn - minIn);
+        t = clamp(t, 0.0, 1.0);
+        distModelBaseRpm = clamp(rpmMin + (rpmMax - rpmMin) * t, 0.0, ShooterConfig.MAX_RPM);
+        return distModelBaseRpm;
     }
 
     private void handleIntaking(GamepadMap map, boolean ballDetected) {
@@ -381,15 +451,20 @@ public class TeleopManager {
         transfer.raiseLever();
         transfer.runTransfer(Transfer.CrState.OFF);
 
+        double baseRpm = ShooterConfig.MAX_RPM;
+        if (TELEOP_DISTANCE_RPM_MODEL_ENABLED) {
+            baseRpm = getTeleopDistanceModelBaseRpm();
+        }
+
         if (isFull) {
             // Full - shooter at max by default, but allow a latched manual override using triggers.
-            double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, true, isEmpty);
+            double rpm = applyLatchedRpmOverride(map, baseRpm, true, isEmpty);
             setShooterTargetRpm(rpm);
             intakeCoord.setDesiredState(true, false);  // running=true, reversing=false (FORWARD)
         } else {
             // Not full but ready to shoot - shooter at max when ball at front
             if (frontHasBall) {
-                double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, false, isEmpty);
+                double rpm = applyLatchedRpmOverride(map, baseRpm, false, isEmpty);
                 setShooterTargetRpm(rpm);
                 intakeCoord.setDesiredState(false, false);  // Intake off
             } else {
@@ -424,8 +499,14 @@ public class TeleopManager {
     private void handleShooting(GamepadMap map, boolean shotOccurred) {
         boolean isFull = spindexCoord.isFull();
         boolean isEmpty = spindexCoord.isEmpty();
+
+        double baseRpm = ShooterConfig.MAX_RPM;
+        if (TELEOP_DISTANCE_RPM_MODEL_ENABLED) {
+            baseRpm = getTeleopDistanceModelBaseRpm();
+        }
+
         // Maintain shooting state - shooter at max RPM by default, with optional latched override.
-        double rpm = applyLatchedRpmOverride(map, ShooterConfig.MAX_RPM, isFull, isEmpty);
+        double rpm = applyLatchedRpmOverride(map, baseRpm, isFull, isEmpty);
         setShooterTargetRpm(rpm);
         transfer.raiseLever();  // Lever up for shooting
         transfer.runTransfer(Transfer.CrState.OFF);
@@ -575,6 +656,13 @@ public class TeleopManager {
                 .addData("RpmOverrideRpm", "%.0f", rpmOverrideRpm)
                 .addData("PendingIntake", "%b", pendingBallIntake)
                 .addData("LoadFrontConfirm", "%d", loadFrontConfirmCount);
+        if (TELEOP_DISTANCE_RPM_MODEL_ENABLED) {
+            tele.addLine("--- Dist RPM Model ---")
+                    .addData("TagFresh", "%b", distModelFresh)
+                    .addData("DistIn", "%.1f", distModelIn)
+                    .addData("BaseRpm", "%.0f", distModelBaseRpm)
+                    .addData("Fallback", "%b", distModelFallback);
+        }
         tele.addLine("--- Buckets ---")
                 .addData("Slot0", spindexCoord.getBucketContents(0)::name)
                 .addData("Slot1", spindexCoord.getBucketContents(1)::name)

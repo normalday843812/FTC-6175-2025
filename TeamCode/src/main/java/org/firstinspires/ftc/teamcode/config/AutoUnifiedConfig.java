@@ -22,7 +22,7 @@ public class AutoUnifiedConfig {
     public static boolean PREFER_CLOCKWISE_ON_TIE = true;
 
     // Intake creep phase
-    public static double INTAKE_CREEP_DISTANCE = 5.0;  // X offset in Pedro coordinates (increased for better intake)
+    public static double INTAKE_CREEP_DISTANCE = 5.0;  // X offset in Pedro coordinates
     public static double INTAKE_FORWARD_TIMEOUT_S = 5.0;  // Longer timeout to actually intake balls
     public static int INTAKE_CONFIRM_CYCLES = 3;  // consecutive reads after empty->ball transition
     public static double INTAKE_POST_DETECT_DWELL_S = 0.3; // extra settle time after detecting a new ball
