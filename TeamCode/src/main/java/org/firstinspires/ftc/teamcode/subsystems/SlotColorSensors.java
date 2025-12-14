@@ -135,21 +135,26 @@ public class SlotColorSensors {
     /**
      * Returns the best-effort color at the front (slot-0) using the two front sensors.
      *
-     * <p>If the two front sensors disagree (PURPLE vs GREEN), returns UNKNOWN. If only one
-     * sensor reports a color, returns that color.</p>
+     * <p>If only one sensor reports a color, returns that color. If the two sensors disagree,
+     * returns the color from the sensor with the stronger signal.</p>
      */
     public BallColor getFrontColor() {
         int limit = Math.min(devices.length, Math.max(0, FRONT_SENSOR_COUNT));
         if (limit <= 0) return BallColor.NONE;
 
-        BallColor a = getColor(0);
-        BallColor b = (limit >= 2) ? getColor(1) : BallColor.NONE;
+        double[] s0 = readSensor(0);
+        double[] s1 = (limit >= 2) ? readSensor(1) : null;
+
+        BallColor a = (s0 == null) ? BallColor.NONE : classifyAt(0, s0);
+        BallColor b = (s1 == null) ? BallColor.NONE : classifyAt(1, s1);
 
         if (a == BallColor.NONE && b == BallColor.NONE) return BallColor.NONE;
         if (a == BallColor.NONE) return b;
         if (b == BallColor.NONE) return a;
         if (a == b) return a;
-        return BallColor.UNKNOWN;
+
+        // If the two front sensors disagree, prefer the one with a stronger signal.
+        return (strength(s0) >= strength(s1)) ? a : b;
     }
 
     /**
@@ -206,6 +211,15 @@ public class SlotColorSensors {
         double h = hueDeg % 360.0;
         if (h < 0) h += 360.0;
         return h;
+    }
+
+    private static double strength(double[] hsva) {
+        if (hsva == null || hsva.length < 4) return 0.0;
+        return clamp01(hsva[A]) * clamp01(hsva[V]);
+    }
+
+    private static double clamp01(double v) {
+        return Math.max(0.0, Math.min(1.0, v));
     }
 
     /**

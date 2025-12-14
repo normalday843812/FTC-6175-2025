@@ -49,6 +49,7 @@ import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 
 import org.firstinspires.ftc.teamcode.config.AutoPathConfig;
+import org.firstinspires.ftc.teamcode.config.DecodeGameConfig;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Mecanum;
@@ -1113,12 +1114,20 @@ public class AutoManager {
     }
 
     private void addTelemetry() {
+        SpindexerModel model = inv.getModel();
+        SpindexerModel.BallColor next = model.getNextPatternColor();
+
         tele.addLine("=== AUTO ===")
                 .addData("State", s::name)
                 .addData("t", "%.2f", t.getElapsedTimeSeconds())
                 .addData("Balls", "%d", inv.getBallCount())
                 .addData("FrontHasBall", () -> frontHasBall())
                 .addData("ShotsRemaining", "%d", shotsRemainingInBatch)
+                .addData("Pattern", "%s", model.isPatternKnown() ? "YES" : "no")
+                .addData("PatternTag", "%s", model.getPatternTagId() < 0 ? "---" : (DecodeGameConfig.patternNameForTag(model.getPatternTagId()) + " (" + model.getPatternTagId() + ")"))
+                .addData("PatternConf", "%.2f", model.getPatternConfidence())
+                .addData("PatternIdx", "%d", model.getPatternIndex())
+                .addData("NextColor", "%s", next == null ? "---" : next.name())
                 .addData("ShootPrecheckS", "%.2f", AUTO_SHOOT_EMPTY_PRECHECK_S)
                 .addData("KeepShooterHot", "%b", AUTO_KEEP_SHOOTER_SPUN_UP_BETWEEN_SHOTS)
                 .addData("IntakeConfirmCycles", "%d", INTAKE_CONFIRM_CYCLES)
@@ -1131,11 +1140,21 @@ public class AutoManager {
                 .addData("AuditTimeoutS", "%.2f", INVENTORY_AUDIT_TIMEOUT_S)
                 .addData("RotateSettleS", "%.2f", ROTATE_NEXT_BALL_SENSOR_SETTLE_S)
                 .addData("RotateTimeoutS", "%.2f", ROTATE_NEXT_BALL_TIMEOUT_S)
+                .addData("ColorIdDone", "%b", colorIdDone)
+                .addData("ColorIdSlot", "%d", colorIdSlot)
+                .addData("ColorIdPhase", "%d", colorIdPhase)
+                .addData("ColorIdRetry", "%d", colorIdRetryCount)
                 .addData("ClearAttempts", "%d", clearAttempts)
                 .addData("ClearPhase", "%d", clearPhase)
                 .addData("ClearReturnSlot", "%d", clearReturnSlot)
                 .addData("AlignChecked", "%d", alignCheckedCount)
                 .addData("RotateTarget", "%d", rotateTargetSlot)
                 .addData("RotateChecked", "%d", rotateCheckedCount);
+
+        tele.addLine("--- BUCKETS ---")
+                .addData("B0", model.getBucketContents(0)::name)
+                .addData("B1", model.getBucketContents(1)::name)
+                .addData("B2", model.getBucketContents(2)::name)
+                .addData("AtFront", "%d", model.getBucketAtFront());
     }
 }
