@@ -18,6 +18,17 @@ public class ShooterYawConfig {
     public static boolean TELEOP_TAG_SCAN_ENABLED = true;
     public static double TELEOP_TAG_SCAN_TICKS_PER_S = 120.0;
 
+    // Teleop goal tracking / Limelight assistance
+    // If goal tracking is disabled, ShooterYaw will hold center (0 ticks) instead of aiming at the goal.
+    public static boolean TELEOP_GOAL_TRACKING_ENABLED = true;
+
+    // If enabled, ShooterYaw can use a Limelight MegaTag botpose (in Pedro coordinates) for aiming math.
+    // This does NOT relocalize the drivetrain / follower pose.
+    public static boolean TELEOP_USE_LL_POSE_FOR_AIMING = true;
+
+    // How long a Limelight pose injection is considered "fresh" for aiming.
+    public static long TELEOP_LL_POSE_TTL_MS = 250;
+
     // Position limits
     public static int MIN_TICKS = -213;  // ±90°
     public static int MAX_TICKS = 213;

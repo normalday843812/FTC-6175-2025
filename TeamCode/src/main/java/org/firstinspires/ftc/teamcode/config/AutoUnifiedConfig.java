@@ -23,7 +23,7 @@ public class AutoUnifiedConfig {
 
     // Intake creep phase
     public static double INTAKE_CREEP_DISTANCE = 5.0;  // X offset in Pedro coordinates
-    public static double INTAKE_FORWARD_TIMEOUT_S = 5.0;  // Longer timeout to actually intake balls
+    public static double INTAKE_FORWARD_TIMEOUT_S = 3.0;  // Longer timeout to actually intake balls
     public static int INTAKE_CONFIRM_CYCLES = 3;  // consecutive reads after empty->ball transition
     public static double INTAKE_POST_DETECT_DWELL_S = 0.3; // extra settle time after detecting a new ball
     public static boolean AUTO_IDLE_INTAKE_FORWARD = true; // run intake FORWARD except during INTAKING
@@ -33,15 +33,15 @@ public class AutoUnifiedConfig {
 
     // Inventory audit (slot-0 sensor reused by rotating spindexer)
     public static boolean INVENTORY_AUDIT_ENABLED = true;
-    public static double INVENTORY_AUDIT_SENSOR_SETTLE_S = 0.3;
+    public static double INVENTORY_AUDIT_SENSOR_SETTLE_S = 0.2;
     public static int INVENTORY_AUDIT_CONFIRM_CYCLES = 3;
-    public static double INVENTORY_AUDIT_TIMEOUT_S = 3.0;
+    public static double INVENTORY_AUDIT_TIMEOUT_S = 4.0;
 
     // Front-clear recovery when we can't align an empty slot (slot-0 sensor stuck reading BALL)
     public static boolean FRONT_CLEAR_ENABLED = true;
     public static int FRONT_CLEAR_MAX_ATTEMPTS = 3;
-    public static double FRONT_CLEAR_REVERSE_DWELL_S = 0.3;
-    public static double FRONT_CLEAR_FORWARD_DWELL_S = 0.3;
+    public static double FRONT_CLEAR_REVERSE_DWELL_S = 0.2;
+    public static double FRONT_CLEAR_FORWARD_DWELL_S = 0.2;
     public static int FRONT_CLEAR_EMPTY_CONFIRM_CYCLES = 2;
 
     // Transfer holding behavior (lever is still raised for retention)
@@ -59,8 +59,8 @@ public class AutoUnifiedConfig {
     public static double AUTO_TARGET_RPM = 3500;
     public static double TARGET_RPM_BAND = 500;
     public static double AT_RPM_WAIT_TIMEOUT_S = 1.5;
-    public static double INDEX_DWELL_S = 0.3;
-    public static double VERIFY_WINDOW_S = 0.5;
+    public static double INDEX_DWELL_S = 0.2;
+    public static double VERIFY_WINDOW_S = 0.3;
     public static int REFIRE_MAX = 3;
     public static int DEPOSIT_EMPTY_CONFIRM_CYCLES = 2;  // consecutive empty reads after a flick
 

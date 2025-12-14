@@ -17,6 +17,9 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POWER;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MIN_TICKS;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_GOAL_TRACKING_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_LL_POSE_TTL_MS;
+import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_USE_LL_POSE_FOR_AIMING;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TICKS_PER_DEG;
 
@@ -54,6 +57,10 @@ public class ShooterYaw {
     // Hold-ticks state (used for teleop tag scanning and "keep centered" modes)
     private int holdTargetTicks = 0;
 
+    // Optional: external pose for aiming (e.g., Limelight MegaTag botpose converted to Pedro coordinates).
+    private Pose aimPoseOverride = null;
+    private long aimPoseOverrideMs = 0L;
+
     // PID state
     private double integral = 0.0;
     private double lastError = 0.0;
@@ -75,13 +82,24 @@ public class ShooterYaw {
 
     public void start() {
         targetInitialized = false;
-        mode = Mode.TRACK_GOAL;
         resetPID();
+        if (TELEOP_GOAL_TRACKING_ENABLED) {
+            mode = Mode.TRACK_GOAL;
+        } else {
+            holdTargetTicks = 0;
+            mode = Mode.HOLD_TICKS;
+        }
     }
 
     public void operate() {
         long nowMs = now();
-        double robotHeadingDeg = Math.toDegrees(follower.getPose().getHeading());
+        if (!TELEOP_GOAL_TRACKING_ENABLED && mode == Mode.TRACK_GOAL) {
+            holdTargetTicks = 0;
+            mode = Mode.HOLD_TICKS;
+        }
+
+        Pose robotPoseForAim = getPoseForAim(nowMs);
+        double robotHeadingDeg = Math.toDegrees(robotPoseForAim.getHeading());
         double robotOmegaDegPerSec = Math.toDegrees(follower.getAngularVelocity());
 
         switch (mode) {
@@ -90,7 +108,7 @@ public class ShooterYaw {
                 break;
 
             case TRACK_GOAL:
-                operateTrackGoal(nowMs, robotHeadingDeg, robotOmegaDegPerSec);
+                operateTrackGoal(nowMs, robotPoseForAim, robotHeadingDeg, robotOmegaDegPerSec);
                 break;
 
             case HOLD_TICKS:
@@ -99,7 +117,7 @@ public class ShooterYaw {
         }
 
         lastUpdateMs = nowMs;
-        addTelemetry(robotHeadingDeg);
+        addTelemetry(nowMs, robotHeadingDeg, robotPoseForAim);
     }
 
     // --- Tracking ---
@@ -107,6 +125,10 @@ public class ShooterYaw {
     public void lockAllianceGoal() {
         goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
         goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
+        if (!TELEOP_GOAL_TRACKING_ENABLED) {
+            holdCenter();
+            return;
+        }
         if (mode != Mode.TRACK_GOAL) {
             resetPID();
         }
@@ -128,6 +150,26 @@ public class ShooterYaw {
 
     public void holdCenter() {
         holdTicks(0);
+    }
+
+    // --- Limelight / External pose override ---
+
+    public void setAimPoseOverride(Pose pose) {
+        if (pose == null) {
+            clearAimPoseOverride();
+            return;
+        }
+        aimPoseOverride = pose;
+        aimPoseOverrideMs = now();
+    }
+
+    public void clearAimPoseOverride() {
+        aimPoseOverride = null;
+        aimPoseOverrideMs = 0L;
+    }
+
+    public boolean isUsingAimPoseOverride(long nowMs) {
+        return TELEOP_USE_LL_POSE_FOR_AIMING && isAimPoseOverrideFresh(nowMs);
     }
 
     // --- Manual Control ---
@@ -160,9 +202,8 @@ public class ShooterYaw {
 
     // --- Internal: Track Goal Mode ---
 
-    private void operateTrackGoal(long nowMs, double robotHeadingDeg, double robotOmegaDegPerSec) {
+    private void operateTrackGoal(long nowMs, Pose robotPose, double robotHeadingDeg, double robotOmegaDegPerSec) {
         // Calculate angle from robot to goal
-        Pose robotPose = follower.getPose();
         double dx = goalX - robotPose.getX();
         double dy = goalY - robotPose.getY();
 
@@ -254,8 +295,24 @@ public class ShooterYaw {
         return System.nanoTime() / 1_000_000L;
     }
 
-    private void addTelemetry(double robotHeadingDeg) {
-        Pose robotPose = follower.getPose();
+    private Pose getPoseForAim(long nowMs) {
+        if (!TELEOP_USE_LL_POSE_FOR_AIMING) {
+            return follower.getPose();
+        }
+        if (!isAimPoseOverrideFresh(nowMs)) {
+            return follower.getPose();
+        }
+        return aimPoseOverride;
+    }
+
+    private boolean isAimPoseOverrideFresh(long nowMs) {
+        if (aimPoseOverride == null) return false;
+        long ageMs = nowMs - aimPoseOverrideMs;
+        return ageMs >= 0 && ageMs <= Math.max(0, TELEOP_LL_POSE_TTL_MS);
+    }
+
+    private void addTelemetry(long nowMs, double robotHeadingDeg, Pose robotPoseForAim) {
+        Pose odomPose = follower.getPose();
         int currentTicks = motor.getCurrentPosition();
         tele.addLine("=== SHOOTER YAW ===")
                 .addData("Mode", mode::name)
@@ -268,6 +325,9 @@ public class ShooterYaw {
                 .addData("GOAL_BLUE_Y", "%.1f", GOAL_BLUE_Y)
                 .addData("GOAL_RED_X", "%.1f", GOAL_RED_X)
                 .addData("GOAL_RED_Y", "%.1f", GOAL_RED_Y)
-                .addData("RobotPos", "(%.1f, %.1f)", robotPose.getX(), robotPose.getY());
+                .addData("AimPoseSrc", "%s", isUsingAimPoseOverride(nowMs) ? "LL" : "ODOM")
+                .addData("AimPoseAgeMs", "%d", isUsingAimPoseOverride(nowMs) ? (nowMs - aimPoseOverrideMs) : -1)
+                .addData("AimPose", "(%.1f, %.1f)", robotPoseForAim.getX(), robotPoseForAim.getY())
+                .addData("OdomPose", "(%.1f, %.1f)", odomPose.getX(), odomPose.getY());
     }
 }

@@ -126,8 +126,8 @@ public class InitialTeleop extends LinearOpMode {
                     Pose3D botpose = llAprilTag.getBotPose();
                     if (yaw.fresh && botpose != null) {
                         Pose pedroPose = toPedroPoseFromLLBotpose(botpose);
-                        drive.setStartingPose(pedroPose);
-                        PersistentPoseState.saveFromPose(pedroPose);
+                        // Teleop uses Limelight MegaTag pose to help ShooterYaw aim, but does NOT relocalize odometry.
+                        shooterYaw.setAimPoseOverride(pedroPose);
                         llPoseApplied = true;
                     }
                 }
@@ -136,6 +136,7 @@ public class InitialTeleop extends LinearOpMode {
             // Scan ShooterYaw to acquire the goal tag (Limelight is mounted on ShooterYaw).
             if (llAprilTag != null
                     && !llPoseApplied
+                    && org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_GOAL_TRACKING_ENABLED
                     && org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_TAG_SCAN_ENABLED) {
                 double dt = scanDt.getElapsedTimeSeconds();
                 scanDt.resetTimer();

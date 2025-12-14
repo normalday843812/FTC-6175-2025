@@ -20,10 +20,15 @@ import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_D
 import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_MIN_DIST_IN;
 import static org.firstinspires.ftc.teamcode.config.TeleOpShooterConfig.TELEOP_DISTANCE_RPM_MODEL_ENABLED;
 
+import com.pedropathing.ftc.FTCCoordinates;
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.config.ShooterConfig;
+import org.firstinspires.ftc.teamcode.config.ShooterYawConfig;
 import org.firstinspires.ftc.teamcode.config.UiLightConfig;
 import org.firstinspires.ftc.teamcode.managers.coordinators.IntakeCoordinator;
 import org.firstinspires.ftc.teamcode.managers.coordinators.ShootCoordinator;
@@ -144,8 +149,9 @@ public class TeleopManager {
 
     public void update(GamepadMap map) {
         sensors.update();
-        if (llAprilTag != null && TELEOP_DISTANCE_RPM_MODEL_ENABLED) {
+        if (llAprilTag != null) {
             llAprilTag.update();
+            updateShooterYawAimPoseFromLimelight();
         }
 
         if (map.clearAll) {
@@ -178,6 +184,30 @@ public class TeleopManager {
         transfer.operate();
 
         addTelemetry();
+    }
+
+    private void updateShooterYawAimPoseFromLimelight() {
+        if (llAprilTag == null || !ShooterYawConfig.TELEOP_USE_LL_POSE_FOR_AIMING) {
+            return;
+        }
+        LLAprilTag.YawInfo info = llAprilTag.getYawInfoForAllianceHome(allianceRed);
+        if (info == null || !info.fresh) {
+            return;
+        }
+        Pose3D botpose = llAprilTag.getBotPose();
+        if (botpose == null) {
+            return;
+        }
+        shooterYaw.setAimPoseOverride(toPedroPoseFromLLBotpose(botpose));
+    }
+
+    private static Pose toPedroPoseFromLLBotpose(Pose3D botpose) {
+        double xIn = botpose.getPosition().x * METERS_TO_INCHES;
+        double yIn = botpose.getPosition().y * METERS_TO_INCHES;
+        double headingRad = botpose.getOrientation().getYaw(AngleUnit.RADIANS);
+
+        Pose ftcPose = new Pose(xIn, yIn, headingRad);
+        return FTCCoordinates.INSTANCE.convertToPedro(ftcPose);
     }
 
     private void runStateMachine(GamepadMap map,
