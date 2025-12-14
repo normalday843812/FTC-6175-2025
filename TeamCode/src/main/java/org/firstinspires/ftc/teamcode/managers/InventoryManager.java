@@ -30,11 +30,8 @@ public class InventoryManager {
         if (byPattern >= 0) {
             return byPattern;
         }
-        // Pattern known but no matching ball found mid-pattern: fall back to "shoot anything" and clear pattern.
-        // If the pattern is already complete, keep it (auto will reset progress at the next 3-ball batch).
-        if (model.isPatternKnown() && !model.isPatternComplete() && !model.hasUnknownBalls()) {
-            model.clearPattern();
-        }
+        // Pattern is known, but the next required color isn't currently in the spindexer.
+        // Fall back to "shoot anything" but keep the pattern so we can keep tracking the ramp indices.
         return model.findBallBucket();
     }
 

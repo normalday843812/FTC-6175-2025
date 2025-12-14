@@ -55,21 +55,42 @@ public class DecodeGameConfig {
      */
     public static SpindexerModel.BallColor[] patternForTag(int tagId) {
         if (tagId == AutoConfig.APRIL_TAG_GPP) {
+            // Motif: GPP, repeated 3x for ramp indices 1..9.
             return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.GREEN,
                     SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.PURPLE
             };
         }
         if (tagId == AutoConfig.APRIL_TAG_PGP) {
+            // Motif: PGP, repeated 3x for ramp indices 1..9.
             return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.GREEN,
                     SpindexerModel.BallColor.PURPLE
             };
         }
         if (tagId == AutoConfig.APRIL_TAG_PPG) {
+            // Motif: PPG, repeated 3x for ramp indices 1..9.
             return new SpindexerModel.BallColor[]{
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.PURPLE,
+                    SpindexerModel.BallColor.GREEN,
                     SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.PURPLE,
                     SpindexerModel.BallColor.GREEN

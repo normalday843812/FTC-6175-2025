@@ -10,12 +10,16 @@ import java.util.Arrays;
 public class PersistentBallState {
 
     public static final int NUM_BUCKETS = 3;
+    public static final int RAMP_INDICES = SpindexerModel.RAMP_INDICES;
 
     // Static state that persists across OpMode runs
     private static final SpindexerModel.BallColor[] bucketContents = new SpindexerModel.BallColor[NUM_BUCKETS];
     private static int bucketAtFront = 0;
     private static SpindexerModel.BallColor[] pattern = null;
     private static int patternIndex = 0;
+    private static int patternTagId = -1;
+    private static double patternConfidence = 0.0;
+    private static final SpindexerModel.BallColor[] shotHistory = new SpindexerModel.BallColor[RAMP_INDICES];
     private static boolean initialized = false;
 
     /**
@@ -98,6 +102,9 @@ public class PersistentBallState {
         bucketAtFront = 0;
         pattern = null;
         patternIndex = 0;
+        patternTagId = -1;
+        patternConfidence = 0.0;
+        Arrays.fill(shotHistory, SpindexerModel.BallColor.EMPTY);
         initialized = false;
     }
 
@@ -111,6 +118,14 @@ public class PersistentBallState {
         bucketAtFront = model.getBucketAtFront();
         pattern = model.getPattern();
         patternIndex = model.getPatternIndex();
+        patternTagId = model.getPatternTagId();
+        patternConfidence = model.getPatternConfidence();
+        SpindexerModel.BallColor[] history = model.getShotHistory();
+        Arrays.fill(shotHistory, SpindexerModel.BallColor.EMPTY);
+        if (history != null) {
+            int n = Math.min(history.length, shotHistory.length);
+            System.arraycopy(history, 0, shotHistory, 0, n);
+        }
         initialized = true;
     }
 
@@ -124,10 +139,12 @@ public class PersistentBallState {
         model.setBucketAtFront(bucketAtFront);
         if (pattern != null) {
             model.setPattern(pattern);
-            model.setPatternProgress(patternIndex);
+            model.setPatternMeta(patternTagId, patternConfidence);
         } else {
             model.clearPattern();
         }
+        model.setPatternProgress(patternIndex);
+        model.setShotHistory(shotHistory);
     }
 
     /**

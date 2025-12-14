@@ -113,6 +113,7 @@ public class AutoManager {
     private final Timer t = new Timer();
     private final Timer tAudit = new Timer();
     private final Timer tRotate = new Timer();
+    private final Timer tAlign = new Timer();
     private final Timer tColorId = new Timer();
     private State s;
     private boolean pathIssued = false;
@@ -207,7 +208,6 @@ public class AutoManager {
         model.setBucketContents(0, SpindexerModel.BallColor.UNKNOWN);
         model.setBucketContents(1, SpindexerModel.BallColor.UNKNOWN);
         model.setBucketContents(2, SpindexerModel.BallColor.UNKNOWN);
-        model.resetPatternProgress();
         resetColorId();
         pendingIntakeCommit = false;
         pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
@@ -641,8 +641,30 @@ public class AutoManager {
         transfer.raiseLever();
         transfer.runTransfer(Transfer.CrState.FORWARD);
 
+        // Safety net: if the model believes we are already full, don't keep scanning for an "empty" slot.
+        // Audit once to confirm, then proceed to shooting (or continue intake) based on audited truth.
+        if (inv.getBallCount() >= SpindexerModel.NUM_BUCKETS) {
+            if (INVENTORY_AUDIT_ENABLED) {
+                auditContinueIntakeHere = true;
+                transitionTo(State.AUDIT_INVENTORY);
+                return;
+            }
+            if (options.enableDeposit) {
+                shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
+                resetColorId();
+                transitionTo(State.PATH_TO_SHOOT);
+                return;
+            }
+        }
+
         // We only have reliable sensing at the front (slot 0).
         if (!spindexer.isSettled()) {
+            tAlign.resetTimer();
+            return;
+        }
+
+        // Give sensors time to settle after rotation so we don't "skip past" an empty slot.
+        if (tAlign.getElapsedTimeSeconds() < Math.max(0.0, ROTATE_NEXT_BALL_SENSOR_SETTLE_S)) {
             return;
         }
 
@@ -669,6 +691,7 @@ public class AutoManager {
         } else {
             spindexer.stepBackward();
         }
+        tAlign.resetTimer();
     }
 
     private void startClearFront() {
@@ -882,7 +905,6 @@ public class AutoManager {
         } else if (inv.hasBalls() && options.enableDeposit) {
             // Full: immediately go shoot. Auditing here can false-negative and cause pointless extra intake cycles.
             shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
-            inv.getModel().resetPatternProgress();
             resetColorId();
             transitionTo(State.PATH_TO_SHOOT);
         } else {
@@ -956,7 +978,6 @@ public class AutoManager {
         boolean full = inv.getBallCount() >= SpindexerModel.NUM_BUCKETS;
         if (full && options.enableDeposit) {
             shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
-            inv.getModel().resetPatternProgress();
             resetColorId();
             transitionTo(State.PATH_TO_SHOOT);
             return;
@@ -1035,6 +1056,7 @@ public class AutoManager {
                 spindexReturnSlot = spindexer.getCurrentSlot();
             }
             alignCheckedCount = 0;
+            tAlign.resetTimer();
         } else if (newState == State.ROTATE_NEXT_BALL) {
             rotateTargetSlot = -1;
             rotateCheckedCount = 0;
@@ -1154,5 +1176,46 @@ public class AutoManager {
                 .addData("B1", model.getBucketContents(1)::name)
                 .addData("B2", model.getBucketContents(2)::name)
                 .addData("AtFront", "%d", model.getBucketAtFront());
+
+        tele.addLine("--- RAMP ---")
+                .addData("Placed", "%d", model.getPatternIndex())
+                .addData("Shots", () -> rampShotSummary(model));
+    }
+
+    private static String rampShotSummary(SpindexerModel model) {
+        if (model == null) return "---";
+        int placed = Math.min(Math.max(0, model.getPatternIndex()), SpindexerModel.RAMP_INDICES);
+        if (placed <= 0) return "---";
+
+        SpindexerModel.BallColor[] history = model.getShotHistory();
+        SpindexerModel.BallColor[] pattern = model.getPattern();
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < placed; i++) {
+            if (i > 0) sb.append("  ");
+            SpindexerModel.BallColor actual = (history != null && i < history.length) ? history[i] : null;
+            SpindexerModel.BallColor expected = (pattern != null && i < pattern.length) ? pattern[i] : null;
+
+            sb.append(i + 1).append(":").append(shortColor(actual));
+            if (expected != null) {
+                sb.append(actual == expected ? "=" : "!=").append(shortColor(expected));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String shortColor(SpindexerModel.BallColor color) {
+        if (color == null) return "?";
+        switch (color) {
+            case PURPLE:
+                return "P";
+            case GREEN:
+                return "G";
+            case UNKNOWN:
+                return "U";
+            case EMPTY:
+                return "-";
+        }
+        return "?";
     }
 }

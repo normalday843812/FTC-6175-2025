@@ -64,6 +64,11 @@ public class SpindexerModel {
     // -------------------------------------------------------------------------
 
     /**
+     * Number of scoring indices on the ramp (per game manual).
+     */
+    public static final int RAMP_INDICES = 9;
+
+    /**
      * Number of buckets on the spindexer
      */
     public static final int NUM_BUCKETS = 3;
@@ -114,7 +119,9 @@ public class SpindexerModel {
     private BallColor[] pattern = null;
 
     /**
-     * How many shots have been taken in the current pattern.
+     * How many artifacts have been placed onto the ramp so far (0..{@link #RAMP_INDICES}).
+     *
+     * <p>This doubles as the "pattern progress" because the pattern is defined per ramp index.</p>
      */
     private int patternIndex = 0;
 
@@ -127,6 +134,11 @@ public class SpindexerModel {
      * Confidence (0..1) for {@link #patternTagId}.
      */
     private double patternConfidence = 0.0;
+
+    /**
+     * History of shot colors by ramp index (0-based). Only the first {@link #patternIndex} entries are valid.
+     */
+    private final BallColor[] shotHistory = new BallColor[RAMP_INDICES];
 
     /**
      * Flag indicating if model may be out of sync with reality
@@ -155,6 +167,7 @@ public class SpindexerModel {
      */
     public void reset() {
         Arrays.fill(bucketContents, BallColor.EMPTY);
+        Arrays.fill(shotHistory, BallColor.EMPTY);
         bucketAtFront = 0;
         pattern = null;
         patternIndex = 0;
@@ -246,8 +259,12 @@ public class SpindexerModel {
      * Ball always exits from position 0 (front), from whichever bucket is there.
      */
     public void onBallShot() {
+        BallColor shot = bucketContents[bucketAtFront];
         bucketContents[bucketAtFront] = BallColor.EMPTY;
-        if (pattern != null && patternIndex < pattern.length) {
+
+        // Record shot color for this ramp index.
+        if (patternIndex < RAMP_INDICES) {
+            shotHistory[patternIndex] = (shot == null) ? BallColor.UNKNOWN : shot;
             patternIndex++;
         }
     }
@@ -493,13 +510,11 @@ public class SpindexerModel {
     public void setPattern(BallColor... colors) {
         if (colors == null || colors.length == 0) {
             pattern = null;
-            patternIndex = 0;
             patternTagId = -1;
             patternConfidence = 0.0;
             return;
         }
         pattern = colors.clone();
-        patternIndex = 0;
     }
 
     /**
@@ -508,7 +523,6 @@ public class SpindexerModel {
     public void setPattern(SlotColorSensors.BallColor... colors) {
         if (colors == null || colors.length == 0) {
             pattern = null;
-            patternIndex = 0;
             patternTagId = -1;
             patternConfidence = 0.0;
             return;
@@ -517,7 +531,6 @@ public class SpindexerModel {
         for (int i = 0; i < colors.length; i++) {
             pattern[i] = fromSensorColor(colors[i]);
         }
-        patternIndex = 0;
     }
 
     public void setPatternMeta(int tagId, double confidence01) {
@@ -552,11 +565,7 @@ public class SpindexerModel {
      * Sets the current pattern progress (how many shots have already been taken in this pattern).
      */
     public void setPatternProgress(int index) {
-        if (pattern == null) {
-            patternIndex = 0;
-            return;
-        }
-        patternIndex = Math.max(0, Math.min(index, pattern.length));
+        patternIndex = Math.max(0, Math.min(index, RAMP_INDICES));
     }
 
     /**
@@ -597,13 +606,34 @@ public class SpindexerModel {
 
     public void resetPatternProgress() {
         patternIndex = 0;
+        Arrays.fill(shotHistory, BallColor.EMPTY);
     }
 
     public void clearPattern() {
         pattern = null;
-        patternIndex = 0;
         patternTagId = -1;
         patternConfidence = 0.0;
+    }
+
+    public BallColor[] getShotHistory() {
+        return shotHistory.clone();
+    }
+
+    public BallColor getShotColorAtIndex(int index) {
+        if (index < 0 || index >= RAMP_INDICES) return BallColor.EMPTY;
+        return shotHistory[index];
+    }
+
+    /**
+     * Restores the shot history for telemetry/debugging (0-based ramp indices).
+     */
+    public void setShotHistory(BallColor[] history) {
+        Arrays.fill(shotHistory, BallColor.EMPTY);
+        if (history == null) return;
+        int n = Math.min(history.length, shotHistory.length);
+        for (int i = 0; i < n; i++) {
+            shotHistory[i] = (history[i] == null) ? BallColor.EMPTY : history[i];
+        }
     }
 
     // -------------------------------------------------------------------------
