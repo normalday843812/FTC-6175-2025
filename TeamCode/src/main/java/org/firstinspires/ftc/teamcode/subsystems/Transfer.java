@@ -56,9 +56,18 @@ public class Transfer {
                 crState = crStateBefore;
                 break;
             case FLICK_UP:
-                transferServo1.setPosition(TRANSFER_1_MAX);
+                // Flick: snap to LEVER_UP if needed, then ramp up to MAX.
+                double rampS = Math.max(0.0, FLICK_TIME_S);
+                double tUp = flickTimer.getElapsedTimeSeconds();
+                if (rampS <= 1e-6) {
+                    transferServo1.setPosition(TRANSFER_1_MAX);
+                } else {
+                    double k = Math.max(0.0, Math.min(1.0, tUp / rampS));
+                    double pos = TRANSFER_1_LEVER_UP + (TRANSFER_1_MAX - TRANSFER_1_LEVER_UP) * k;
+                    transferServo1.setPosition(pos);
+                }
                 crState = CrState.FORWARD;
-                if (flickTimer.getElapsedTimeSeconds() >= FLICK_TIME_S) {
+                if (tUp >= rampS) {
                     state = FlickState.FLICK_DOWN;
                     flickTimer.resetTimer();
                 }

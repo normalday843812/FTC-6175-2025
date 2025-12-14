@@ -109,6 +109,8 @@ public class AutoManager {
     private final UiLight ui;
     private final Options options;
 
+    private DepositController.Result lastDepositResult = DepositController.Result.BUSY;
+
     // State
     private final Timer t = new Timer();
     private final Timer tAudit = new Timer();
@@ -126,11 +128,12 @@ public class AutoManager {
     private int clearEmptyConfirmCount = 0;
     private int alignCheckedCount = 0;
     private int auditTargetSlot = 0;
-    private Boolean auditLastReading = null;
+    private SpindexerModel.BallColor auditLastColor = null;
     private int auditStableCount = 0;
     private boolean auditContinueIntakeHere = false;
     private int rotateTargetSlot = -1;
     private int rotateCheckedCount = 0;
+    private int rotatePatternRetargets = 0;
     private int shotsRemainingInBatch = 0;
 
     // Color identification (bucket colors) while driving to the goal.
@@ -225,7 +228,6 @@ public class AutoManager {
 
     public void update() {
         if (slots != null) slots.update();
-        if (ui != null) ui.update();
         if (intake != null) {
             intake.setAutoMode(AUTO_IDLE_INTAKE_FORWARD ? Intake.AutoMode.FORWARD : Intake.AutoMode.OFF);
         }
@@ -287,6 +289,7 @@ public class AutoManager {
         if (spindexer != null) spindexer.operate();
         if (transfer != null) transfer.operate();
         if (intake != null) intake.operate();
+        updateLights();
         addTelemetry();
     }
 
@@ -431,9 +434,9 @@ public class AutoManager {
             return;
         }
 
-        updateColorId();
-
-        if (ui != null) ui.setBase(UiLightConfig.UiState.NAVIGATING);
+        if (inv.getModel().hasUnknownBalls()) {
+            updateColorId();
+        }
         shooterYaw.operate();
 
         if (!pathIssued) {
@@ -470,22 +473,16 @@ public class AutoManager {
             return;
         }
 
-        if (ui != null) {
-            ui.setBase(shooter.isAtTarget(TARGET_RPM_BAND)
-                    ? UiLightConfig.UiState.READY
-                    : UiLightConfig.UiState.SPINUP);
-        }
-
         shooterYaw.operate();
         double rpm = Math.min(MAX_RPM, Math.max(IDLE_RPM, AUTO_TARGET_RPM));
 
         DepositController.Result r = deposit.update(rpm);
+        lastDepositResult = r;
         // If the deposit routine can't reconcile sensors vs. RPM-drop after REFIRE_MAX attempts, assume the shot
         // succeeded anyway (per plan) and advance the inventory to avoid getting stuck.
         boolean treatAsShot = (r == DepositController.Result.SHOT) || (r == DepositController.Result.FAIL);
 
         if (treatAsShot) {
-            if (ui != null) ui.notify(UiLightConfig.UiEvent.SHOT, 300);
             // Sync model with current spindexer position before marking shot
             inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
             inv.onShot();
@@ -510,7 +507,6 @@ public class AutoManager {
                 }
             }
         } else if (r == DepositController.Result.NO_BALL) {
-            if (ui != null) ui.notify(UiLightConfig.UiEvent.FAIL, 300);
             // Don't mark buckets empty on NO_BALL; just rotate and search for the next loaded ball.
             if (shotsRemainingInBatch > 0) {
                 transitionTo(State.ROTATE_NEXT_BALL);
@@ -545,13 +541,14 @@ public class AutoManager {
             return;
         }
 
-        // If we have a pattern but some bucket colors are still unknown, prioritize finishing
-        // the color-ID scan before selecting a target bucket to shoot.
-        updateColorId();
+        // If we have a pattern but some bucket colors are still unknown, finish the color-ID scan
+        // before selecting a target bucket to shoot. This must be blocking to avoid spindexer commands
+        // fighting each other (color-ID rotates the spindexer as part of scanning).
         if (AUTO_COLOR_ID_ENABLED
                 && inv.getModel().isPatternKnown()
                 && inv.getModel().hasUnknownBalls()
                 && !colorIdDone) {
+            updateColorId();
             return;
         }
 
@@ -590,6 +587,26 @@ public class AutoManager {
 
         if (frontHasBall()) {
             syncFrontBucketFromSensor(); // commit this bucket's color to the model
+
+            // Last-second pattern sanity check: if the front bucket does not match the next required
+            // pattern color, try to rotate to a different loaded bucket that does. If none exist, shoot anyway.
+            SpindexerModel model = inv.getModel();
+            SpindexerModel.BallColor expected = model.getNextPatternColor();
+            if (model.isPatternKnown() && expected != null) {
+                int frontBucket = spindexer.getCommandedSlot();
+                SpindexerModel.BallColor actual = model.getBucketContents(frontBucket);
+
+                if (actual != expected) {
+                    int matchBucket = model.findBucketWithColor(expected);
+                    if (matchBucket >= 0 && matchBucket != frontBucket && rotatePatternRetargets < SpindexerModel.NUM_BUCKETS) {
+                        rotatePatternRetargets++;
+                        rotateTargetSlot = matchBucket;
+                        tRotate.resetTimer();
+                        return;
+                    }
+                }
+            }
+
             deposit.reset();
             transitionTo(State.SHOOTING);
             return;
@@ -620,8 +637,6 @@ public class AutoManager {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
         }
-
-        if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
 
         if (!pathIssued) {
             Pose target = inv.nextIntakePose(isRed);
@@ -812,8 +827,6 @@ public class AutoManager {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
             return;
         }
-
-        if (ui != null) ui.setBase(UiLightConfig.UiState.INTAKE);
         if (transfer != null) transfer.runTransfer(Transfer.CrState.REVERSE);
 
         // Start path to creep forward on first entry
@@ -843,7 +856,6 @@ public class AutoManager {
         boolean timeout = t.getElapsedTimeSeconds() >= INTAKE_FORWARD_TIMEOUT_S;
 
         if (gotBall) {
-            if (ui != null) ui.notify(UiLightConfig.UiEvent.PICKUP, 250);
             intake.setAutoMode(Intake.AutoMode.OFF);
             inv.getModel().setBucketAtFront(spindexer.getCommandedSlot());
             if (transfer != null) {
@@ -903,10 +915,9 @@ public class AutoManager {
         if (inv.hasEmptySlots()) {
             transitionTo(State.ALIGN_EMPTY_SLOT);
         } else if (inv.hasBalls() && options.enableDeposit) {
-            // Full: immediately go shoot. Auditing here can false-negative and cause pointless extra intake cycles.
-            shotsRemainingInBatch = SpindexerModel.NUM_BUCKETS;
-            resetColorId();
-            transitionTo(State.PATH_TO_SHOOT);
+            // Full: do a blocking scan (slot 0 -> 1 -> 2) to rebuild bucket colors, then go shoot.
+            auditContinueIntakeHere = true;
+            transitionTo(State.AUDIT_INVENTORY);
         } else {
             transitionTo(options.enableFinalMove ? State.FINAL_PARK : State.DONE);
         }
@@ -925,20 +936,20 @@ public class AutoManager {
 
         // Inventory audit: rotate through slots 0/1/2 and use the slot-0 sensor to rebuild the model.
         transfer.raiseLever();
-        transfer.runTransfer(Transfer.CrState.FORWARD);
+        transfer.runTransfer(Transfer.CrState.OFF);
         intake.setAutoMode(Intake.AutoMode.OFF);
 
         int target = ((auditTargetSlot % SpindexerModel.NUM_BUCKETS) + SpindexerModel.NUM_BUCKETS) % SpindexerModel.NUM_BUCKETS;
         if (spindexer.getCommandedSlot() != target) {
             spindexer.setSlot(target);
-            auditLastReading = null;
+            auditLastColor = null;
             auditStableCount = 0;
             tAudit.resetTimer();
             return;
         }
 
         if (!spindexer.isSettled()) {
-            auditLastReading = null;
+            auditLastColor = null;
             auditStableCount = 0;
             tAudit.resetTimer();
             return;
@@ -948,9 +959,9 @@ public class AutoManager {
             return;
         }
 
-        boolean now = frontHasBall();
-        if (auditLastReading == null || auditLastReading != now) {
-            auditLastReading = now;
+        SpindexerModel.BallColor nowColor = frontBucketColorFromSensors();
+        if (auditLastColor == null || auditLastColor != nowColor) {
+            auditLastColor = nowColor;
             auditStableCount = 1;
         } else {
             auditStableCount++;
@@ -963,10 +974,10 @@ public class AutoManager {
         // Commit this slot's contents to the model.
         int frontBucket = spindexer.getCommandedSlot();
         inv.getModel().setBucketAtFront(frontBucket);
-        inv.getModel().setBucketContents(frontBucket, frontBucketColorFromSensors());
+        inv.getModel().setBucketContents(frontBucket, nowColor);
 
         auditTargetSlot++;
-        auditLastReading = null;
+        auditLastColor = null;
         auditStableCount = 0;
         tAudit.resetTimer();
 
@@ -1011,8 +1022,6 @@ public class AutoManager {
         transfer.runTransfer(Transfer.CrState.OFF);
         intake.setAutoMode(Intake.AutoMode.OFF);
 
-        if (ui != null) ui.setBase(UiLightConfig.UiState.PARK);
-
         if (!pathIssued) {
             double headDeg = Math.toDegrees(finalPose.getHeading());
             followToPose(finalPose, headDeg, AutoPathConfig.TO_FINAL_CONTROL_POINTS, true);
@@ -1026,12 +1035,27 @@ public class AutoManager {
 
     private void handleDone() {
         transfer.raiseLever();
-        if (ui != null) ui.setBase(UiLightConfig.UiState.DONE);
         transfer.runTransfer(Transfer.CrState.OFF);
         drive.setAutoDrive(0, 0, 0, true, 0);
         intake.setAutoMode(Intake.AutoMode.OFF);
         shooter.setAutoRpm(0);
         shooter.operate();
+    }
+
+    private void updateLights() {
+        if (ui == null) return;
+
+        // Auto LEDs: green if "good" (no jams/clears/reshoots), else red.
+        boolean ok = true;
+        if (intake != null && intake.isJammed()) ok = false;
+        if (s == State.CLEAR_FRONT) ok = false;
+        if (s == State.SHOOTING) {
+            if (deposit.getRefires() > 0) ok = false;
+            if (lastDepositResult == DepositController.Result.FAIL || lastDepositResult == DepositController.Result.NO_BALL) ok = false;
+        }
+
+        ui.setBase(ok ? UiLightConfig.UiState.READY : UiLightConfig.UiState.ERROR);
+        ui.update();
     }
 
     private void transitionTo(State newState) {
@@ -1060,6 +1084,7 @@ public class AutoManager {
         } else if (newState == State.ROTATE_NEXT_BALL) {
             rotateTargetSlot = -1;
             rotateCheckedCount = 0;
+            rotatePatternRetargets = 0;
             tRotate.resetTimer();
         } else if (newState == State.CLEAR_FRONT) {
             clearPhase = 0;
@@ -1072,7 +1097,7 @@ public class AutoManager {
             pendingIntakeColor = SlotColorSensors.BallColor.UNKNOWN;
         } else if (newState == State.AUDIT_INVENTORY) {
             auditTargetSlot = 0;
-            auditLastReading = null;
+            auditLastColor = null;
             auditStableCount = 0;
             tAudit.resetTimer();
         }
@@ -1169,7 +1194,8 @@ public class AutoManager {
                 .addData("ClearReturnSlot", "%d", clearReturnSlot)
                 .addData("AlignChecked", "%d", alignCheckedCount)
                 .addData("RotateTarget", "%d", rotateTargetSlot)
-                .addData("RotateChecked", "%d", rotateCheckedCount);
+                .addData("RotateChecked", "%d", rotateCheckedCount)
+                .addData("RotateRetargets", "%d", rotatePatternRetargets);
 
         tele.addLine("--- BUCKETS ---")
                 .addData("B0", model.getBucketContents(0)::name)

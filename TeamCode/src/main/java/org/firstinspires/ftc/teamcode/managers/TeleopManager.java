@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.managers;
 
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_TARGET_RPM;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEED_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FRONT_SEAT_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_LOAD_FRONT_CONFIRM_CYCLES;
@@ -553,24 +554,8 @@ public class TeleopManager {
 
     private void updateLights() {
         if (ui == null) return;
-
-        switch (state) {
-            case INTAKING:
-                ui.setBase(UiLightConfig.UiState.INTAKE);
-                break;
-            case LOADING:
-            case INDEXING:
-                ui.setBase(UiLightConfig.UiState.NAVIGATING);
-                break;
-            case READY:
-                boolean ready = shootCoord.isReady(TARGET_RPM_BAND);
-                ui.setBase(ready ? UiLightConfig.UiState.READY : UiLightConfig.UiState.SPINUP);
-                break;
-            case SHOOTING:
-                ui.setBase(UiLightConfig.UiState.READY);
-                break;
-        }
-
+        boolean atShootSpeed = shooter.getMotorRPM() >= AUTO_TARGET_RPM;
+        ui.setBase(atShootSpeed ? UiLightConfig.UiState.READY : UiLightConfig.UiState.ERROR);
         ui.update();
     }
 

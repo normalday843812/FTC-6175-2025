@@ -13,7 +13,6 @@ import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.LLAprilTagConfig;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
-import org.firstinspires.ftc.teamcode.managers.LightController;
 import org.firstinspires.ftc.teamcode.managers.PersistentBallState;
 import org.firstinspires.ftc.teamcode.managers.PersistentPoseState;
 import org.firstinspires.ftc.teamcode.managers.TeleopManager;
@@ -74,7 +73,6 @@ public class InitialTeleop extends LinearOpMode {
         hw.initRgbIndicator();
         RgbIndicator rgbIndicator = new RgbIndicator(hw.getRgbIndicator());
         UiLight ui = new UiLight(rgbIndicator);
-        LightController light = new LightController(ui, shooter, shooterYaw, intake);
 
         InventoryManager inventoryManager = new InventoryManager();
 
@@ -215,7 +213,6 @@ public class InitialTeleop extends LinearOpMode {
             // Drive first so shooter yaw sees the latest pose.
             drive.operate();
             teleopManager.update(map);
-            light.update(true);
 
             // Save ball state periodically so it persists
             PersistentBallState.saveFromModel(inventoryManager.getModel());

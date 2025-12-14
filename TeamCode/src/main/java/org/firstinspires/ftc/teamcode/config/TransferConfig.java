@@ -11,7 +11,8 @@ public class TransferConfig {
     public static double TRANSFER_1_LEVER_UP = 0.66;
     public static double TRANSFER_1_MAX = 0.9;
 
-    public static double FLICK_TIME_S = 1.0;
+    // Ramp time from LEVER_UP -> MAX while flicking.
+    public static double FLICK_TIME_S = 0.5;
     public static double RESET_TIME_S = 0.05;
 
     public static Servo.Direction SERVO_1_DIRECTION = Servo.Direction.REVERSE;

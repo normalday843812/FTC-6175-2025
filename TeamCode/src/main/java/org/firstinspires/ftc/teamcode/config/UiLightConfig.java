@@ -38,7 +38,7 @@ public final class UiLightConfig {
             entry(UiState.PARK, new RgbIndicator.Pattern(0, Fx.BLINK, 800, 0.3, 0, OffBehavior.WHITE)), // white blink
             entry(UiState.IDLE, new RgbIndicator.Pattern(180, Fx.SOLID, 0, 1.0, 0, OffBehavior.OFF)), // teal solid
             entry(UiState.DONE, new RgbIndicator.Pattern(120, Fx.BLINK, 1200, 0.3, 0, OffBehavior.OFF)), // green slow blink
-            entry(UiState.ERROR, new RgbIndicator.Pattern(0, Fx.STROBE, 90, 0.5, 0, OffBehavior.OFF)) // red strobe
+            entry(UiState.ERROR, new RgbIndicator.Pattern(0, Fx.SOLID, 0, 1.0, 0, OffBehavior.OFF)) // red solid
     );
 
     // Event overlays

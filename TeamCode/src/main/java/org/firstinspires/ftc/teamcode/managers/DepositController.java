@@ -53,6 +53,10 @@ public class DepositController {
         spx.stopJiggle();
     }
 
+    public int getRefires() {
+        return refires;
+    }
+
     public Result update(double targetRpm) {
         shooter.setAutoRpm(targetRpm);
         shooter.operate();
