@@ -65,7 +65,6 @@ public class ShooterYaw {
         this.goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
         this.goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
 
-        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }

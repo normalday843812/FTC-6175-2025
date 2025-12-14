@@ -73,6 +73,7 @@ public class AutoUnifiedConfig {
 
     // Teleop manager timings
     public static double TELEOP_FEED_DWELL_S = 0.4;  // Time to push ball into bucket before indexing
+    public static double TELEOP_FRONT_SEAT_DWELL_S = 0.15; // wait after slot-0 sensors first see ball before spindexing
 
     // Teleop manager behavior
     public static boolean TELEOP_MANAGER_TELEMETRY_ENABLED = true;

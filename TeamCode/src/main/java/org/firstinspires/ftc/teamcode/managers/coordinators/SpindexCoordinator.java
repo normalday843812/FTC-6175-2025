@@ -55,6 +55,20 @@ public class SpindexCoordinator {
         handleInputs(map);
     }
 
+    /**
+     * Cancels any in-progress verified move/jiggle without resetting the inventory model.
+     * Used when the driver manually spindexes so the manager doesn't fight them.
+     */
+    public void cancelMove() {
+        jamState = JamState.IDLE;
+        moveSourceSlot = -1;
+        moveTargetSlot = -1;
+        recoveryAttempts = 0;
+        expectEmptyAtFront = false;
+        jamTimer.resetTimer();
+        spindexer.stopJiggle();
+    }
+
     // --- Slot Commands ---
 
     public void goToSlot(int slot) {

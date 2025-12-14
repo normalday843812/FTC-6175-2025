@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.managers;
 
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FEED_DWELL_S;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_FRONT_SEAT_DWELL_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_LOAD_FRONT_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_LOAD_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.TELEOP_MANAGER_TELEMETRY_ENABLED;
@@ -55,6 +56,7 @@ public class TeleopManager {
     private final TelemetryHelper tele;
     private final Timer stateTimer = new Timer();
     private final Timer rpmAdjustTimer = new Timer();
+    private final Timer frontSeatTimer = new Timer();
 
     private boolean enabled = false;
     private State state = State.INTAKING;
@@ -64,6 +66,8 @@ public class TeleopManager {
     private boolean pendingBallIntake = false;
     private int loadFrontConfirmCount = 0;
     private int indexRetryCount = 0;
+    private boolean frontSeatArmed = false;
+    private boolean manualSpindexPending = false;
 
     public TeleopManager(Intake intake,
                          Shooter shooter,
@@ -123,6 +127,13 @@ public class TeleopManager {
             clearAll();
         }
 
+        // If the driver manually spindexes (X/B) while the manager is enabled, cancel any in-progress
+        // auto-index move so we don't fight them.
+        if (enabled && (map.spindexerForward || map.spindexerBackward)) {
+            manualSpindexPending = true;
+            spindexCoord.cancelMove();
+        }
+
         // Coordinators process their gamepad inputs
         // When enabled, manager controls intake/transfer to prevent conflicts
         boolean ballDetected = intakeCoord.update(map, enabled);
@@ -174,6 +185,25 @@ public class TeleopManager {
         // Shooter idle during intaking
         setShooterTargetRpm(ShooterConfig.IDLE_RPM);
 
+        // Driver manually spindexed: don't fight it. Wait until the spindexer settles, then allow shooting
+        // if a ball is now at the front.
+        if (manualSpindexPending) {
+            transfer.raiseLever();
+            transfer.runTransfer(Transfer.CrState.FORWARD);
+            intakeCoord.setDesiredState(false, false);
+
+            if (!spindexCoord.isSettled()) {
+                return;
+            }
+
+            manualSpindexPending = false;
+            spindexCoord.syncFromSensors();
+            if (sensors != null && sensors.hasFrontBall()) {
+                enterState(State.READY);
+            }
+            return;
+        }
+
         // If full, stop intaking and go to READY (intake will be put into FORWARD block mode there).
         if (isFull) {
             enterState(State.READY);
@@ -189,9 +219,17 @@ public class TeleopManager {
             if (frontHasBall) {
                 transfer.raiseLever();
                 transfer.runTransfer(Transfer.CrState.FORWARD);
-                spindexCoord.syncFromSensors();
-                enterState(State.INDEXING);
+                if (!frontSeatArmed) {
+                    frontSeatArmed = true;
+                    frontSeatTimer.resetTimer();
+                }
+                if (frontSeatTimer.getElapsedTimeSeconds() >= Math.max(0.0, TELEOP_FRONT_SEAT_DWELL_S)) {
+                    frontSeatArmed = false;
+                    spindexCoord.syncFromSensors();
+                    enterState(State.INDEXING);
+                }
             } else {
+                frontSeatArmed = false;
                 enterState(State.LOADING);
             }
             return;
@@ -206,14 +244,24 @@ public class TeleopManager {
             intakeCoord.setDesiredState(false, false);
 
             if (wantsShoot) {
+                frontSeatArmed = false;
                 enterState(State.READY);
             } else {
+                if (!frontSeatArmed) {
+                    frontSeatArmed = true;
+                    frontSeatTimer.resetTimer();
+                }
+                if (frontSeatTimer.getElapsedTimeSeconds() < Math.max(0.0, TELEOP_FRONT_SEAT_DWELL_S)) {
+                    return;
+                }
+                frontSeatArmed = false;
                 // Ensure the model knows the current front bucket really has a ball before choosing an empty slot.
                 spindexCoord.syncFromSensors();
                 enterState(State.INDEXING);
             }
             return;
         }
+        frontSeatArmed = false;
 
         // Front empty and not full: intake normally.
         intakeCoord.setDesiredState(true, true);  // running=true, reversing=true (REVERSE for intake)
@@ -270,6 +318,14 @@ public class TeleopManager {
             return;
         }
 
+        if (manualSpindexPending) {
+            manualSpindexPending = false;
+            spindexCoord.syncFromSensors();
+            frontHasBall = sensors != null && sensors.hasFrontBall();
+            enterState(frontHasBall ? State.READY : State.INTAKING);
+            return;
+        }
+
         // Update model from front sensor truth at the final indexed position.
         spindexCoord.syncFromSensors();
         frontHasBall = sensors != null && sensors.hasFrontBall();
@@ -306,6 +362,19 @@ public class TeleopManager {
         boolean isFull = spindexCoord.isFull();
         boolean frontHasBall = sensors != null && sensors.hasFrontBall();
         boolean isEmpty = spindexCoord.isEmpty();
+
+        if (manualSpindexPending) {
+            // Don't allow shooting while the spindexer is still moving.
+            if (!spindexCoord.isSettled()) {
+                transfer.raiseLever();
+                transfer.runTransfer(Transfer.CrState.FORWARD);
+                intakeCoord.setDesiredState(false, false);
+                return;
+            }
+            manualSpindexPending = false;
+            spindexCoord.syncFromSensors();
+            frontHasBall = sensors != null && sensors.hasFrontBall();
+        }
 
         // Maintain ready state - transfer always up, CR forward
         transfer.raiseLever();
@@ -344,8 +413,10 @@ public class TeleopManager {
 
         // User initiates a shot (simple: press = flick)
         if (map.transferButton) {
-            shootCoord.flick();
-            enterState(State.SHOOTING);
+            if (shooter.isAtTarget(TARGET_RPM_BAND)) {
+                shootCoord.flick();
+                enterState(State.SHOOTING);
+            }
         }
     }
 
@@ -376,6 +447,7 @@ public class TeleopManager {
         rpmOverrideRpm = ShooterConfig.MAX_RPM;
         pendingBallIntake = false;
         loadFrontConfirmCount = 0;
+        manualSpindexPending = false;
 
         // Clear persistent + model state so logic doesn't "think" we still have balls
         PersistentBallState.reset();
@@ -518,7 +590,6 @@ public class TeleopManager {
                 .addData("RpmOverrideRpm", "%.0f", rpmOverrideRpm)
                 .addData("PendingIntake", "%b", pendingBallIntake)
                 .addData("LoadFrontConfirm", "%d", loadFrontConfirmCount);
-
         tele.addLine("--- Buckets ---")
                 .addData("Slot0", spindexCoord.getBucketContents(0)::name)
                 .addData("Slot1", spindexCoord.getBucketContents(1)::name)

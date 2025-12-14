@@ -11,18 +11,18 @@ public class ColorCal {
 
     public static float[] SENSOR_GAIN = {40f, 40f, 45f};
     public static double[] V_THRESHOLD = {
-            0.10,  // Sensor 0
+            0.13,  // Sensor 0
             0.15,  // Sensor 1
             0.035  // Sensor 2 (intake)
     };
 
     public static double[] A_THRESHOLD = {
-            0.15,  // Sensor 0
-            0.15,  // Sensor 1
+            0.34,  // Sensor 0
+            0.4,  // Sensor 1
             0.025  // Sensor 2 (intake)
     };
 
-    public static boolean REQUIRE_BOTH_VA = false;
+    public static boolean REQUIRE_BOTH_VA = true;
 
     // Ball presence semantics:
     // - Sensors 0/1 are the "front" (slot-0 / shooter-feed) sensors.

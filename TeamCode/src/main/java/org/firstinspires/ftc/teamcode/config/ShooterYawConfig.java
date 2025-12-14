@@ -10,9 +10,9 @@ public class ShooterYawConfig {
 
     // Aim trim (degrees added after goal tracking, before conversion to ticks)
     public static double AIM_BIAS_DEG = 0.0;
-    public static double AIM_BIAS_STEP_DEG = 0.5;
-    public static double AIM_BIAS_MIN_DEG = -15.0;
-    public static double AIM_BIAS_MAX_DEG = 15.0;
+    public static double AIM_BIAS_STEP_DEG = 2.0;
+    public static double AIM_BIAS_MIN_DEG = -60.0;
+    public static double AIM_BIAS_MAX_DEG = 60.0;
 
     // Position limits
     public static int MIN_TICKS = -213;  // ±90°
