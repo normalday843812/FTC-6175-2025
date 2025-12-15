@@ -12,6 +12,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.LLAprilTagConfig;
+import org.firstinspires.ftc.teamcode.config.ShooterYawConfig;
 import org.firstinspires.ftc.teamcode.managers.InventoryManager;
 import org.firstinspires.ftc.teamcode.managers.PersistentBallState;
 import org.firstinspires.ftc.teamcode.managers.PersistentPoseState;
@@ -59,6 +60,9 @@ public class InitialTeleop extends LinearOpMode {
 
         hw.initShooterYaw();
         ShooterYaw shooterYaw = new ShooterYaw(hw.getShooterYawMotor(), drive.getFollower(), isRed, this);
+        shooterYaw.setGoalTrackingEnabled(ShooterYawConfig.TELEOP_GOAL_TRACKING_ENABLED);
+        shooterYaw.setAimPoseOverrideEnabled(ShooterYawConfig.TELEOP_USE_LL_POSE_FOR_AIMING);
+        shooterYaw.setAimPoseOverrideTtlMs(ShooterYawConfig.TELEOP_LL_POSE_TTL_MS);
 
         hw.initSpindexer();
         Spindexer spindexer = new Spindexer(hw.getSpindexerServo(), this);

@@ -7,7 +7,7 @@ public class AutoConfig {
     // All in pedropathing coordinates
     // Field/robot constants
 
-    public static boolean isRed = false;
+    public static boolean isRed = true;
     public static boolean isAudienceSide = true;
     // Vision (alliance goal tags)
     public static int APRIL_TAG_BLUE = 20;

@@ -34,10 +34,10 @@ public class ShooterYawConfig {
     public static int MAX_TICKS = 213;
 
     // PID gains
-    public static double KP = 0.007;
+    public static double KP = 0.003;
     public static double KI = 0.0;
     public static double KD = 0.0;
-    public static double KS = 0.02;
+    public static double KS = 0.04;
     public static double KF = 0.0;
 
     // Output limits

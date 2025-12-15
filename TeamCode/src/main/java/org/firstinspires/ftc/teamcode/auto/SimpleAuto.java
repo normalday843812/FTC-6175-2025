@@ -3,10 +3,13 @@ package org.firstinspires.ftc.teamcode.auto;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isAudienceSide;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.isRed;
 
+import com.pedropathing.ftc.FTCCoordinates;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.GamepadMap;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig;
@@ -32,6 +35,8 @@ import org.firstinspires.ftc.teamcode.vision.LLAprilTag;
 
 @Autonomous(name = "NOT THIS ONE", group = "Pedro")
 public class SimpleAuto extends LinearOpMode {
+    private static final double METERS_TO_INCHES = 39.3700787402;
+
     @Override
     public void runOpMode() throws InterruptedException {
         RobotHardware hw = new RobotHardware(this);
@@ -127,6 +132,15 @@ public class SimpleAuto extends LinearOpMode {
                 llPattern.update();
                 patternDetector.update();
 
+                // Optional: use Limelight MegaTag botpose for ShooterYaw aiming (does NOT relocalize odometry).
+                if (AutoUnifiedConfig.AUTO_SHOOTER_YAW_USE_LL_POSE_FOR_AIMING) {
+                    LLAprilTag.YawInfo yaw = llPattern.getYawInfoForAllianceHome(isRed);
+                    Pose3D botpose = llPattern.getBotPose();
+                    if (yaw.fresh && botpose != null) {
+                        shooterYaw.setAimPoseOverride(toPedroPoseFromLLBotpose(botpose));
+                    }
+                }
+
                 if (!patternApplied && !inv.getModel().isPatternKnown() && patternDetector.isConfident()) {
                     int tag = patternDetector.getBestTagId();
                     org.firstinspires.ftc.teamcode.managers.SpindexerModel.BallColor[] pat = DecodeGameConfig.patternForTag(tag);
@@ -152,5 +166,14 @@ public class SimpleAuto extends LinearOpMode {
             TelemetryHelper.update();
             sleep(20);
         }
+    }
+
+    private static Pose toPedroPoseFromLLBotpose(Pose3D botpose) {
+        double xIn = botpose.getPosition().x * METERS_TO_INCHES;
+        double yIn = botpose.getPosition().y * METERS_TO_INCHES;
+        double headingRad = botpose.getOrientation().getYaw(AngleUnit.RADIANS);
+
+        Pose ftcPose = new Pose(xIn, yIn, headingRad);
+        return FTCCoordinates.INSTANCE.convertToPedro(ftcPose);
     }
 }

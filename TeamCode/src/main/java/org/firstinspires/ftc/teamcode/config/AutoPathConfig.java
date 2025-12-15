@@ -12,10 +12,10 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class AutoPathConfig {
     /** Control points used when driving from the start to the shooting pose. */
-    public static double[][] TO_SHOOT_CONTROL_POINTS = {};
+    public static double[][] TO_SHOOT_CONTROL_POINTS = {{72, 82.0, 45.0}};
 
     /** Control points used when driving from a pickup location back to intake. */
-    public static double[][] TO_INTAKE_CONTROL_POINTS = {};
+    public static double[][] TO_INTAKE_CONTROL_POINTS = {{72, 85, 0}};
 
     /** Control points used for the final park move. */
     public static double[][] TO_FINAL_CONTROL_POINTS = {};

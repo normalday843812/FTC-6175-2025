@@ -17,9 +17,6 @@ import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.KS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_POWER;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MAX_TICKS;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.MIN_TICKS;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_GOAL_TRACKING_ENABLED;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_LL_POSE_TTL_MS;
-import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEOP_USE_LL_POSE_FOR_AIMING;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TELEMETRY_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.ShooterYawConfig.TICKS_PER_DEG;
 
@@ -61,6 +58,11 @@ public class ShooterYaw {
     private Pose aimPoseOverride = null;
     private long aimPoseOverrideMs = 0L;
 
+    // Runtime config (teleop and auto set these; do not hardcode teleop-only flags here).
+    private boolean goalTrackingEnabled = true;
+    private boolean aimPoseOverrideEnabled = false;
+    private long aimPoseOverrideTtlMs = 0L;
+
     // PID state
     private double integral = 0.0;
     private double lastError = 0.0;
@@ -80,10 +82,25 @@ public class ShooterYaw {
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
+    public void setGoalTrackingEnabled(boolean enabled) {
+        goalTrackingEnabled = enabled;
+        if (!enabled && mode == Mode.TRACK_GOAL) {
+            holdCenter();
+        }
+    }
+
+    public void setAimPoseOverrideEnabled(boolean enabled) {
+        aimPoseOverrideEnabled = enabled;
+    }
+
+    public void setAimPoseOverrideTtlMs(long ttlMs) {
+        aimPoseOverrideTtlMs = Math.max(0L, ttlMs);
+    }
+
     public void start() {
         targetInitialized = false;
         resetPID();
-        if (TELEOP_GOAL_TRACKING_ENABLED) {
+        if (goalTrackingEnabled) {
             mode = Mode.TRACK_GOAL;
         } else {
             holdTargetTicks = 0;
@@ -93,7 +110,7 @@ public class ShooterYaw {
 
     public void operate() {
         long nowMs = now();
-        if (!TELEOP_GOAL_TRACKING_ENABLED && mode == Mode.TRACK_GOAL) {
+        if (!goalTrackingEnabled && mode == Mode.TRACK_GOAL) {
             holdTargetTicks = 0;
             mode = Mode.HOLD_TICKS;
         }
@@ -125,7 +142,7 @@ public class ShooterYaw {
     public void lockAllianceGoal() {
         goalX = isRed ? GOAL_RED_X : GOAL_BLUE_X;
         goalY = isRed ? GOAL_RED_Y : GOAL_BLUE_Y;
-        if (!TELEOP_GOAL_TRACKING_ENABLED) {
+        if (!goalTrackingEnabled) {
             holdCenter();
             return;
         }
@@ -169,7 +186,7 @@ public class ShooterYaw {
     }
 
     public boolean isUsingAimPoseOverride(long nowMs) {
-        return TELEOP_USE_LL_POSE_FOR_AIMING && isAimPoseOverrideFresh(nowMs);
+        return aimPoseOverrideEnabled && isAimPoseOverrideFresh(nowMs);
     }
 
     // --- Manual Control ---
@@ -296,7 +313,7 @@ public class ShooterYaw {
     }
 
     private Pose getPoseForAim(long nowMs) {
-        if (!TELEOP_USE_LL_POSE_FOR_AIMING) {
+        if (!aimPoseOverrideEnabled) {
             return follower.getPose();
         }
         if (!isAimPoseOverrideFresh(nowMs)) {
@@ -308,7 +325,7 @@ public class ShooterYaw {
     private boolean isAimPoseOverrideFresh(long nowMs) {
         if (aimPoseOverride == null) return false;
         long ageMs = nowMs - aimPoseOverrideMs;
-        return ageMs >= 0 && ageMs <= Math.max(0, TELEOP_LL_POSE_TTL_MS);
+        return ageMs >= 0 && ageMs <= aimPoseOverrideTtlMs;
     }
 
     private void addTelemetry(long nowMs, double robotHeadingDeg, Pose robotPoseForAim) {

@@ -7,6 +7,9 @@ import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_IDLE_
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_ENABLED;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_SENSOR_SETTLE_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_COLOR_ID_RETRY_MAX;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_SHOOTER_YAW_GOAL_TRACKING_ENABLED;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_SHOOTER_YAW_LL_POSE_TTL_MS;
+import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_SHOOTER_YAW_USE_LL_POSE_FOR_AIMING;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEFAULT_TIMEOUT_S;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.DEPOSIT_EMPTY_CONFIRM_CYCLES;
 import static org.firstinspires.ftc.teamcode.config.AutoUnifiedConfig.AUTO_HOLD_TRANSFER_DURING_ROTATE;
@@ -204,8 +207,14 @@ public class AutoManager {
     public void start(boolean depositRoute) {
         spindexer.setSlot(0);
         shooter.start();
-        // Autonomous does not use ShooterYaw goal tracking; keep it centered.
-        shooterYaw.holdCenter();
+        shooterYaw.setGoalTrackingEnabled(AUTO_SHOOTER_YAW_GOAL_TRACKING_ENABLED);
+        shooterYaw.setAimPoseOverrideEnabled(AUTO_SHOOTER_YAW_USE_LL_POSE_FOR_AIMING);
+        shooterYaw.setAimPoseOverrideTtlMs(AUTO_SHOOTER_YAW_LL_POSE_TTL_MS);
+        shooterYaw.start();
+        if (!AUTO_SHOOTER_YAW_GOAL_TRACKING_ENABLED) {
+            // Autonomous defaults to keeping ShooterYaw centered (0 ticks) unless explicitly enabled.
+            shooterYaw.holdCenter();
+        }
         shooter.setAutoRpm(IDLE_RPM);
         transfer.raiseLever();
 

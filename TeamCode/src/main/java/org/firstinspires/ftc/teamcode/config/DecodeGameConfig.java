@@ -17,14 +17,14 @@ public class DecodeGameConfig {
     public static double GOAL_RED_Y = GOAL_RED_PEDRO.getY();
 
     public static Pose[] INTAKE_SETS_RED = new Pose[]{
-            new Pose(95, 90, Math.toRadians(0)),
+            new Pose(85.0, 98, Math.toRadians(0)),
             new Pose(95, 66, Math.toRadians(0)),
             new Pose(95, 41, Math.toRadians(0))
     };
     public static Pose[] INTAKE_SETS_BLUE = new Pose[]{
-            new Pose(35, 90, Math.toRadians(180)),
-            new Pose(35, 66, Math.toRadians(180)),
-            new Pose(35, 41, Math.toRadians(180))
+            new Pose(59, 92, Math.toRadians(180)),
+            new Pose(59, 66, Math.toRadians(180)),
+            new Pose(59, 41, Math.toRadians(180))
     };
 
     public static Pose startPose(boolean isRed, boolean audienceSide) {
@@ -35,7 +35,7 @@ public class DecodeGameConfig {
 
     public static Pose shootPose(boolean isRed) {
         return isRed ? new Pose(90, 100, Math.toRadians(45))
-                : new Pose(50, 104, Math.toRadians(135));
+                : new Pose(60, 104, Math.toRadians(135));
     }
 
     public static Pose finalPose(boolean isRed) {
